@@ -176,9 +176,17 @@ O_FILES       := $(foreach f,$(S_FILES:.s=.o),build/$f) \
 
 OVL_RELOC_FILES := $(shell $(CPP) $(CPPFLAGS) $(SPEC) | grep -o '[^"]*_reloc.o' )
 
+DRAGONEW_C_FILES := assets/objects/object_am/object_am.c
+DRAGONEW_O_FILES := $(foreach f,$(DRAGONEW_C_FILES:.c=.o),build/$f)
+DRAGONEW_BIN_FILES := $(shell find assets/_extracted/objects/object_am/ -name '*.bin')
+DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c),build/$f)
+DRAGONEW_DEPS := $(DRAGONEW_O_FILES:.o=.d)
+
+$(shell mkdir --parents $(dir $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES)))
+
 # Automatic dependency files
-# (Only asm_processor dependencies and reloc dependencies are handled for now)
-DEP_FILES := $(O_FILES:.o=.asmproc.d) $(OVL_RELOC_FILES:.o=.d)
+# (Only partially handled for now)
+DEP_FILES := $(O_FILES:.o=.asmproc.d) $(OVL_RELOC_FILES:.o=.d) $(DRAGONEW_DEPS)
 
 
 TEXTURE_FILES_PNG := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.png))
@@ -278,8 +286,14 @@ test: $(ROM)
 $(ROM): $(ELF)
 	$(ELF2ROM) -cic 6105 $< $@
 
-$(ELF): $(TEXTURE_FILES_OUT) $(ASSET_FILES_OUT) $(O_FILES) $(OVL_RELOC_FILES) build/ldscript.txt build/undefined_syms.txt
+$(ELF): $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES) $(TEXTURE_FILES_OUT) $(ASSET_FILES_OUT) $(O_FILES) $(OVL_RELOC_FILES) build/ldscript.txt build/undefined_syms.txt
 	$(LD) -T build/undefined_syms.txt -T build/ldscript.txt --no-check-sections --accept-unknown-input-arch --emit-relocs -Map build/z64.map -o $@
+
+build/%.inc.c: %.bin
+	./tools/assets/bin_to_u8.py $< $@
+
+DRAGONEW_o_files: $(foreach f,$(DRAGONEW_INC_C_FILES),$(if $(wildcard f),,$f))
+$(DRAGONEW_O_FILES): | DRAGONEW_o_files
 
 ## Order-only prerequisites 
 # These ensure e.g. the O_FILES are built before the OVL_RELOC_FILES.
