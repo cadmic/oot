@@ -1,17 +1,15 @@
 import io
 
-from typing import Union
-
 from extract_xml import (
     Resource,
     File,
-    BinaryBlobResource,
-    DListResource,
     CDataResource,
     CDataExt_Value,
     CDataExt_Struct,
     CDataExt_Array,
 )
+
+from dlist_resources import DListResource
 
 
 Vec3s = CDataExt_Struct(
@@ -111,7 +109,10 @@ class SkeletonNormalResource(CDataResource):
     def report_segment(resource, v):
         assert isinstance(v, int)
         address = v
-        limbs_resource = resource.file.memory_context.report_resource_at_segmented(
+        (
+            limbs_resource,
+            limbs_offset,
+        ) = resource.file.memory_context.report_resource_at_segmented(
             address,
             lambda file, offset: LimbsArrayResource(
                 file,
@@ -120,6 +121,7 @@ class SkeletonNormalResource(CDataResource):
             ),
         )
         assert isinstance(limbs_resource, LimbsArrayResource)
+        assert limbs_resource.range_start == limbs_offset
         limbs_resource.length = resource.cdata_unpacked["limbCount"]
 
     def write_segment(resource, v, f: io.TextIOBase):

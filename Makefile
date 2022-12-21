@@ -289,8 +289,11 @@ $(ROM): $(ELF)
 $(ELF): $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES) $(TEXTURE_FILES_OUT) $(ASSET_FILES_OUT) $(O_FILES) $(OVL_RELOC_FILES) build/ldscript.txt build/undefined_syms.txt
 	$(LD) -T build/undefined_syms.txt -T build/ldscript.txt --no-check-sections --accept-unknown-input-arch --emit-relocs -Map build/z64.map -o $@
 
-build/%.inc.c: %.bin
+build/%.u8.inc.c: %.u8.bin
 	./tools/assets/bin_to_u8.py $< $@
+
+build/%.u64.inc.c: %.u64.bin
+	./tools/assets/bin_to_u64.py $< $@
 
 DRAGONEW_o_files: $(foreach f,$(DRAGONEW_INC_C_FILES),$(if $(wildcard f),,$f))
 $(DRAGONEW_O_FILES): | DRAGONEW_o_files

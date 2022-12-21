@@ -38,6 +38,13 @@ class Symbol:
         raise NotImplementedError("todo x2")
 
 
+@dataclass
+class ResourceBufferMarker:
+    name: str
+    start: int  # segmented
+    end: int  # segmented
+
+
 class MemoryContext:
     """
     handles segmented addresses, pointers, external symbols (eg gMtxClear)
@@ -54,6 +61,9 @@ class MemoryContext:
         self.files_by_physical: dict[
             int, File
         ] = dict()  # range_start (physical) : file
+        self.resource_buffer_markers_by_resource_type: dict[
+            type[Resource], list[ResourceBufferMarker]
+        ] = dict()
 
     def set_segment(self, segment_num: int, target: "File"):
         assert segment_num != 0
@@ -145,7 +155,12 @@ class MemoryContext:
                 raise
 
             if result == GetResourceAtResult.PERHAPS:
-                print("!!! GetResourceAtResult.PERHAPS report_resource_at_segmented , may duplicate stuff idk !!!")
+                # TODO
+                print(
+                    "!!! GetResourceAtResult.PERHAPS report_resource_at_segmented , may duplicate stuff idk !!!",
+                    existing_resource,
+                    existing_resource.name,
+                )
             """
             assert (
                 result != GetResourceAtResult.PERHAPS
@@ -153,12 +168,13 @@ class MemoryContext:
             """
 
             if result == GetResourceAtResult.DEFINITIVE:
-                return existing_resource
+                assert existing_resource is not None
+                return existing_resource, offset
             else:
                 new_resource = new_resource_pointed_to(file, offset)
                 file.add_resource(new_resource)
 
-                return new_resource
+                return new_resource, offset
 
         elif resolution == SegmentedAddressResolution.SYMBOL:
             assert isinstance(resolution_info, tuple)
@@ -174,6 +190,51 @@ class MemoryContext:
             raise NotImplementedError(
                 "unhandled SegmentedAddressResolution", resolution
             )
+
+    def mark_resource_buffer_at_segmented(
+        self, resource_type: type["Resource"], name: str, start: int, end: int
+    ):
+        resource_buffer_markers = (
+            self.resource_buffer_markers_by_resource_type.setdefault(resource_type, [])
+        )
+        resource_buffer_markers.append(ResourceBufferMarker(name, start, end))
+
+        resource_buffer_markers.sort(key=lambda rbm: rbm.start)
+
+        def do_fuse(i_start, i_end):
+            assert i_start < i_end
+            if i_start + 1 == i_end:
+                return False
+            fused = resource_buffer_markers[i_start:i_end]
+            resource_buffer_markers[i_start:i_end] = [
+                ResourceBufferMarker(
+                    fused[0].name.removesuffix("_fused_") + "_fused_",  # TODO
+                    fused[0].start,
+                    fused[-1].end,
+                )
+            ]
+            return True
+
+        def fuse_more():
+            stride_first_i = None
+            for i, rbm in enumerate(resource_buffer_markers):
+                if stride_first_i is None:
+                    stride_first_i = i
+                else:
+                    assert i > 0
+                    prev = resource_buffer_markers[i - 1]
+                    if prev.end < rbm.start:
+                        # disjointed
+                        if do_fuse(stride_first_i, i):
+                            return True
+                        stride_first_i = i
+            if stride_first_i is not None:
+                return do_fuse(stride_first_i, len(resource_buffer_markers))
+            else:
+                return False
+
+        while fuse_more():
+            pass
 
     def get_c_reference_at_segmented(self, address):
         resolution, resolution_info = self.resolve_segmented(address)
@@ -342,13 +403,14 @@ class File:
                 if resource_a.range_end <= resource_b.range_start:
                     break
                 else:
-                    overlaps.append(resource_a, resource_b)
+                    overlaps.append((resource_a, resource_b))
 
         return overlaps
 
     def check_overlapping_resources(self):
         overlaps = self.get_overlapping_resources()
         if overlaps:
+            print(self.str_report())
             raise Exception("resources overlap", overlaps)
 
     def parse_resources_data(self):
@@ -440,6 +502,7 @@ class File:
 
     def write_resources_extracted(self):
         for resource in self.resources:
+            assert resource.is_data_parsed, resource
             try:
                 resource.write_extracted()
             except:
@@ -541,17 +604,44 @@ class File:
         # there are several in the context, to have the
         # memory_context ready before going to step 2
         # -> this means this function should be split by step
+        #     (or the steps moved at the memorycontext level but hmm)
 
         # 2) parse: iteratively discover and parse data
         # (discover = add resources, parse = make friendlier than binary)
 
         file.parse_resources_data()
+
+        # FIXME : bad code, shouldn't be here
+
+        # also actually this won't play well with manually defined vtx arrays
+        # probably can't merge the vbuf refs so quick
+
+        for (
+            resource_type,
+            resource_buffer_markers,
+        ) in memory_context.resource_buffer_markers_by_resource_type.items():
+            print(resource_type, resource_buffer_markers)
+            for rbm in resource_buffer_markers:
+                memory_context.report_resource_at_segmented(
+                    rbm.start,
+                    lambda file, offset: resource_type(
+                        file, offset, offset + rbm.end - rbm.start, rbm.name
+                    ),
+                )
+
+        file.parse_resources_data()
+
+        # end bad code
+
         file.sort_resources()
         file.check_overlapping_resources()
 
         # 3) add dummy (binary) resources for the unaccounted gaps
 
         file.add_unaccounted_resources()
+
+        file.parse_resources_data()  # FIXME this is to set is_data_parsed=True on binary blob unaccounteds, handle better
+
         file.sort_resources()
         assert not file.get_overlapping_resources()
 
@@ -588,10 +678,11 @@ class Resource(abc.ABC):
         range_end: Optional[int],
         name: str,
     ):
+        assert 0 <= range_start < len(file.data)
         if range_end is None:
             assert self.can_size_be_unknown
         else:
-            assert range_start < range_end
+            assert range_start < range_end <= len(file.data)
 
         self.file = file
 
@@ -774,7 +865,8 @@ class Resource(abc.ABC):
                     )
                     c.write(f"// file://./{rel_path}\n")
             else:
-                c.write("// needs_build=False\n")
+                if False:
+                    c.write("// needs_build=False\n")
 
         c.write(f'#include "{self.inc_c_path}"\n')
         c.write(";\n")
@@ -797,10 +889,13 @@ class BinaryBlobResource(Resource):
     def get_c_reference(self, resource_offset):
         return f"&{self.symbol_name}[{resource_offset}]"
 
+    def get_filename_stem(self):
+        return super().get_filename_stem() + ".u8"
+
     def write_extracted(self):
-        self.extract_to_path.write_bytes(
-            self.file.data[self.range_start : self.range_end]
-        )
+        data = self.file.data[self.range_start : self.range_end]
+        assert len(data) == self.range_end - self.range_start
+        self.extract_to_path.write_bytes(data)
 
     def get_c_declaration_base(self):
         return f"u8 {self.symbol_name}[]"
@@ -827,46 +922,6 @@ class BinaryBlobResource(Resource):
             )
 
         return resource_handler
-
-
-
-# TODO famous last words but probably the last big code thing,
-# hook gfxdis
-
-class DListResource(Resource, can_size_be_unknown=True):
-    def __init__(self, file: File, range_start: int, name: str):
-        super().__init__(file, range_start, None, name)
-
-    def try_parse_data(self):
-        offset = self.range_start
-        gfxs = []
-        while True:
-            w0, w1 = struct.unpack_from(">II", self.file.data, offset)
-            offset += 8
-            gfxs.append((w0, w1))
-            if (w0 >> 24) == 0xDF:
-                break
-        self.gfxs = gfxs
-        self.range_end = self.range_start + 8 * len(gfxs)
-        self.is_data_parsed = True
-
-    def get_c_declaration_base(self):
-        return f"Gfx {self.symbol_name}[]"
-
-    def get_c_reference(self, resource_offset: int):
-        if resource_offset == 0:
-            return self.symbol_name
-        else:
-            raise ValueError()
-
-    def write_extracted(self):
-        with self.extract_to_path.open("w") as f:
-            f.write("{\n")
-            for w0, w1 in self.gfxs:
-                f.write("{ ")
-                f.write(f"0x{w0:08X}, 0x{w1:08X}")
-                f.write(" },\n")
-            f.write("}\n")
 
 
 from repr_c_struct import CData, CData_Value, CData_Struct, CData_Array
@@ -898,7 +953,15 @@ class CDataExt(CData, abc.ABC):
     ) -> bool:
         ...
 
+    def report(self, resource: "CDataResource", v: Any):
+        if self.report_f:
+            self.report_f(resource, v)
+
     def write(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
+        """
+        Returns True if something has been written
+        (typically, False will be returned if this data is struct padding)
+        """
         if self.write_f:
             return self.write_f(resource, v, f)
         else:
@@ -915,6 +978,12 @@ class CDataExt_Value(CData_Value, CDataExt):
     def freeze(self):
         self.padding = None
         return super().freeze()
+
+    def report(self, resource: "CDataResource", v: Any):
+        super().report(resource, v)
+        if self.is_padding:
+            if v != 0:
+                raise Exception("non-0 padding")
 
     def write_default(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
         if not self.is_padding:
@@ -944,6 +1013,12 @@ class CDataExt_Array(CData_Array, CDataExt):
         super().__init__(element_cdata_ext, length)
         self.element_cdata_ext = element_cdata_ext
 
+    def report(self, resource: "CDataResource", v: Any):
+        assert isinstance(v, list)
+        super().report(resource, v)
+        for elem in v:
+            self.element_cdata_ext.report(resource, elem)
+
     def write_default(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
         assert isinstance(v, list)
         f.write("{\n")
@@ -959,6 +1034,12 @@ class CDataExt_Struct(CData_Struct, CDataExt):
     def __init__(self, members: Sequence[tuple[str, CDataExt]]):
         super().__init__(members)
         self.members_ext = members
+
+    def report(self, resource: "CDataResource", v: Any):
+        assert isinstance(v, dict)
+        super().report(resource, v)
+        for member_name, member_cdata_ext in self.members_ext:
+            member_cdata_ext.report(resource, v[member_name])
 
     def write_default(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
         assert isinstance(v, dict)
@@ -985,32 +1066,7 @@ class CDataResource(Resource):
             self.file.data, self.range_start
         )
 
-        # TODO move to CDataExt ? like write()
-        def visit(cdata_ext: CDataExt, cdata_unpacked: Any):
-
-            if cdata_ext.report_f:
-                cdata_ext.report_f(self, cdata_unpacked)
-
-            if isinstance(cdata_ext, CDataExt_Struct):
-                assert isinstance(cdata_unpacked, dict)
-
-                for member_name, member_cdata_ext in cdata_ext.members_ext:
-                    visit(member_cdata_ext, cdata_unpacked[member_name])
-
-            elif isinstance(cdata_ext, CDataExt_Array):
-                assert isinstance(cdata_unpacked, list)
-
-                for elem in cdata_unpacked:
-                    visit(cdata_ext.element_cdata_ext, elem)
-
-            else:
-                assert isinstance(cdata_ext, CDataExt_Value)
-
-                if cdata_ext.is_padding:
-                    if cdata_unpacked != 0:
-                        raise Exception("non-0 padding")
-
-        visit(self.cdata_ext, self.cdata_unpacked)
+        self.cdata_ext.report(self, self.cdata_unpacked)
 
         self.is_data_parsed = True
 
@@ -1021,6 +1077,7 @@ class CDataResource(Resource):
 
 
 import skeleton_resources
+import animation_resources
 
 #
 # resource handlers
@@ -1044,8 +1101,24 @@ def skeleton_resource_handler(
     resource_elem: ElementTree.Element,
     offset: int,
 ):
-    assert resource_elem.attrib["Type"] == "Normal"
+    if resource_elem.attrib["Type"] != "Normal":
+        raise NotImplementedError(
+            "unimplemented Skeleton Type",
+            resource_elem.attrib["Type"],
+        )
     return skeleton_resources.SkeletonNormalResource(
+        file,
+        offset,
+        resource_elem.attrib["Name"],
+    )
+
+
+def animation_resource_handler(
+    file: File,
+    resource_elem: ElementTree.Element,
+    offset: int,
+):
+    return animation_resources.AnimationResource(
         file,
         offset,
         resource_elem.attrib["Name"],
@@ -1054,7 +1127,7 @@ def skeleton_resource_handler(
 
 RESOURCE_HANDLERS: dict[str, ResourceHandler] = {
     "Skeleton": skeleton_resource_handler,
-    "Animation": BinaryBlobResource.get_fixed_size_resource_handler(0x10),
+    "Animation": animation_resource_handler,
     "Collision": BinaryBlobResource.get_fixed_size_resource_handler(0x2C),
 }
 
@@ -1149,7 +1222,7 @@ def main():
 
 
 if __name__ == "__main__":
-    profile = False
+    profile = True
     if profile:
         import cProfile
 
