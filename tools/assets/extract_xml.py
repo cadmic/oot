@@ -454,12 +454,47 @@ class File:
         unaccounted_resources: list[Resource] = []
 
         def add_unaccounted(range_start, range_end):
-            unaccounted_resource = BinaryBlobResource(
-                self,
-                range_start,
-                range_end,
-                f"{self.name}_unaccounted_{range_start:06X}",
-            )
+            if I_D_OMEGALUL:
+                pad_bytes = (4 - range_start % 4) % 4
+                if pad_bytes != 0:
+                    pad_range_end = range_start + pad_bytes
+                    assert pad_range_end <= range_end
+                    pad_data = self.data[range_start:pad_range_end]
+                    if set(pad_data) != {0}:
+                        raise Exception(
+                            "Expected pad bytes to be 0",
+                            hex(range_start),
+                            hex(pad_range_end),
+                            set(pad_data),
+                            bytes(pad_data),
+                        )
+                    pad_resource = ZeroPaddingResource(
+                        self,
+                        range_start,
+                        pad_range_end,
+                        f"{self.name}_zero_padding_{range_start:06X}",
+                        include_in_source=False,
+                    )
+                    unaccounted_resources.append(pad_resource)
+                    range_start += pad_bytes
+                    if range_start == pad_range_end:
+                        return
+            assert range_start < range_end
+            unaccounted_data = self.data[range_start:range_end]
+            if set(unaccounted_data) == {0}:
+                unaccounted_resource = ZeroPaddingResource(
+                    self,
+                    range_start,
+                    range_end,
+                    f"{self.name}_zeros_{range_start:06X}",
+                )
+            else:
+                unaccounted_resource = BinaryBlobResource(
+                    self,
+                    range_start,
+                    range_end,
+                    f"{self.name}_unaccounted_{range_start:06X}",
+                )
             unaccounted_resources.append(unaccounted_resource)
 
         if self.resources:
@@ -539,8 +574,8 @@ class File:
 
                 for resource in self.resources:
 
-                    resource.write_c_definition(c)
-                    c.write("\n")
+                    if resource.write_c_definition(c):
+                        c.write("\n")
 
                     resource.write_c_declaration(h)
 
@@ -771,7 +806,9 @@ class Resource(abc.ABC):
         """
         # Override in children classes if needed
         raise ValueError(
-            "This resource has no data with a length that can be referenced"
+            "This resource has no data with a length that can be referenced",
+            self.__class__,
+            self,
         )
 
     needs_build = False
@@ -850,7 +887,10 @@ class Resource(abc.ABC):
         """
         ...
 
-    def write_c_definition(self, c: io.TextIOBase) -> None:
+    def write_c_definition(self, c: io.TextIOBase) -> bool:
+        """
+        Returns True if something was written
+        """
 
         c.write(self.get_c_declaration_base())
         c.write(" =\n")
@@ -871,11 +911,56 @@ class Resource(abc.ABC):
         c.write(f'#include "{self.inc_c_path}"\n')
         c.write(";\n")
 
+        return True
+
     def write_c_declaration(self, h: io.TextIOBase) -> None:
 
         h.write("extern ")
         h.write(self.get_c_declaration_base())
         h.write(";\n")
+
+
+class ZeroPaddingResource(Resource):
+    def __init__(
+        self,
+        file: File,
+        range_start: int,
+        range_end: int,
+        name: str,
+        *,
+        include_in_source=True,
+    ):
+        assert set(file.data[range_start:range_end]) == {0}
+        super().__init__(file, range_start, range_end, name)
+        self.include_in_source = include_in_source
+
+    def try_parse_data(self):
+        # Nothing specific to do
+        self.is_data_parsed = True
+
+    def get_c_reference(self, resource_offset):
+        raise ValueError("Referencing zero padding should not happen")
+
+    def write_extracted(self):
+        # No need to extract zeros
+        pass
+
+    def get_c_declaration_base(self):
+        length_bytes = self.range_end - self.range_start
+        assert length_bytes > 0
+        return f"u8 {self.symbol_name}[{length_bytes}]"
+
+    def write_c_definition(self, c: io.TextIOBase):
+        if self.include_in_source:
+            c.write(self.get_c_declaration_base())
+            c.write(" = { 0 };\n")
+            return True
+        else:
+            return False
+
+    def write_c_declaration(self, h: io.TextIOBase):
+        # No need to declare zeros
+        pass
 
 
 class BinaryBlobResource(Resource):
@@ -938,7 +1023,9 @@ class CDataExt(CData, abc.ABC):
         self.report_f = report_f
         return self
 
-    def set_write(self, write_f: Callable[["CDataResource", Any, io.TextIOBase], bool]):
+    def set_write(
+        self, write_f: Callable[["CDataResource", Any, io.TextIOBase, str], bool]
+    ):
         self.write_f = write_f
         return self
 
@@ -949,7 +1036,7 @@ class CDataExt(CData, abc.ABC):
 
     @abc.abstractmethod
     def write_default(
-        self, resource: "CDataResource", v: Any, f: io.TextIOBase
+        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
     ) -> bool:
         ...
 
@@ -957,15 +1044,17 @@ class CDataExt(CData, abc.ABC):
         if self.report_f:
             self.report_f(resource, v)
 
-    def write(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
+    def write(
+        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
+    ) -> bool:
         """
         Returns True if something has been written
         (typically, False will be returned if this data is struct padding)
         """
         if self.write_f:
-            return self.write_f(resource, v, f)
+            return self.write_f(resource, v, f, line_prefix)
         else:
-            return self.write_default(resource, v, f)
+            return self.write_default(resource, v, f, line_prefix)
 
 
 class CDataExt_Value(CData_Value, CDataExt):
@@ -985,8 +1074,11 @@ class CDataExt_Value(CData_Value, CDataExt):
             if v != 0:
                 raise Exception("non-0 padding")
 
-    def write_default(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
+    def write_default(
+        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
+    ):
         if not self.is_padding:
+            f.write(line_prefix)
             f.write(str(v))
             return True
         else:
@@ -1008,6 +1100,9 @@ CDataExt_Value.pad16 = CDataExt_Value("h").padding().freeze()
 CDataExt_Value.pad32 = CDataExt_Value("i").padding().freeze()
 
 
+INDENT = " " * 4
+
+
 class CDataExt_Array(CData_Array, CDataExt):
     def __init__(self, element_cdata_ext: CDataExt, length: int):
         super().__init__(element_cdata_ext, length)
@@ -1019,13 +1114,17 @@ class CDataExt_Array(CData_Array, CDataExt):
         for elem in v:
             self.element_cdata_ext.report(resource, elem)
 
-    def write_default(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
+    def write_default(
+        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, list)
+        f.write(line_prefix)
         f.write("{\n")
         for i, elem in enumerate(v):
-            ret = self.element_cdata_ext.write(resource, elem, f)
+            ret = self.element_cdata_ext.write(resource, elem, f, line_prefix + INDENT)
             assert ret
             f.write(f", // {i}\n")
+        f.write(line_prefix)
         f.write("}")
         return True
 
@@ -1041,12 +1140,18 @@ class CDataExt_Struct(CData_Struct, CDataExt):
         for member_name, member_cdata_ext in self.members_ext:
             member_cdata_ext.report(resource, v[member_name])
 
-    def write_default(self, resource: "CDataResource", v: Any, f: io.TextIOBase):
+    def write_default(
+        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, dict)
+        f.write(line_prefix)
         f.write("{\n")
         for member_name, member_cdata_ext in self.members_ext:
-            if member_cdata_ext.write(resource, v[member_name], f):
+            if member_cdata_ext.write(
+                resource, v[member_name], f, line_prefix + INDENT
+            ):
                 f.write(f", // {member_name}\n")
+        f.write(line_prefix)
         f.write("}")
         return True
 
@@ -1059,25 +1164,41 @@ class CDataResource(Resource):
     # Resource implementation
 
     def __init__(self, file: File, range_start: int, name: str):
-        super().__init__(file, range_start, range_start + self.cdata_ext.size, name)
+        if not self.can_size_be_unknown:
+            assert hasattr(self, "cdata_ext")
+            assert self.cdata_ext is not None
+            range_end = range_start + self.cdata_ext.size
+        else:
+            if hasattr(self, "cdata_ext") and self.cdata_ext is not None:
+                range_end = range_start + self.cdata_ext.size
+            else:
+                range_end = None
+        super().__init__(file, range_start, range_end, name)
+        self.is_cdata_processed = False
 
     def try_parse_data(self):
-        self.cdata_unpacked = self.cdata_ext.unpack_from(
-            self.file.data, self.range_start
-        )
+        # Use own bool is_cdata_processed to remember if data has been unpacked and
+        # reported already, to let subclasses use is_data_parsed if they want to
+        if not self.is_cdata_processed:
+            self.cdata_unpacked = self.cdata_ext.unpack_from(
+                self.file.data, self.range_start
+            )
 
-        self.cdata_ext.report(self, self.cdata_unpacked)
+            self.cdata_ext.report(self, self.cdata_unpacked)
+
+            self.is_cdata_processed = True
 
         self.is_data_parsed = True
 
     def write_extracted(self):
         with self.extract_to_path.open("w") as f:
-            self.cdata_ext.write(self, self.cdata_unpacked, f)
+            self.cdata_ext.write(self, self.cdata_unpacked, f, "")
             f.write("\n")
 
 
 import skeleton_resources
 import animation_resources
+import collision_resources
 
 #
 # resource handlers
@@ -1125,10 +1246,22 @@ def animation_resource_handler(
     )
 
 
+def collision_resource_handler(
+    file: File,
+    resource_elem: ElementTree.Element,
+    offset: int,
+):
+    return collision_resources.CollisionResource(
+        file,
+        offset,
+        resource_elem.attrib["Name"],
+    )
+
+
 RESOURCE_HANDLERS: dict[str, ResourceHandler] = {
     "Skeleton": skeleton_resource_handler,
     "Animation": animation_resource_handler,
-    "Collision": BinaryBlobResource.get_fixed_size_resource_handler(0x2C),
+    "Collision": collision_resource_handler,
 }
 
 
@@ -1164,7 +1297,7 @@ RM_SOURCE = True
 WRITE_SOURCE = True
 RM_EXTRACT = True
 WRITE_EXTRACT = True
-from conf import WRITE_HINTS
+from conf import WRITE_HINTS, I_D_OMEGALUL
 
 
 BASEROM_PATH = Path("baserom")

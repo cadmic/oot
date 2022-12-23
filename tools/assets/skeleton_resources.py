@@ -35,9 +35,10 @@ class StandardLimbResource(CDataResource):
                 ),
             )
 
-    def write_dList(resource, v, f: io.TextIOBase):
+    def write_dList(resource, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, int)
         address = v
+        f.write(line_prefix)
         if address == 0:
             f.write("NULL")
         else:
@@ -80,7 +81,7 @@ class LimbsArrayResource(CDataResource, can_size_be_unknown=True):
     elem_cdata_ext = CDataExt_Value("I").set_report(report_limb_element)
 
     def __init__(self, file: File, range_start: int, name: str):
-        Resource.__init__(self, file, range_start, None, name)
+        super().__init__(file, range_start, name)
         self.length = None
 
     def try_parse_data(self):
@@ -124,13 +125,15 @@ class SkeletonNormalResource(CDataResource):
         assert limbs_resource.range_start == limbs_offset
         limbs_resource.length = resource.cdata_unpacked["limbCount"]
 
-    def write_segment(resource, v, f: io.TextIOBase):
+    def write_segment(resource, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, int)
         address = v
+        f.write(line_prefix)
         f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def write_limbCount(resource, v, f: io.TextIOBase):
+    def write_limbCount(resource, v, f: io.TextIOBase, line_prefix):
+        f.write(line_prefix)
         f.write(
             resource.file.memory_context.get_c_expression_length_at_segmented(
                 resource.cdata_unpacked["segment"]

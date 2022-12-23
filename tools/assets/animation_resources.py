@@ -11,14 +11,15 @@ from extract_xml import (
 
 
 class AnimationFrameDataResource(CDataResource, can_size_be_unknown=True):
-    def write_binang(resource, v, f: io.TextIOBase):
+    def write_binang(resource, v, f: io.TextIOBase, line_prefix):
+        f.write(line_prefix)
         f.write(f" 0x{v:04X}" if v >= 0 else "-0x" + f"{v:04X}".removeprefix("-"))
         return True
 
     elem_cdata_ext = CDataExt_Value("h").set_write(write_binang)
 
     def __init__(self, file: File, range_start: int, name: str):
-        Resource.__init__(self, file, range_start, None, name)
+        super().__init__(file, range_start, name)
         self.length = None
 
     def try_parse_data(self):
@@ -47,7 +48,7 @@ class AnimationJointIndicesResource(CDataResource, can_size_be_unknown=True):
     )
 
     def __init__(self, file: File, range_start: int, name: str):
-        Resource.__init__(self, file, range_start, None, name)
+        super().__init__(file, range_start, name)
         self.length = None
 
     def try_parse_data(self):
@@ -67,15 +68,17 @@ class AnimationJointIndicesResource(CDataResource, can_size_be_unknown=True):
 
 
 class AnimationResource(CDataResource):
-    def write_frameData(resource, v, f: io.TextIOBase):
+    def write_frameData(resource, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, int)
         address = v
+        f.write(line_prefix)
         f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def write_jointIndices(resource, v, f: io.TextIOBase):
+    def write_jointIndices(resource, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, int)
         address = v
+        f.write(line_prefix)
         f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
         return True
 
@@ -145,11 +148,7 @@ class AnimationResource(CDataResource):
                 self.file,
             )
 
-        if (
-            frameData_offset
-            < jointIndices_offset
-            < self.range_start
-        ):
+        if frameData_offset < jointIndices_offset < self.range_start:
             frameData_resource.length = (
                 jointIndices_offset - frameData_offset
             ) // AnimationFrameDataResource.elem_cdata_ext.size

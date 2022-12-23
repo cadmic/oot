@@ -26,8 +26,9 @@ if TYPE_CHECKING:
 
 
 class VtxArrayResource(CDataResource):
-    def write_elem(resource, v, f: io.TextIOBase):
+    def write_elem(resource, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, dict)
+        f.write(line_prefix)
         f.write(
             f"VTX({v['x']:6}, {v['y']:6}, {v['z']:6}, "
             f"{v['s']:#7X}, {v['t']:#7X}, "

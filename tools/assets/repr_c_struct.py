@@ -97,16 +97,16 @@ class CData_Struct(CData):
                     # (e.g. this is correct for CData_Value)
                     return cdata.size
 
-            # Check alignment of the struct size
-            alignment = get_required_alignment(self)
-            assert self.size % alignment == 0, (self.size, alignment)
-
             # Check alignment of the members of the struct
             offset = 0
             for member_name, member_cdata in members:
                 alignment = get_required_alignment(member_cdata)
                 assert offset % alignment == 0, (member_name, offset, alignment)
                 offset += member_cdata.size
+
+            # Check alignment of the struct size
+            alignment = get_required_alignment(self)
+            assert self.size % alignment == 0, (self.size, alignment)
 
     def unpack_from(self, data: memoryview, offset: int = 0):
         struct_unpacked = dict()
