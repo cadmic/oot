@@ -185,6 +185,7 @@ def gfxdis(
     vtx_callback: Optional[Callable[[int, int], int]] = None,
     timg_callback: Optional[Callable[[int, int, int, int, int, int], int]] = None,
     macro_fn: Optional[Callable[[], int]] = None,
+    arg_fn: Optional[Callable[[int], None]] = None,
 ):
     for cap in (
         pygfxd.GfxdCap.stop_on_invalid,
@@ -310,6 +311,23 @@ def gfxdis(
 
     pygfxd.gfxd_macro_fn(macro_fn_wrapper)
 
+    # arg_fn
+
+    if arg_fn:
+
+        def arg_fn_wrapper(arg_num):
+            try:
+                arg_fn(arg_num)
+            except:
+                import sys
+
+                e = sys.exc_info()[1]
+                exceptions.append(e)
+
+        pygfxd.gfxd_arg_fn(arg_fn_wrapper)
+    else:
+        pygfxd.gfxd_arg_fn(None)
+
     # Execute
 
     pygfxd.gfxd_execute()
@@ -332,6 +350,52 @@ def gfxdis(
         raise Exception(exceptions)
 
     return size
+
+
+class StringWrapper:
+    def __init__(
+        self,
+        data: Union[str, bytes],
+        max_line_length,
+        writer: Callable[[Union[str, bytes]], None],
+    ):
+        self.max_line_length = max_line_length
+        self.pending_data = data
+        self.writer = writer
+        self.newline_char = "\n" if isinstance(data, str) else b"\n"
+        self.space_char = " " if isinstance(data, str) else b" "
+
+    def append(self, data: Union[str, bytes]):
+        self.pending_data += data
+        self.proc()
+
+    def proc(self, flush=False):
+        while len(self.pending_data) > self.max_line_length or (
+            flush and self.pending_data
+        ):
+            i = self.pending_data.find(self.newline_char, 0, self.max_line_length)
+            if i >= 0:
+                i += 1
+                self.writer(self.pending_data[:i])
+                self.pending_data = self.pending_data[i:]
+                continue
+
+            i = self.pending_data.rfind(self.space_char, 1, self.max_line_length)
+            if i < 0:
+                i = self.pending_data.find(self.space_char, 1)
+                if i < 0:
+                    if flush:
+                        i = len(self.pending_data)
+                    else:
+                        # Avoid adding a line return in the middle of a word
+                        return
+            self.writer(self.pending_data[:i])
+            self.pending_data = self.pending_data[i:]
+            if not flush or self.pending_data:
+                self.writer(self.newline_char)
+
+    def flush(self):
+        self.proc(flush=True)
 
 
 class DListResource(Resource, can_size_be_unknown=True):
@@ -396,32 +460,58 @@ class DListResource(Resource, can_size_be_unknown=True):
             raise ValueError()
 
     def write_extracted(self):
-        offset = self.range_start
+        def macro_fn():
+            ret = pygfxd.gfxd_macro_dflt()
+            pygfxd.gfxd_puts(",\n")
+            return ret
 
-        print(self.name, hex(offset))
+        def arg_fn(arg_num: int):
+            timg = pygfxd.gfxd_value_by_type(pygfxd.GfxdArgType.Timg, 0)
+            if (
+                timg is not None
+                and pygfxd.gfxd_arg_type(arg_num) == pygfxd.GfxdArgType.Dim
+            ):
+                _, timg_segmented, _ = timg
+                dim_args_i = []
+                for arg_i in range(pygfxd.gfxd_arg_count()):
+                    if pygfxd.gfxd_arg_type(arg_i) == pygfxd.GfxdArgType.Dim:
+                        dim_args_i.append(arg_i)
+                assert arg_num in dim_args_i
+                assert len(dim_args_i) <= 2
+                if len(dim_args_i) == 2:
+                    width_arg_i, height_arg_i = dim_args_i
+                    pygfxd.gfxd_puts(
+                        self.file.memory_context.get_c_reference_at_segmented(
+                            timg_segmented
+                        )
+                    )
+                    if arg_num == width_arg_i:
+                        pygfxd.gfxd_puts("_WIDTH")
+                    else:
+                        assert arg_num == height_arg_i
+                        pygfxd.gfxd_puts("_HEIGHT")
+
+                    return
+
+            pygfxd.gfxd_arg_dflt(arg_num)
+
+        def vtx_cb(vtx, num):
+            pygfxd.gfxd_puts(self.file.memory_context.get_c_reference_at_segmented(vtx))
+            return 1
+
+        def timg_cb(timg, fmt, siz, width, height, pal):
+            pygfxd.gfxd_puts(
+                self.file.memory_context.get_c_reference_at_segmented(timg)
+            )
+            return 1
 
         with self.extract_to_path.open("wb") as f:
             f.write(b"{\n")
 
+            out_string_wrapper = StringWrapper(b"", 120, f.write)
+
             def output_cb(buf: bytes):
-                f.write(buf)
-
-            def macro_fn():
-                ret = pygfxd.gfxd_macro_dflt()
-                pygfxd.gfxd_puts(",\n")
-                return ret
-
-            def vtx_cb(vtx, num):
-                pygfxd.gfxd_puts(
-                    self.file.memory_context.get_c_reference_at_segmented(vtx)
-                )
-                return 1
-
-            def timg_cb(timg, fmt, siz, width, height, pal):
-                pygfxd.gfxd_puts(
-                    self.file.memory_context.get_c_reference_at_segmented(timg)
-                )
-                return 1
+                out_string_wrapper.append(buf)
 
             gfxdis(
                 input_buffer=self.file.data[self.range_start : self.range_end],
@@ -430,6 +520,9 @@ class DListResource(Resource, can_size_be_unknown=True):
                 vtx_callback=vtx_cb,
                 timg_callback=timg_cb,
                 macro_fn=macro_fn,
+                arg_fn=arg_fn,
             )
+
+            out_string_wrapper.flush()
 
             f.write(b"}\n")

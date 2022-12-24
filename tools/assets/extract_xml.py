@@ -348,39 +348,42 @@ class File:
     def get_resource_at(self, offset: int):
         assert offset < len(self.data)
 
-        # TODO explain the logic here...
+        # Resources may use a defined range with both start and end defined,
+        # or a range that only has its start defined.
 
+        # While looking for a resource with a defined range the request offset
+        # belongs to, also keep track of the last resource that starts at or before
+        # offset (note: that resource may or may not have an end range defined).
         last_resource_before_offset: Union[Resource, None] = None
 
         for resource in self.resources:
 
-            if resource.range_end is None:
-                if resource.range_start <= offset:
-                    if (
-                        last_resource_before_offset is None
-                        or last_resource_before_offset.range_start
-                        < resource.range_start
-                    ):
-                        last_resource_before_offset = resource
+            if resource.range_start <= offset:
+                if (
+                    last_resource_before_offset is None
+                    or last_resource_before_offset.range_start
+                    < resource.range_start
+                ):
+                    last_resource_before_offset = resource
 
-            else:
-                if resource.range_end <= offset:
-                    if (
-                        last_resource_before_offset is None
-                        or last_resource_before_offset.range_start
-                        < resource.range_start
-                    ):
-                        last_resource_before_offset = resource
-
+            if resource.range_end is not None:
+                # If the requested offset falls within a defined range, return that
+                # resource with GetResourceAtResult.DEFINITIVE .
                 if resource.range_start <= offset < resource.range_end:
                     return GetResourceAtResult.DEFINITIVE, resource
 
+        # If the loop exits normally, without returning a defined range resource,
+        # check if the last resource starting at or before the requested offset
+        # (if any) has an undefined range.
         if (
             last_resource_before_offset is not None
             and last_resource_before_offset.range_end is None
         ):
+            # Return it with GetResourceAtResult.PERHAPS , as it may extend up to
+            # and beyond the requested offset.
             return GetResourceAtResult.PERHAPS, last_resource_before_offset
         else:
+            # No (potential) resource at that offset (currently).
             return GetResourceAtResult.NONE_YET, None
 
     def get_overlapping_resources(self):
@@ -1052,9 +1055,12 @@ class CDataExt(CData, abc.ABC):
         (typically, False will be returned if this data is struct padding)
         """
         if self.write_f:
-            return self.write_f(resource, v, f, line_prefix)
+            ret = self.write_f(resource, v, f, line_prefix)
+            assert isinstance(ret, bool), self.write_f
         else:
-            return self.write_default(resource, v, f, line_prefix)
+            ret = self.write_default(resource, v, f, line_prefix)
+            assert isinstance(ret, bool), self
+        return ret
 
 
 class CDataExt_Value(CData_Value, CDataExt):
@@ -1196,10 +1202,6 @@ class CDataResource(Resource):
             f.write("\n")
 
 
-import skeleton_resources
-import animation_resources
-import collision_resources
-
 #
 # resource handlers
 #
@@ -1217,52 +1219,64 @@ del resource_handler
 ResourceHandler = Callable[[File, ElementTree.Element, int], Resource]
 
 
-def skeleton_resource_handler(
-    file: File,
-    resource_elem: ElementTree.Element,
-    offset: int,
-):
-    if resource_elem.attrib["Type"] != "Normal":
-        raise NotImplementedError(
-            "unimplemented Skeleton Type",
-            resource_elem.attrib["Type"],
+def register_resource_handlers():
+
+    # import in a function to avoid circular imports
+    # even if Python can somewhat deal with circular imports, it still causes issues
+    # with classes being defined twice
+
+    import skeleton_resources
+    import animation_resources
+    import collision_resources
+
+    def skeleton_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        if resource_elem.attrib["Type"] != "Normal":
+            raise NotImplementedError(
+                "unimplemented Skeleton Type",
+                resource_elem.attrib["Type"],
+            )
+        return skeleton_resources.SkeletonNormalResource(
+            file,
+            offset,
+            resource_elem.attrib["Name"],
         )
-    return skeleton_resources.SkeletonNormalResource(
-        file,
-        offset,
-        resource_elem.attrib["Name"],
+
+    def animation_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        return animation_resources.AnimationResource(
+            file,
+            offset,
+            resource_elem.attrib["Name"],
+        )
+
+    def collision_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        return collision_resources.CollisionResource(
+            file,
+            offset,
+            resource_elem.attrib["Name"],
+        )
+
+    RESOURCE_HANDLERS.update(
+        {
+            "Skeleton": skeleton_resource_handler,
+            "Animation": animation_resource_handler,
+            "Collision": collision_resource_handler,
+        }
     )
 
 
-def animation_resource_handler(
-    file: File,
-    resource_elem: ElementTree.Element,
-    offset: int,
-):
-    return animation_resources.AnimationResource(
-        file,
-        offset,
-        resource_elem.attrib["Name"],
-    )
-
-
-def collision_resource_handler(
-    file: File,
-    resource_elem: ElementTree.Element,
-    offset: int,
-):
-    return collision_resources.CollisionResource(
-        file,
-        offset,
-        resource_elem.attrib["Name"],
-    )
-
-
-RESOURCE_HANDLERS: dict[str, ResourceHandler] = {
-    "Skeleton": skeleton_resource_handler,
-    "Animation": animation_resource_handler,
-    "Collision": collision_resource_handler,
-}
+RESOURCE_HANDLERS: dict[str, ResourceHandler] = {}
 
 
 def get_resource_from_xml(
@@ -1305,6 +1319,8 @@ BUILD_PATH = Path("build")
 
 
 def main():
+
+    register_resource_handlers()
 
     xml_path = Path("assets/xml/objects/object_am.xml")
     source_path = Path("assets/objects/object_am/")
@@ -1352,13 +1368,3 @@ def main():
             source_path.mkdir(parents=True, exist_ok=True)
 
             file.write_source(source_path)
-
-
-if __name__ == "__main__":
-    profile = True
-    if profile:
-        import cProfile
-
-        cProfile.run("main()", "cprof_assets421.txt")
-    else:
-        main()
