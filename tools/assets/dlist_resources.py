@@ -1,10 +1,14 @@
 import enum
+from pathlib import Path
 
 import io
 
 from typing import Union, Optional, Callable
 
 from extract_xml import (
+    SegmentedAddressResolution,
+    GetResourceAtResult,
+    NoSegmentBaseError,
     Resource,
     File,
     CDataResource,
@@ -106,9 +110,43 @@ class G_IM_SIZ(enum.Enum):
 G_IM_SIZ.by_i = {siz.i: siz for siz in G_IM_SIZ}
 
 
+sys.path.insert(0, "/home/dragorn421/Documents/n64texconv/")
+import n64texconv
+
+sys.path.insert(0, "/home/dragorn421/Documents/oot/tools/assets/png2raw/")
+import raw2png
+
+if TYPE_CHECKING:
+    from png2raw import raw2png
+
+
+def png_from_data(
+    outpath, width, height, greyscale, alpha, bitdepth, image_data, palette
+):
+    # assert raw2png current limitations
+    assert not greyscale
+    assert alpha
+    assert bitdepth == 8
+
+    # unimplemented
+    assert palette is None
+
+    raw2png.write(outpath, width, height, bytearray(image_data))
+
+
+n64texconv.png_from_data = png_from_data
+
+
+def write_n64_image_to_png(
+    path: Path, width: int, height: int, fmt: G_IM_FMT, siz: G_IM_SIZ, data: memoryview
+):
+    tex = n64texconv.Image.from_bin(data, width, height, fmt.i, siz.i, None)
+    tex.to_png(path)
+
+
 class TextureResource(Resource):
     needs_build = True
-    extracted_path_suffix = ".bin"
+    extracted_path_suffix = ".png"
 
     def __init__(
         self,
@@ -141,6 +179,9 @@ class TextureResource(Resource):
                 hex(range_start),
             )
 
+        self.width_name = f"{self.symbol_name}_WIDTH"
+        self.height_name = f"{self.symbol_name}_HEIGHT"
+
     def get_filename_stem(self):
         return (
             super().get_filename_stem() + f".{self.fmt.name.lower()}{self.siz.bpp}.u64"
@@ -162,12 +203,13 @@ class TextureResource(Resource):
     def write_extracted(self) -> None:
         data = self.file.data[self.range_start : self.range_end]
         assert len(data) == self.range_end - self.range_start
-        with self.extract_to_path.open("wb") as f:
-            f.write(data)
+        write_n64_image_to_png(
+            self.extract_to_path, self.width, self.height, self.fmt, self.siz, data
+        )
 
     def write_c_declaration(self, h: io.TextIOBase):
-        h.writelines((f"#define {self.symbol_name}_WIDTH {self.width}\n"))
-        h.writelines((f"#define {self.symbol_name}_HEIGHT {self.height}\n"))
+        h.writelines((f"#define {self.width_name} {self.width}\n"))
+        h.writelines((f"#define {self.height_name} {self.height}\n"))
         super().write_c_declaration(h)
 
 
@@ -339,15 +381,25 @@ def gfxdis(
     if exceptions:
         import traceback
 
-        print("... !")
+        msg = "There were uncaught python errors in callbacks during gfxd execution."
+
+        print()
+        print(msg)
+        print("vvv See below for a list of the traces of the uncaught errors:")
 
         for e in exceptions:
             print()
             traceback.print_exception(e)
 
         print()
+        print(msg)
+        print("^^^ See above for a list of the traces of the uncaught errors.")
 
-        raise Exception(exceptions)
+        raise Exception(
+            msg,
+            "See the standard output for a list of the traces of the uncaught errors.",
+            exceptions,
+        )
 
     return size
 
@@ -405,10 +457,10 @@ class DListResource(Resource, can_size_be_unknown=True):
     def try_parse_data(self):
         offset = self.range_start
 
-        print(self.name, hex(offset))
+        if VERBOSE2:
+            print(self.name, hex(offset))
 
         def vtx_cb(vtx, num):
-            print("vtx", hex(vtx), num)
             # TODO be smarter about buffer merging
             # (don't merge buffers from two different DLs, if they can be split cleanly)
             self.file.memory_context.mark_resource_buffer_at_segmented(
@@ -420,22 +472,21 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 0
 
         def timg_cb(timg, fmt, siz, width, height, pal):
-            print("timg", hex(timg), fmt, siz, width, height, pal)
-            fmt = G_IM_FMT.by_i[fmt]
-            siz = G_IM_SIZ.by_i[siz]
-            print("  timg", hex(timg), fmt, siz, width, height, pal)
-            self.file.memory_context.report_resource_at_segmented(
-                timg,
-                lambda file, offset: TextureResource(
-                    file,
-                    offset,
-                    f"{self.name}_Tex_{offset:08X}_",
-                    fmt,
-                    siz,
-                    width,
-                    height,
-                ),
-            )
+            try:
+                self.file.memory_context.report_resource_at_segmented(
+                    timg,
+                    lambda file, offset: TextureResource(
+                        file,
+                        offset,
+                        f"{self.name}_Tex_{offset:08X}_",
+                        G_IM_FMT.by_i[fmt],
+                        G_IM_SIZ.by_i[siz],
+                        width,
+                        height,
+                    ),
+                )
+            except NoSegmentBaseError:
+                pass
             return 0
 
         size = gfxdis(
@@ -446,7 +497,8 @@ class DListResource(Resource, can_size_be_unknown=True):
 
         self.range_end = self.range_start + size
 
-        print(self.name, hex(offset), hex(self.range_end))
+        if VERBOSE2:
+            print(self.name, hex(offset), hex(self.range_end))
 
         self.is_data_parsed = True
 
@@ -480,18 +532,59 @@ class DListResource(Resource, can_size_be_unknown=True):
                 assert len(dim_args_i) <= 2
                 if len(dim_args_i) == 2:
                     width_arg_i, height_arg_i = dim_args_i
-                    pygfxd.gfxd_puts(
-                        self.file.memory_context.get_c_reference_at_segmented(
-                            timg_segmented
+                    # TODO this width/height stuff is jank code
+                    # probably introduce an attribute system instead for resources, generalizing the length system
+                    try:
+                        (
+                            resolution,
+                            resolution_info,
+                        ) = self.file.memory_context.resolve_segmented(timg_segmented)
+                    except NoSegmentBaseError:
+                        resolution = None
+                    if resolution == SegmentedAddressResolution.FILE:
+                        resolved_file, resolved_offset = resolution_info
+                        result, resolved_resource = resolved_file.get_resource_at(
+                            resolved_offset
                         )
-                    )
-                    if arg_num == width_arg_i:
-                        pygfxd.gfxd_puts("_WIDTH")
-                    else:
-                        assert arg_num == height_arg_i
-                        pygfxd.gfxd_puts("_HEIGHT")
-
-                    return
+                        assert result == GetResourceAtResult.DEFINITIVE
+                        assert resolved_resource is not None
+                        assert isinstance(resolved_resource, TextureResource)
+                        width_arg_value = pygfxd.gfxd_arg_value(width_arg_i)[1]
+                        height_arg_value = pygfxd.gfxd_arg_value(height_arg_i)[1]
+                        if (resolved_resource.width, resolved_resource.height) == (
+                            width_arg_value,
+                            height_arg_value,
+                        ):
+                            if arg_num == width_arg_i:
+                                if resolved_resource.width_name:
+                                    pygfxd.gfxd_puts(resolved_resource.width_name)
+                            else:
+                                assert arg_num == height_arg_i
+                                if resolved_resource.height_name:
+                                    pygfxd.gfxd_puts(resolved_resource.height_name)
+                            return
+                        else:
+                            if arg_num == width_arg_i:
+                                print(
+                                    "Unexpected texture dimensions used: in dlist =",
+                                    self,
+                                    "texture =",
+                                    resolved_resource,
+                                    "texture resource has WxH =",
+                                    (resolved_resource.width, resolved_resource.height),
+                                    "but dlist uses WxH =",
+                                    (width_arg_value, height_arg_value),
+                                )
+                                pygfxd.gfxd_puts(
+                                    " /* ! Unexpected texture dimensions !"
+                                    + " DL={0[0]}x{0[1]} vs Tex={1[0]}x{1[1]} */ ".format(
+                                        (width_arg_value, height_arg_value),
+                                        (
+                                            resolved_resource.width,
+                                            resolved_resource.height,
+                                        ),
+                                    )
+                                )
 
             pygfxd.gfxd_arg_dflt(arg_num)
 
@@ -500,10 +593,14 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 1
 
         def timg_cb(timg, fmt, siz, width, height, pal):
-            pygfxd.gfxd_puts(
-                self.file.memory_context.get_c_reference_at_segmented(timg)
-            )
-            return 1
+            try:
+                timg_c_ref = self.file.memory_context.get_c_reference_at_segmented(timg)
+            except NoSegmentBaseError:
+                timg_c_ref = None
+            if timg_c_ref:
+                pygfxd.gfxd_puts(timg_c_ref)
+                return 1
+            return 0
 
         with self.extract_to_path.open("wb") as f:
             f.write(b"{\n")
@@ -526,3 +623,6 @@ class DListResource(Resource, can_size_be_unknown=True):
             out_string_wrapper.flush()
 
             f.write(b"}\n")
+
+
+VERBOSE2 = False

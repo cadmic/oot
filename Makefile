@@ -176,10 +176,12 @@ O_FILES       := $(foreach f,$(S_FILES:.s=.o),build/$f) \
 
 OVL_RELOC_FILES := $(shell $(CPP) $(CPPFLAGS) $(SPEC) | grep -o '[^"]*_reloc.o' )
 
-DRAGONEW_C_FILES := assets/objects/object_am/object_am.c
+DRAGONEW_objects_names := object_am object_ane object_ani object_anubice gameplay_keep
+DRAGONEW_C_FILES := $(foreach f,$(DRAGONEW_objects_names),assets/objects/$f/$f.c)
 DRAGONEW_O_FILES := $(foreach f,$(DRAGONEW_C_FILES:.c=.o),build/$f)
-DRAGONEW_BIN_FILES := $(shell find assets/_extracted/objects/object_am/ -name '*.bin')
-DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c),build/$f)
+DRAGONEW_BIN_FILES := $(foreach f,$(DRAGONEW_objects_names),$(shell find assets/_extracted/objects/$f/ -name '*.bin'))
+DRAGONEW_PNG_FILES := $(foreach f,$(DRAGONEW_objects_names),$(shell find assets/_extracted/objects/$f/ -name '*.png'))
+DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c),build/$f) $(foreach f,$(DRAGONEW_PNG_FILES:.png=.inc.c),build/$f)
 DRAGONEW_DEPS := $(DRAGONEW_O_FILES:.o=.d)
 
 $(shell mkdir --parents $(dir $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES)))
@@ -190,6 +192,9 @@ DEP_FILES := $(O_FILES:.o=.asmproc.d) $(OVL_RELOC_FILES:.o=.d) $(DRAGONEW_DEPS)
 
 
 TEXTURE_FILES_PNG := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.png))
+
+TEXTURE_FILES_PNG := $(filter-out $(DRAGONEW_PNG_FILES),$(TEXTURE_FILES_PNG))
+
 TEXTURE_FILES_JPG := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.jpg))
 TEXTURE_FILES_OUT := $(foreach f,$(TEXTURE_FILES_PNG:.png=.inc.c),build/$f) \
 					 $(foreach f,$(TEXTURE_FILES_JPG:.jpg=.jpg.inc.c),build/$f) \
@@ -367,8 +372,12 @@ build/src/overlays/%_reloc.o: build/$(SPEC)
 	$(FADO) $$(tools/reloc_prereq $< $(notdir $*)) -n $(notdir $*) -o $(@:.o=.s) -M $(@:.o=.d)
 	$(AS) $(ASFLAGS) $(@:.o=.s) -o $@
 
-build/%.inc.c: %.png
-	$(ZAPD) btex -eh -tt $(subst .,,$(suffix $*)) -i $< -o $@
+#build/%.inc.c: %.png
+#	$(ZAPD) btex -eh -tt $(subst .,,$(suffix $*)) -i $< -o $@
+build/assets/_extracted/%.bin: assets/_extracted/%.png
+	tools/assets/build_from_png.py $< $@
+build/assets/_extracted/%.inc.c: build/assets/_extracted/%.bin
+	./tools/assets/bin_to_u64.py $< $@
 
 build/assets/%.bin.inc.c: assets/%.bin
 	$(ZAPD) bblb -eh -i $< -o $@

@@ -45,6 +45,12 @@ class ResourceBufferMarker:
     end: int  # segmented
 
 
+class NoSegmentBaseError(Exception):
+    """Indicates a segmented address could not be resolved because a base / data wasn't set for the corresponding segment."""
+
+    pass
+
+
 class MemoryContext:
     """
     handles segmented addresses, pointers, external symbols (eg gMtxClear)
@@ -123,7 +129,7 @@ class MemoryContext:
         else:
             file = self.segments.get(segment_num)
             if file is None:
-                raise Exception(
+                raise NoSegmentBaseError(
                     "no file set on this segment", hex(address), segment_num
                 )
             if offset >= len(file.data):
@@ -155,9 +161,13 @@ class MemoryContext:
                 raise
 
             if result == GetResourceAtResult.PERHAPS:
-                # TODO
+                # TODO figure out what to do with perhaps resources
+                # for now just add resources, but this may dupe stuff if the resource is supposed to be the same
+                # (eg vertex arrays, currently handled with the buffer reporting mark_resource_buffer_at_segmented )
                 print(
                     "!!! GetResourceAtResult.PERHAPS report_resource_at_segmented , may duplicate stuff idk !!!",
+                    hex(address),
+                    hex(offset),
                     existing_resource,
                     existing_resource.name,
                 )
@@ -173,6 +183,18 @@ class MemoryContext:
             else:
                 new_resource = new_resource_pointed_to(file, offset)
                 file.add_resource(new_resource)
+
+                if result == GetResourceAtResult.PERHAPS:
+                    # TODO (see above)
+                    print(
+                        "     >>> ",
+                        result,
+                        "followup",
+                        "added:",
+                        new_resource.name,
+                        new_resource.__class__,
+                        new_resource,
+                    )
 
                 return new_resource, offset
 
@@ -361,8 +383,7 @@ class File:
             if resource.range_start <= offset:
                 if (
                     last_resource_before_offset is None
-                    or last_resource_before_offset.range_start
-                    < resource.range_start
+                    or last_resource_before_offset.range_start < resource.range_start
                 ):
                     last_resource_before_offset = resource
 
@@ -379,42 +400,63 @@ class File:
             last_resource_before_offset is not None
             and last_resource_before_offset.range_end is None
         ):
-            # Return it with GetResourceAtResult.PERHAPS , as it may extend up to
-            # and beyond the requested offset.
-            return GetResourceAtResult.PERHAPS, last_resource_before_offset
+            if last_resource_before_offset.range_start == offset:
+                # Resources are always more than 0 bytes in size, so if the resource
+                # starts exactly at the requested offset, then it is guaranteed to
+                # cover (at least) that offset.
+                return GetResourceAtResult.DEFINITIVE, last_resource_before_offset
+            else:
+                # Return it with GetResourceAtResult.PERHAPS , as it may extend up to
+                # and beyond the requested offset (or not).
+                return GetResourceAtResult.PERHAPS, last_resource_before_offset
         else:
             # No (potential) resource at that offset (currently).
             return GetResourceAtResult.NONE_YET, None
 
     def get_overlapping_resources(self):
-        assert self.is_resources_sorted
+        if not self.is_resources_sorted:
+            raise Exception("sort resources first")
 
         overlaps: list[tuple[Resource, Resource]] = []
 
         for i in range(1, len(self.resources)):
             resource_a = self.resources[i - 1]
 
-            # TODO: idk yet how to handle this
-            assert resource_a.range_end is not None
-
             for j in range(i, len(self.resources)):
                 resource_b = self.resources[j]
 
-                # TODO: idk yet how to handle this
-                assert resource_b.range_end is not None
+                # This should hold true, as resources are sorted
+                assert resource_a.range_start <= resource_b.range_start
 
-                if resource_a.range_end <= resource_b.range_start:
-                    break
+                overlap = False
+
+                if resource_a.range_end is None:
+                    if resource_b.range_end is None:
+                        pass
+                    else:
+                        if resource_a.range_start < resource_b.range_start:
+                            pass
+                        else:
+                            overlap = True
                 else:
+                    if resource_a.range_end <= resource_b.range_start:
+                        pass
+                    else:
+                        overlap = True
+
+                if overlap:
                     overlaps.append((resource_a, resource_b))
 
         return overlaps
 
     def check_overlapping_resources(self):
-        overlaps = self.get_overlapping_resources()
-        if overlaps:
+        try:
+            overlaps = self.get_overlapping_resources()
+            if overlaps:
+                raise Exception("resources overlap", overlaps)
+        except:
             print(self.str_report())
-            raise Exception("resources overlap", overlaps)
+            raise
 
     def parse_resources_data(self):
 
@@ -591,103 +633,15 @@ class File:
 
     def str_report(self):
         return "\n".join(
-            f"0x{resource.range_start:06X}-0x{resource.range_end:06X} {resource.name}"
+            f"0x{resource.range_start:06X}-"
+            + (
+                f"0x{resource.range_end:06X}"
+                if resource.range_end is not None
+                else "..."
+            )
+            + f" {resource.name}"
             for resource in self.resources
         )
-
-    @staticmethod
-    def from_xml(memory_context: MemoryContext, file_elem: ElementTree.Element):
-
-        # 0) load the file data bytes
-
-        file_name = file_elem.attrib.get("Name")
-
-        if file_name is None:
-            raise Exception("file_name is None")
-
-        file_bytes = memoryview((BASEROM_PATH / file_name).read_bytes())
-
-        file = File(memory_context, file_name, file_bytes)
-
-        # TODO not sure if this is the right place to set the segment,
-        # maybe it should be more external
-        segment_str = file_elem.attrib.get("Segment")
-        if segment_str is not None:
-            segment = int(segment_str)
-            memory_context.set_segment(segment, file)
-
-        # 1) read resources as described from the xml
-
-        prev_resource = None
-
-        for resource_elem in file_elem:
-
-            if prev_resource is not None:
-                default_offset = prev_resource.range_end
-            else:
-                default_offset = None
-
-            resource = get_resource_from_xml(file, resource_elem, default_offset)
-
-            file.add_resource(resource)
-
-            prev_resource = resource
-
-        print(file_name, file.resources)
-
-        file.sort_resources()
-        file.check_overlapping_resources()
-
-        # TODO step 1) should be done on several files if
-        # there are several in the context, to have the
-        # memory_context ready before going to step 2
-        # -> this means this function should be split by step
-        #     (or the steps moved at the memorycontext level but hmm)
-
-        # 2) parse: iteratively discover and parse data
-        # (discover = add resources, parse = make friendlier than binary)
-
-        file.parse_resources_data()
-
-        # FIXME : bad code, shouldn't be here
-
-        # also actually this won't play well with manually defined vtx arrays
-        # probably can't merge the vbuf refs so quick
-
-        for (
-            resource_type,
-            resource_buffer_markers,
-        ) in memory_context.resource_buffer_markers_by_resource_type.items():
-            print(resource_type, resource_buffer_markers)
-            for rbm in resource_buffer_markers:
-                memory_context.report_resource_at_segmented(
-                    rbm.start,
-                    lambda file, offset: resource_type(
-                        file, offset, offset + rbm.end - rbm.start, rbm.name
-                    ),
-                )
-
-        file.parse_resources_data()
-
-        # end bad code
-
-        file.sort_resources()
-        file.check_overlapping_resources()
-
-        # 3) add dummy (binary) resources for the unaccounted gaps
-
-        file.add_unaccounted_resources()
-
-        file.parse_resources_data()  # FIXME this is to set is_data_parsed=True on binary blob unaccounteds, handle better
-
-        file.sort_resources()
-        assert not file.get_overlapping_resources()
-
-        # done loading this file
-
-        pprint(file.resources)
-
-        return file
 
 
 #
@@ -921,6 +875,14 @@ class Resource(abc.ABC):
         h.write("extern ")
         h.write(self.get_c_declaration_base())
         h.write(";\n")
+
+    def __repr__(self):
+        return (
+            self.__class__.__qualname__
+            + f"(0x{self.range_start:08X}-"
+            + (f"0x{self.range_end:08X}" if self.range_end is not None else "...")
+            + f", {self.name!r})"
+        )
 
 
 class ZeroPaddingResource(Resource):
@@ -1202,6 +1164,28 @@ class CDataResource(Resource):
             f.write("\n")
 
 
+class Vec3sArrayResource(CDataResource):
+
+    elem_cdata_ext = CDataExt_Struct(
+        (
+            ("x", CDataExt_Value.s16),
+            ("y", CDataExt_Value.s16),
+            ("z", CDataExt_Value.s16),
+        )
+    )
+
+    def __init__(self, file: File, range_start: int, name: str, length: int):
+        assert length > 0
+        self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, length)
+        super().__init__(file, range_start, name)
+
+    def get_c_declaration_base(self):
+        return f"Vec3s {self.symbol_name}[]"
+
+    def get_c_reference(self, resource_offset: int):
+        raise NotImplementedError()
+
+
 #
 # resource handlers
 #
@@ -1228,18 +1212,58 @@ def register_resource_handlers():
     import skeleton_resources
     import animation_resources
     import collision_resources
+    import dlist_resources
 
     def skeleton_resource_handler(
         file: File,
         resource_elem: ElementTree.Element,
         offset: int,
     ):
-        if resource_elem.attrib["Type"] != "Normal":
+        # TODO clean up and make proper
+        limb_type = resource_elem.attrib["LimbType"]
+        if limb_type == "Standard":
+            pass
+        elif limb_type == "LOD":
+            # TODO
+            assert resource_elem.attrib["Type"] == "Normal"
+            return BinaryBlobResource(
+                file, offset, offset + 0x10, resource_elem.attrib["Name"]
+            )
+        else:
+            raise NotImplementedError(
+                "unimplemented Skeleton LimbType",
+                resource_elem.attrib.get("LimbType"),
+            )
+
+        if resource_elem.attrib["Type"] == "Normal":
+            return skeleton_resources.SkeletonNormalResource(
+                file,
+                offset,
+                resource_elem.attrib["Name"],
+            )
+        elif resource_elem.attrib["Type"] == "Flex":
+            return skeleton_resources.SkeletonFlexResource(
+                file,
+                offset,
+                resource_elem.attrib["Name"],
+            )
+        else:
             raise NotImplementedError(
                 "unimplemented Skeleton Type",
                 resource_elem.attrib["Type"],
             )
-        return skeleton_resources.SkeletonNormalResource(
+
+    def limb_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        if resource_elem.attrib["LimbType"] != "Standard":
+            raise NotImplementedError(
+                "unimplemented Limb Type",
+                resource_elem.attrib["LimbType"],
+            )
+        return skeleton_resources.StandardLimbResource(
             file,
             offset,
             resource_elem.attrib["Name"],
@@ -1267,11 +1291,119 @@ def register_resource_handlers():
             resource_elem.attrib["Name"],
         )
 
+    def dlist_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        return dlist_resources.DListResource(
+            file,
+            offset,
+            resource_elem.attrib["Name"],
+        )
+
+    def texture_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        # TODO use OutName, TlutOffset
+        format_str = resource_elem.attrib["Format"]
+        width_str = resource_elem.attrib["Width"]
+        height_str = resource_elem.attrib["Height"]
+
+        format_matches = [
+            (fmt, siz)
+            for fmt in dlist_resources.G_IM_FMT
+            for siz in dlist_resources.G_IM_SIZ
+            if format_str.lower() == f"{fmt.name.lower()}{siz.bpp}"
+        ]
+        if len(format_matches) != 1:
+            raise ValueError(format_str, format_matches)
+        format_fmt, format_siz = format_matches[0]
+
+        width = int(width_str)
+        height = int(height_str)
+
+        return dlist_resources.TextureResource(
+            file,
+            offset,
+            resource_elem.attrib["Name"],
+            format_fmt,
+            format_siz,
+            width,
+            height,
+        )
+
+    def PlayerAnimationData_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        frame_count_str = resource_elem.attrib["FrameCount"]
+        frame_count = int(frame_count_str)
+        size = frame_count * (22 * 3 + 1) * 2
+        return BinaryBlobResource(
+            file,
+            offset,
+            offset + size,
+            resource_elem.attrib["Name"],
+        )
+        # TODO
+        return skeleton_resources.PlayerAnimationDataResource(
+            file,
+            offset,
+            resource_elem.attrib["Name"],
+            resource_elem.attrib["FrameCount"],
+        )
+
+    def array_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        # TODO clean up (the asserts)
+        count_str = resource_elem.attrib["Count"]
+        count = int(count_str)
+        assert count > 0
+        if len(resource_elem) != 1:
+            raise Exception(
+                "Expected exactly one child of Array node",
+                resource_elem,
+                len(resource_elem),
+            )
+        elem_elem = resource_elem[0]
+        if elem_elem.tag == "Vector":
+            elem_type = elem_elem.attrib["Type"]
+            assert elem_type == "s16"
+            elem_dim_str = elem_elem.attrib["Dimensions"]
+            elem_dim = int(elem_dim_str)
+            assert elem_dim == 3
+            return Vec3sArrayResource(file, offset, resource_elem.attrib["Name"], count)
+        elif elem_elem.tag == "Vtx":
+            return dlist_resources.VtxArrayResource(
+                file,
+                offset,
+                offset
+                + count * dlist_resources.VtxArrayResource.element_cdata_ext.size,
+                resource_elem.attrib["Name"],
+            )
+        else:
+            raise NotImplementedError("Array of", elem_elem.tag)
+
     RESOURCE_HANDLERS.update(
         {
             "Skeleton": skeleton_resource_handler,
+            "Limb": limb_resource_handler,
             "Animation": animation_resource_handler,
             "Collision": collision_resource_handler,
+            "DList": dlist_resource_handler,
+            "Texture": texture_resource_handler,
+            "PlayerAnimationData": PlayerAnimationData_handler,
+            "Array": array_resource_handler,
+            "PlayerAnimation": BinaryBlobResource.get_fixed_size_resource_handler(
+                8
+            ),  # TODO
         }
     )
 
@@ -1307,6 +1439,7 @@ def get_resource_from_xml(
 #
 
 # "options"
+VERBOSE1 = False
 RM_SOURCE = True
 WRITE_SOURCE = True
 RM_EXTRACT = True
@@ -1318,13 +1451,107 @@ BASEROM_PATH = Path("baserom")
 BUILD_PATH = Path("build")
 
 
-def main():
+# 0) load the file data bytes
+def xml_to_file_step0(memory_context: MemoryContext, file_elem: ElementTree.Element):
 
-    register_resource_handlers()
+    file_name = file_elem.attrib.get("Name")
 
-    xml_path = Path("assets/xml/objects/object_am.xml")
-    source_path = Path("assets/objects/object_am/")
-    extract_path = Path("assets/_extracted/objects/object_am/")
+    if file_name is None:
+        raise Exception("file_name is None")
+
+    file_bytes = memoryview((BASEROM_PATH / file_name).read_bytes())
+
+    file = File(memory_context, file_name, file_bytes)
+
+    # TODO not sure if this is the right place to set the segment,
+    # maybe it should be more external
+    segment_str = file_elem.attrib.get("Segment")
+    if segment_str is not None:
+        segment = int(segment_str)
+        memory_context.set_segment(segment, file)
+
+    return file
+
+
+# 1) read resources as described from the xml
+def xml_to_file_step1(file_elem: ElementTree.Element, file: File):
+
+    prev_resource = None
+
+    for resource_elem in file_elem:
+
+        if prev_resource is not None:
+            default_offset = prev_resource.range_end
+        else:
+            default_offset = None
+
+        resource = get_resource_from_xml(file, resource_elem, default_offset)
+
+        file.add_resource(resource)
+
+        prev_resource = resource
+
+    if VERBOSE1:
+        print(file)
+        print(file.name, file.resources)
+
+    file.sort_resources()
+    file.check_overlapping_resources()
+
+
+# 2) parse: iteratively discover and parse data
+# (discover = add resources, parse = make friendlier than binary)
+def xml_to_file_step2(file: File):
+
+    file.parse_resources_data()
+
+    # FIXME : bad code, shouldn't be here
+
+    # also actually this won't play well with manually defined vtx arrays
+    # probably can't merge the vbuf refs so quick
+
+    for (
+        resource_type,
+        resource_buffer_markers,
+    ) in file.memory_context.resource_buffer_markers_by_resource_type.items():
+        if VERBOSE1:
+            print(resource_type, resource_buffer_markers)
+        for rbm in resource_buffer_markers:
+            file.memory_context.report_resource_at_segmented(
+                rbm.start,
+                lambda file, offset: resource_type(
+                    file, offset, offset + rbm.end - rbm.start, rbm.name
+                ),
+            )
+
+    file.parse_resources_data()
+
+    # end bad code
+
+    file.sort_resources()
+    file.check_overlapping_resources()
+
+
+# 3) add dummy (binary) resources for the unaccounted gaps
+def xml_to_file_step3(file: File):
+
+    file.add_unaccounted_resources()
+
+    file.parse_resources_data()  # FIXME this is to set is_data_parsed=True on binary blob unaccounteds, handle better
+
+    file.sort_resources()
+    assert not file.get_overlapping_resources()
+
+    # done loading this file
+
+    if VERBOSE1:
+        pprint(file.resources)
+
+
+def extract_object(object_name):
+    top_xml_path = Path(f"assets/xml/objects/{object_name}.xml")
+    source_path = Path(f"assets/objects/{object_name}/")
+    extract_path = Path(f"assets/_extracted/objects/{object_name}/")
 
     memory_context = MemoryContext()  # TODO
 
@@ -1344,22 +1571,61 @@ def main():
             # (due to include path having build/ and ./ )
             shutil.rmtree(BUILD_PATH / extract_path)
 
-    with xml_path.open() as f:
-        xml = ElementTree.parse(f)
+    def mainxml_wrap_steps01(xml_path: Path):
 
-    root_elem = xml.getroot()
+        with xml_path.open() as f:
+            xml = ElementTree.parse(f)
 
-    assert root_elem.tag == "Root", root_elem.tag
+        root_elem = xml.getroot()
 
-    for file_elem in root_elem:
-        assert file_elem.tag == "File", file_elem.tag
+        assert root_elem.tag == "Root", root_elem.tag
 
-        file = File.from_xml(memory_context, file_elem)
+        files_to_do_stuff_with: list[File] = []
+
+        for file_elem in root_elem:
+            if file_elem.tag == "ExternalFile":
+                external_xml = file_elem.attrib["XmlPath"]
+                external_out_path = file_elem.attrib["OutPath"]
+                # TODO what with OutPath?
+                mainxml_wrap_steps01(Path("assets/xml") / external_xml)
+                continue
+
+            assert file_elem.tag == "File", file_elem.tag
+
+            # start previously File.from_xml
+            # (some stuff changed too and split into xml_to_file_)
+
+            file = xml_to_file_step0(memory_context, file_elem)
+
+            xml_to_file_step1(file_elem, file)
+
+            # TODO step 1) should be done on several files if
+            # there are several in the context, to have the
+            # memory_context ready before going to step 2
+            # -> this means this function should be split by step
+            #     (or the steps moved at the memorycontext level but hmm)
+            # this todo also applies to parsing data, that should be done
+            # iteratively across all files at once instead of one file at a time
+            files_to_do_stuff_with.append(file)
+
+        return files_to_do_stuff_with
+
+    top_files_to_do_stuff_with = mainxml_wrap_steps01(top_xml_path)
+
+    # solves the above TODO about step 1 and splitting by step, maybe
+    for file in top_files_to_do_stuff_with:
+
+        xml_to_file_step2(file)
+
+        xml_to_file_step3(file)
+
+        # end previously File.from_xml
 
         extract_path.mkdir(parents=True, exist_ok=True)
         file.set_resources_paths(extract_path, BUILD_PATH)
 
-        print(file.str_report())
+        if VERBOSE1:
+            print(file.str_report())
 
         if WRITE_EXTRACT:
             file.write_resources_extracted()
@@ -1368,3 +1634,11 @@ def main():
             source_path.mkdir(parents=True, exist_ok=True)
 
             file.write_source(source_path)
+
+
+def main():
+
+    register_resource_handlers()
+
+    object_name = "gameplay_keep"
+    extract_object(object_name)

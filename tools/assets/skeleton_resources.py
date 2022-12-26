@@ -123,7 +123,9 @@ class SkeletonNormalResource(CDataResource):
         )
         assert isinstance(limbs_resource, LimbsArrayResource)
         assert limbs_resource.range_start == limbs_offset
-        limbs_resource.length = resource.cdata_unpacked["limbCount"]
+        limbs_resource.length = resource.get_skeleton_header_cdata_unpacked()[
+            "limbCount"
+        ]
 
     def write_segment(resource, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, int)
@@ -136,7 +138,7 @@ class SkeletonNormalResource(CDataResource):
         f.write(line_prefix)
         f.write(
             resource.file.memory_context.get_c_expression_length_at_segmented(
-                resource.cdata_unpacked["segment"]
+                resource.get_skeleton_header_cdata_unpacked()["segment"]
             )
         )
         return True
@@ -156,6 +158,9 @@ class SkeletonNormalResource(CDataResource):
         )
     )
 
+    def get_skeleton_header_cdata_unpacked(self):
+        return self.cdata_unpacked
+
     def get_c_reference(self, resource_offset: int):
         if resource_offset == 0:
             return f"&{self.symbol_name}"
@@ -164,3 +169,26 @@ class SkeletonNormalResource(CDataResource):
 
     def get_c_declaration_base(self):
         return f"SkeletonHeader {self.symbol_name}"
+
+
+class SkeletonFlexResource(CDataResource):
+    cdata_ext = CDataExt_Struct(
+        (
+            ("sh", SkeletonNormalResource.cdata_ext),
+            ("dListCount", CDataExt_Value.u8),
+            ("pad9", CDataExt_Value.pad8),
+            ("pad10", CDataExt_Value.pad16),
+        )
+    )
+
+    def get_skeleton_header_cdata_unpacked(self):
+        return self.cdata_unpacked["sh"]
+
+    def get_c_reference(self, resource_offset: int):
+        if resource_offset == 0:
+            return f"&{self.symbol_name}"
+        else:
+            raise ValueError()
+
+    def get_c_declaration_base(self):
+        return f"FlexSkeletonHeader {self.symbol_name}"
