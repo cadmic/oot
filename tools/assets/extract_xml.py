@@ -422,30 +422,27 @@ class File:
         for i in range(1, len(self.resources)):
             resource_a = self.resources[i - 1]
 
-            for j in range(i, len(self.resources)):
-                resource_b = self.resources[j]
+            if resource_a.range_end is not None:
+                for j in range(i, len(self.resources)):
+                    resource_b = self.resources[j]
 
-                # This should hold true, as resources are sorted
-                assert resource_a.range_start <= resource_b.range_start
+                    # This should hold true, as resources are sorted
+                    assert resource_a.range_start <= resource_b.range_start
 
-                overlap = False
-
-                if resource_a.range_end is None:
-                    if resource_b.range_end is None:
-                        pass
+                    if resource_a.range_end > resource_b.range_start:
+                        overlaps.append((resource_a, resource_b))
                     else:
-                        if resource_a.range_start < resource_b.range_start:
-                            pass
-                        else:
-                            overlap = True
-                else:
-                    if resource_a.range_end <= resource_b.range_start:
-                        pass
-                    else:
-                        overlap = True
+                        break
+            else:
+                for j in range(i, len(self.resources)):
+                    resource_b = self.resources[j]
 
-                if overlap:
-                    overlaps.append((resource_a, resource_b))
+                    assert resource_a.range_start <= resource_b.range_start
+
+                    if resource_a.range_start == resource_b.range_start:
+                        overlaps.append((resource_a, resource_b))
+                    else:
+                        break
 
         return overlaps
 
