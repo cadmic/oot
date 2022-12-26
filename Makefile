@@ -176,7 +176,8 @@ O_FILES       := $(foreach f,$(S_FILES:.s=.o),build/$f) \
 
 OVL_RELOC_FILES := $(shell $(CPP) $(CPPFLAGS) $(SPEC) | grep -o '[^"]*_reloc.o' )
 
-DRAGONEW_objects_names := object_am object_ane object_ani object_anubice gameplay_keep
+DRAGONEW_objects_xmls := $(shell find assets/xml/objects/ -name '*.xml')
+DRAGONEW_objects_names := $(notdir $(DRAGONEW_objects_xmls:.xml=))
 DRAGONEW_C_FILES := $(foreach f,$(DRAGONEW_objects_names),assets/objects/$f/$f.c)
 DRAGONEW_O_FILES := $(foreach f,$(DRAGONEW_C_FILES:.c=.o),build/$f)
 DRAGONEW_BIN_FILES := $(foreach f,$(DRAGONEW_objects_names),$(shell find assets/_extracted/objects/$f/ -name '*.bin'))
@@ -297,7 +298,16 @@ $(ELF): $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES) $(TEXTURE_FILES_OUT) $(ASSET
 build/%.u8.inc.c: %.u8.bin
 	./tools/assets/bin_to_u8.py $< $@
 
+build/%.u32.inc.c: %.u32.bin
+	./tools/assets/bin_to_u32.py $< $@
+
 build/%.u64.inc.c: %.u64.bin
+	./tools/assets/bin_to_u64.py $< $@
+
+build/%.u32.inc.c: build/%.u32.bin
+	./tools/assets/bin_to_u32.py $< $@
+
+build/%.u64.inc.c: build/%.u64.bin
 	./tools/assets/bin_to_u64.py $< $@
 
 DRAGONEW_o_files: $(foreach f,$(DRAGONEW_INC_C_FILES),$(if $(wildcard f),,$f))
@@ -376,8 +386,6 @@ build/src/overlays/%_reloc.o: build/$(SPEC)
 #	$(ZAPD) btex -eh -tt $(subst .,,$(suffix $*)) -i $< -o $@
 build/assets/_extracted/%.bin: assets/_extracted/%.png
 	tools/assets/build_from_png.py $< $@
-build/assets/_extracted/%.inc.c: build/assets/_extracted/%.bin
-	./tools/assets/bin_to_u64.py $< $@
 
 build/assets/%.bin.inc.c: assets/%.bin
 	$(ZAPD) bblb -eh -i $< -o $@

@@ -10,7 +10,7 @@
 
         <Texture Name="gMoriStalfosPlatformSideTex" OutName="stalfos_platform_side" Format="rgba16" Height="32" Width="64" Offset="0x3200"/>
         <Texture Name="gMoriStalfosPlatformTopTex" OutName="stalfos_platform_top" Format="rgba16" Height="32" Width="32" Offset="0x4200"/>
-
+        <!-- missing texture resource @ 0x4C00 I guess (referenced in gMoriIdomizuWaterDL) -->
         <Texture Name="gMoriHashiraPlatformsTex" OutName="hashira_platform" Format="rgba16" Height="32" Width="32" Offset="0x4A00"/>
 
         <!-- This is just a guess since its unused -->

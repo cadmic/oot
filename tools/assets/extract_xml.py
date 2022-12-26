@@ -589,7 +589,13 @@ class File:
                 print("Couldn't write extracted resource", resource)
                 raise
 
-    def write_source(self, source_path: Path):
+    def write_source(
+        self,
+        source_path: Path,
+        additional_includes: list[
+            str
+        ],  # TODO see todo on what gets passed as this, this needs cleanup/thinking
+    ):
         file_name = self.name
 
         with (source_path / f"{file_name}.c").open("w") as c:
@@ -602,6 +608,8 @@ class File:
                 )
 
                 c.writelines(headers_includes)
+                if additional_includes:
+                    c.writelines(f'#include "{p}"\n' for p in additional_includes)
                 c.write(f'#include "{file_name}.h"\n')
                 c.write("\n")
 
@@ -1225,9 +1233,35 @@ def register_resource_handlers():
             pass
         elif limb_type == "LOD":
             # TODO
+            if resource_elem.attrib["Type"] == "Normal":
+                # } SkeletonHeader; // size = 0x8
+                return BinaryBlobResource(
+                    file, offset, offset + 0x8, resource_elem.attrib["Name"]
+                )
+            elif resource_elem.attrib["Type"] == "Flex":
+                # } FlexSkeletonHeader; // size = 0xC
+                return BinaryBlobResource(
+                    file, offset, offset + 0xC, resource_elem.attrib["Name"]
+                )
+            else:
+                raise NotImplementedError(
+                    "LimbType=LOD",
+                    "unimplemented Skeleton Type",
+                    resource_elem.attrib.get("Type"),
+                )
+        elif limb_type == "Skin":
+            # TODO
             assert resource_elem.attrib["Type"] == "Normal"
+            # } SkeletonHeader; // size = 0x8
             return BinaryBlobResource(
-                file, offset, offset + 0x10, resource_elem.attrib["Name"]
+                file, offset, offset + 0x8, resource_elem.attrib["Name"]
+            )
+        elif limb_type == "Curve":
+            # TODO
+            assert resource_elem.attrib["Type"] == "Curve"
+            # } CurveSkeletonHeader; // size = 0x8
+            return BinaryBlobResource(
+                file, offset, offset + 0x8, resource_elem.attrib["Name"]
             )
         else:
             raise NotImplementedError(
@@ -1258,16 +1292,32 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
-        if resource_elem.attrib["LimbType"] != "Standard":
+        if resource_elem.attrib["LimbType"] == "Standard":
+            return skeleton_resources.StandardLimbResource(
+                file,
+                offset,
+                resource_elem.attrib["Name"],
+            )
+        elif resource_elem.attrib["LimbType"] == "Skin":
+            # } SkinLimb; // size = 0x10
+            return BinaryBlobResource(
+                file, offset, offset + 0x10, resource_elem.attrib["Name"]
+            )
+        elif resource_elem.attrib["LimbType"] == "LOD":
+            # } LodLimb; // size = 0x10
+            return BinaryBlobResource(
+                file, offset, offset + 0x10, resource_elem.attrib["Name"]
+            )
+        elif resource_elem.attrib["LimbType"] == "Legacy":
+            # } LegacyLimb; // size = 0x20
+            return BinaryBlobResource(
+                file, offset, offset + 0x20, resource_elem.attrib["Name"]
+            )
+        else:
             raise NotImplementedError(
                 "unimplemented Limb Type",
                 resource_elem.attrib["LimbType"],
             )
-        return skeleton_resources.StandardLimbResource(
-            file,
-            offset,
-            resource_elem.attrib["Name"],
-        )
 
     def animation_resource_handler(
         file: File,
@@ -1391,6 +1441,20 @@ def register_resource_handlers():
         else:
             raise NotImplementedError("Array of", elem_elem.tag)
 
+    def binary_blob_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        size_str = resource_elem.attrib["Size"]
+        size = int(size_str, 16)
+        return BinaryBlobResource(
+            file,
+            offset,
+            offset + size,
+            resource_elem.attrib["Name"],
+        )
+
     RESOURCE_HANDLERS.update(
         {
             "Skeleton": skeleton_resource_handler,
@@ -1403,6 +1467,22 @@ def register_resource_handlers():
             "Array": array_resource_handler,
             "PlayerAnimation": BinaryBlobResource.get_fixed_size_resource_handler(
                 8
+            ),  # TODO
+            "Blob": binary_blob_resource_handler,
+            "Mtx": BinaryBlobResource.get_fixed_size_resource_handler(
+                # I assume Mtx and not MtxF, but would be the same size in bytes anyway
+                (4 * 4 * 2 * 2)
+            ),  # TODO
+            "LegacyAnimation": BinaryBlobResource.get_fixed_size_resource_handler(
+                0xC
+            ),  # TODO
+            "LimbTable": BinaryBlobResource.get_fixed_size_resource_handler(
+                # idk, probably an array
+                4
+            ),  # TODO
+            "CurveAnimation": BinaryBlobResource.get_fixed_size_resource_handler(
+                # } CurveAnimationHeader; // size = 0x10
+                0x10
             ),  # TODO
         }
     )
@@ -1581,6 +1661,9 @@ def extract_object(object_name):
         assert root_elem.tag == "Root", root_elem.tag
 
         files_to_do_stuff_with: list[File] = []
+        external_files_to_include = (
+            []
+        )  # TODO figure out how to properly handle building paths to .h files
 
         for file_elem in root_elem:
             if file_elem.tag == "ExternalFile":
@@ -1588,6 +1671,10 @@ def extract_object(object_name):
                 external_out_path = file_elem.attrib["OutPath"]
                 # TODO what with OutPath?
                 mainxml_wrap_steps01(Path("assets/xml") / external_xml)
+
+                external_files_to_include.append(
+                    str(Path(external_out_path) / Path(external_xml).stem) + ".h"
+                )
                 continue
 
             assert file_elem.tag == "File", file_elem.tag
@@ -1608,9 +1695,11 @@ def extract_object(object_name):
             # iteratively across all files at once instead of one file at a time
             files_to_do_stuff_with.append(file)
 
-        return files_to_do_stuff_with
+        return files_to_do_stuff_with, external_files_to_include
 
-    top_files_to_do_stuff_with = mainxml_wrap_steps01(top_xml_path)
+    top_files_to_do_stuff_with, top_external_files_to_include = mainxml_wrap_steps01(
+        top_xml_path
+    )
 
     # solves the above TODO about step 1 and splitting by step, maybe
     for file in top_files_to_do_stuff_with:
@@ -1633,12 +1722,23 @@ def extract_object(object_name):
         if WRITE_SOURCE:
             source_path.mkdir(parents=True, exist_ok=True)
 
-            file.write_source(source_path)
+            file.write_source(
+                source_path, additional_includes=top_external_files_to_include
+            )
 
 
 def main():
 
     register_resource_handlers()
 
-    object_name = "gameplay_keep"
-    extract_object(object_name)
+    if False:
+        for object_name in ["gameplay_keep"]:
+            extract_object(object_name)
+
+    if True:
+        xmls = list(Path("assets/xml/objects/").glob("*.xml"))
+        # xmls = xmls[250:]
+        for i, object_xml in enumerate(xmls):
+            object_name = object_xml.stem
+            print(f"{i:4} / {len(xmls)}", round(i / len(xmls) * 100), object_name)
+            extract_object(object_name)

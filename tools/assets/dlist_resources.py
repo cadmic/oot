@@ -171,7 +171,9 @@ class TextureResource(Resource):
         self.height = height
 
         if size_bytes % 8 == 0 and range_start % 8 == 0:
-            pass
+            self.alignment = 8
+        elif size_bytes % 4 == 0 and range_start % 4 == 0:
+            self.alignment = 4
         else:
             raise NotImplementedError(
                 "unimplemented: unaligned texture size/offset",
@@ -179,22 +181,27 @@ class TextureResource(Resource):
                 hex(range_start),
             )
 
+        alignment_bits = self.alignment * 8
+        self.elem_type = f"u{alignment_bits}"
+        assert self.elem_type in {"u64", "u32"}
+
         self.width_name = f"{self.symbol_name}_WIDTH"
         self.height_name = f"{self.symbol_name}_HEIGHT"
 
     def get_filename_stem(self):
         return (
-            super().get_filename_stem() + f".{self.fmt.name.lower()}{self.siz.bpp}.u64"
+            super().get_filename_stem()
+            + f".{self.fmt.name.lower()}{self.siz.bpp}.{self.elem_type}"
         )
 
     def get_c_declaration_base(self):
-        return f"u64 {self.symbol_name}[]"
+        return f"{self.elem_type} {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
         if resource_offset == 0:
             return self.symbol_name
         else:
-            raise ValueError()
+            raise ValueError(self, hex(resource_offset))
 
     def try_parse_data(self):
         # Nothing to do
@@ -203,6 +210,10 @@ class TextureResource(Resource):
     def write_extracted(self) -> None:
         data = self.file.data[self.range_start : self.range_end]
         assert len(data) == self.range_end - self.range_start
+        if self.fmt == G_IM_FMT.CI:
+            # TODO
+            self.extract_to_path.with_suffix(".bin").write_bytes(data)
+            return
         write_n64_image_to_png(
             self.extract_to_path, self.width, self.height, self.fmt, self.siz, data
         )
@@ -597,6 +608,13 @@ class DListResource(Resource, can_size_be_unknown=True):
                 timg_c_ref = self.file.memory_context.get_c_reference_at_segmented(timg)
             except NoSegmentBaseError:
                 timg_c_ref = None
+            except ValueError:
+                # TODO handle better once I know why this even happens
+                import traceback
+
+                traceback.print_exc()
+                pygfxd.gfxd_puts("/* BAD TIMG REF */")
+                return 0
             if timg_c_ref:
                 pygfxd.gfxd_puts(timg_c_ref)
                 return 1

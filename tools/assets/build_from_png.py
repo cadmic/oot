@@ -48,7 +48,7 @@ suffixes = png_path.suffixes
 assert len(suffixes) >= 2
 assert suffixes[-1] == ".png"
 suffixes.pop()
-if suffixes[-1] == ".u64":
+if suffixes[-1] in {".u64", ".u32"}:
     suffixes.pop()
 assert len(suffixes) > 0
 fmtsiz_str = suffixes[-1].removeprefix(".")

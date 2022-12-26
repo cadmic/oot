@@ -74,9 +74,12 @@
             <Vtx/>
         </Array>
 
+        <!--
+        TODO421: uncomment once the buffer marker mechanism supports part of marked buffers to be existing resources
         <Array Name="gMorphaVtx_007BB8" Count="4" Offset="0x7BB8">
             <Vtx/>
         </Array>
+        -->
 
     </File>
 </Root>
