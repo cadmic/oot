@@ -297,19 +297,16 @@ $(ELF): $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES) $(TEXTURE_FILES_OUT) $(ASSET
 	$(LD) -T build/undefined_syms.txt -T build/ldscript.txt --no-check-sections --accept-unknown-input-arch --emit-relocs -Map build/z64.map -o $@
 
 build/%.u8.inc.c: %.u8.bin
-	tools/assets/bin2c/bin2c u8 <$< >$@
+	@echo // From file://`realpath $<` >$@
+	tools/assets/bin2c/bin2c u8 <$< >>$@
 
 build/%.u32.inc.c: %.u32.bin
-	tools/assets/bin2c/bin2c u32 <$< >$@
+	@echo // From file://`realpath $<` >$@
+	tools/assets/bin2c/bin2c u32 <$< >>$@
 
 build/%.u64.inc.c: %.u64.bin
-	tools/assets/bin2c/bin2c u64 <$< >$@
-
-build/%.u32.inc.c: build/%.u32.bin
-	tools/assets/bin2c/bin2c u32 <$< >$@
-
-build/%.u64.inc.c: build/%.u64.bin
-	tools/assets/bin2c/bin2c u64 <$< >$@
+	@echo // From file://`realpath $<` >$@
+	tools/assets/bin2c/bin2c u64 <$< >>$@
 
 DRAGONEW_o_files: $(foreach f,$(DRAGONEW_INC_C_FILES),$(if $(wildcard f),,$f))
 $(DRAGONEW_O_FILES): | DRAGONEW_o_files
@@ -383,7 +380,14 @@ build/src/overlays/%_reloc.o: build/$(SPEC)
 	$(FADO) $$(tools/reloc_prereq $< $(notdir $*)) -n $(notdir $*) -o $(@:.o=.s) -M $(@:.o=.d)
 	$(AS) $(ASFLAGS) $(@:.o=.s) -o $@
 
-build/assets/_extracted/%.bin: assets/_extracted/%.png
-	tools/assets/build_from_png.py $< $@
+build/%.u32.inc.c: %.u32.png
+	tools/assets/build_from_png.py $< $(@:.inc.c=.bin)
+	@echo // From file://`realpath $<` >$@
+	tools/assets/bin2c/bin2c u32 <$(@:.inc.c=.bin) >>$@
+
+build/%.u64.inc.c: %.u64.png
+	tools/assets/build_from_png.py $< $(@:.inc.c=.bin)
+	@echo // From file://`realpath $<` >$@
+	tools/assets/bin2c/bin2c u64 <$(@:.inc.c=.bin) >>$@
 
 -include $(DEP_FILES)
