@@ -5,14 +5,14 @@ import io
 
 from typing import Union, Optional, Callable
 
-from extract_xml import (
+from extase import (
     SegmentedAddressResolution,
     GetResourceAtResult,
     NoSegmentBaseError,
     Resource,
     File,
 )
-from cdata_resources import (
+from extase.cdata_resources import (
     CDataResource,
     CDataExt_Array,
     CDataExt_Struct,

@@ -2,7 +2,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 from pprint import pprint
 
-from extract_xml import MemoryContext, File
+from extase import MemoryContext, File
 
 import z64_resource_handlers
 

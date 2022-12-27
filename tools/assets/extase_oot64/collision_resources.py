@@ -1,11 +1,11 @@
 import io
 
-from extract_xml import (
+from extase import (
     SegmentedAddressResolution,
     GetResourceAtResult,
     File,
 )
-from cdata_resources import (
+from extase.cdata_resources import (
     CDataResource,
     CDataExt_Struct,
     CDataExt_Array,

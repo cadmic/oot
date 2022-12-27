@@ -1,16 +1,16 @@
 import io
 
-from extract_xml import (
+from extase import (
     File,
 )
-from cdata_resources import (
+from extase.cdata_resources import (
     CDataResource,
     CDataExt_Value,
     CDataExt_Struct,
     CDataExt_Array,
 )
 
-from dlist_resources import DListResource
+from extase_oot64.dlist_resources import DListResource
 
 
 Vec3s = CDataExt_Struct(

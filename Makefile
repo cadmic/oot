@@ -176,16 +176,15 @@ O_FILES       := $(foreach f,$(S_FILES:.s=.o),build/$f) \
 
 OVL_RELOC_FILES := $(shell $(CPP) $(CPPFLAGS) $(SPEC) | grep -o '[^"]*_reloc.o' )
 
-DRAGONEW_objects_xmls := $(shell find assets/xml/objects/ -name '*.xml')
-DRAGONEW_objects_names := $(notdir $(DRAGONEW_objects_xmls:.xml=))
-DRAGONEW_C_FILES := $(foreach f,$(DRAGONEW_objects_names),assets/objects/$f/$f.c)
+DRAGONEW_C_FILES := $(shell find assets/objects/ -name '*.c')
 DRAGONEW_O_FILES := $(foreach f,$(DRAGONEW_C_FILES:.c=.o),build/$f)
-DRAGONEW_BIN_FILES := $(foreach f,$(DRAGONEW_objects_names),$(shell find assets/_extracted/objects/$f/ -name '*.bin'))
-DRAGONEW_PNG_FILES := $(foreach f,$(DRAGONEW_objects_names),$(shell find assets/_extracted/objects/$f/ -name '*.png'))
+DRAGONEW_BIN_FILES := $(shell find assets/_extracted/objects/ -name '*.bin')
+DRAGONEW_PNG_FILES := $(shell find assets/_extracted/objects/ -name '*.png')
 DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c),build/$f) $(foreach f,$(DRAGONEW_PNG_FILES:.png=.inc.c),build/$f)
 DRAGONEW_DEPS := $(DRAGONEW_O_FILES:.o=.d)
 
-$(shell mkdir --parents $(dir $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES)))
+$(file > build/mkdir.txt,$(sort $(dir $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES))))
+$(shell xargs mkdir --parents < build/mkdir.txt)
 
 # Automatic dependency files
 # (Only partially handled for now)
@@ -201,7 +200,8 @@ TEXTURE_FILES_OUT := $(foreach f,$(TEXTURE_FILES_PNG:.png=.inc.c),build/$f) \
 					 $(foreach f,$(TEXTURE_FILES_JPG:.jpg=.jpg.inc.c),build/$f) \
 
 # create build directories
-$(shell mkdir -p build/baserom build/assets/text $(foreach dir,$(SRC_DIRS) $(UNDECOMPILED_DATA_DIRS) $(ASSET_BIN_DIRS),build/$(dir)))
+$(file > build/mkdir.txt,build/baserom build/assets/text $(foreach dir,$(sort $(SRC_DIRS) $(UNDECOMPILED_DATA_DIRS) $(ASSET_BIN_DIRS)),build/$(dir)))
+$(shell xargs mkdir --parents < build/mkdir.txt)
 
 ifeq ($(COMPILER),ido)
 build/src/code/fault.o: CFLAGS += -trapuv
