@@ -1,7 +1,6 @@
 import io
 
 from extract_xml import (
-    Resource,
     File,
 )
 from cdata_resources import (

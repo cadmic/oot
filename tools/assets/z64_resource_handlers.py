@@ -20,6 +20,7 @@ def resource_handler(
 del resource_handler
 ResourceHandler = Callable[[File, ElementTree.Element, int], Resource]
 
+
 def get_fixed_size_resource_handler(size) -> ResourceHandler:
     def resource_handler(
         file: File,
@@ -41,6 +42,7 @@ def register_resource_handlers():
     # import in a function to avoid circular imports
     # even if Python can somewhat deal with circular imports, it still causes issues
     # with classes being defined twice
+    # TODO revisit this, the situation may have changed after splitting the code
 
     import skeleton_resources
     import animation_resources
@@ -290,17 +292,13 @@ def register_resource_handlers():
             "Texture": texture_resource_handler,
             "PlayerAnimationData": PlayerAnimationData_handler,
             "Array": array_resource_handler,
-            "PlayerAnimation": get_fixed_size_resource_handler(
-                8
-            ),  # TODO
+            "PlayerAnimation": get_fixed_size_resource_handler(8),  # TODO
             "Blob": binary_blob_resource_handler,
             "Mtx": get_fixed_size_resource_handler(
                 # I assume Mtx and not MtxF, but would be the same size in bytes anyway
                 (4 * 4 * 2 * 2)
             ),  # TODO
-            "LegacyAnimation": get_fixed_size_resource_handler(
-                0xC
-            ),  # TODO
+            "LegacyAnimation": get_fixed_size_resource_handler(0xC),  # TODO
             "LimbTable": get_fixed_size_resource_handler(
                 # idk, probably an array
                 4
