@@ -160,9 +160,6 @@ endif
 ASSET_BIN_DIRS := $(shell find assets/* -type d -not -path "assets/xml*" -not -path "assets/text")
 ASSET_FILES_XML := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.xml))
 ASSET_FILES_BIN := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.bin))
-ASSET_FILES_OUT := $(foreach f,$(ASSET_FILES_XML:.xml=.c),$f) \
-				   $(foreach f,$(ASSET_FILES_BIN:.bin=.bin.inc.c),build/$f) \
-				   $(foreach f,$(wildcard assets/text/*.c),build/$(f:.c=.o))
 
 UNDECOMPILED_DATA_DIRS := $(shell find data -type d)
 
@@ -193,10 +190,15 @@ DEP_FILES := $(O_FILES:.o=.asmproc.d) $(OVL_RELOC_FILES:.o=.d) $(DRAGONEW_DEPS)
 TEXTURE_FILES_PNG := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.png))
 
 TEXTURE_FILES_PNG := $(filter-out $(DRAGONEW_PNG_FILES),$(TEXTURE_FILES_PNG))
+ASSET_FILES_BIN := $(filter-out $(DRAGONEW_BIN_FILES),$(ASSET_FILES_BIN))
 
 TEXTURE_FILES_JPG := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.jpg))
 TEXTURE_FILES_OUT := $(foreach f,$(TEXTURE_FILES_PNG:.png=.inc.c),build/$f) \
 					 $(foreach f,$(TEXTURE_FILES_JPG:.jpg=.jpg.inc.c),build/$f) \
+
+ASSET_FILES_OUT := $(foreach f,$(ASSET_FILES_XML:.xml=.c),$f) \
+				   $(foreach f,$(ASSET_FILES_BIN:.bin=.bin.inc.c),build/$f) \
+				   $(foreach f,$(wildcard assets/text/*.c),build/$(f:.c=.o))
 
 # create build directories
 $(file > build/mkdir.txt,build/baserom build/assets/text $(foreach dir,$(sort $(SRC_DIRS) $(UNDECOMPILED_DATA_DIRS) $(ASSET_BIN_DIRS)),build/$(dir)))
