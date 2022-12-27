@@ -3,6 +3,8 @@ import io
 from extract_xml import (
     Resource,
     File,
+)
+from cdata_resources import (
     CDataResource,
     CDataExt_Value,
     CDataExt_Struct,

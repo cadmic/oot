@@ -4,6 +4,8 @@ from extract_xml import (
     SegmentedAddressResolution,
     GetResourceAtResult,
     File,
+)
+from cdata_resources import (
     CDataResource,
     CDataExt_Struct,
     CDataExt_Array,

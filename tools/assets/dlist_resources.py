@@ -10,7 +10,8 @@ from extract_xml import (
     GetResourceAtResult,
     NoSegmentBaseError,
     Resource,
-    File,
+    File,)
+from cdata_resources import (
     CDataResource,
     CDataExt_Array,
     CDataExt_Struct,
