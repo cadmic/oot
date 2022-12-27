@@ -18,12 +18,10 @@ ifneq ($(LLD),0)
 endif
 
 all: $(PROGRAMS)
-	$(MAKE) -C ZAPD
 	$(MAKE) -C fado
 
 clean:
 	$(RM) $(PROGRAMS) $(addsuffix .exe,$(PROGRAMS))
-	$(MAKE) -C ZAPD clean
 	$(MAKE) -C fado clean
 
 distclean: clean

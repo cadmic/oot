@@ -107,7 +107,6 @@ CPP        := cpp
 MKLDSCRIPT := tools/mkldscript
 MKDMADATA  := tools/mkdmadata
 ELF2ROM    := tools/elf2rom
-ZAPD       := tools/ZAPD/ZAPD.out
 FADO       := tools/fado/fado.elf
 
 ifeq ($(COMPILER),gcc)
@@ -382,15 +381,7 @@ build/src/overlays/%_reloc.o: build/$(SPEC)
 	$(FADO) $$(tools/reloc_prereq $< $(notdir $*)) -n $(notdir $*) -o $(@:.o=.s) -M $(@:.o=.d)
 	$(AS) $(ASFLAGS) $(@:.o=.s) -o $@
 
-#build/%.inc.c: %.png
-#	$(ZAPD) btex -eh -tt $(subst .,,$(suffix $*)) -i $< -o $@
 build/assets/_extracted/%.bin: assets/_extracted/%.png
 	tools/assets/build_from_png.py $< $@
-
-build/assets/%.bin.inc.c: assets/%.bin
-	$(ZAPD) bblb -eh -i $< -o $@
-
-build/assets/%.jpg.inc.c: assets/%.jpg
-	$(ZAPD) bren -eh -i $< -o $@
 
 -include $(DEP_FILES)
