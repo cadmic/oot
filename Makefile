@@ -296,19 +296,19 @@ $(ELF): $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES) $(TEXTURE_FILES_OUT) $(ASSET
 	$(LD) -T build/undefined_syms.txt -T build/ldscript.txt --no-check-sections --accept-unknown-input-arch --emit-relocs -Map build/z64.map -o $@
 
 build/%.u8.inc.c: %.u8.bin
-	./tools/assets/bin_to_u8.py $< $@
+	tools/assets/bin2c/bin2c u8 <$< >$@
 
 build/%.u32.inc.c: %.u32.bin
-	./tools/assets/bin_to_u32.py $< $@
+	tools/assets/bin2c/bin2c u32 <$< >$@
 
 build/%.u64.inc.c: %.u64.bin
-	./tools/assets/bin_to_u64.py $< $@
+	tools/assets/bin2c/bin2c u64 <$< >$@
 
 build/%.u32.inc.c: build/%.u32.bin
-	./tools/assets/bin_to_u32.py $< $@
+	tools/assets/bin2c/bin2c u32 <$< >$@
 
 build/%.u64.inc.c: build/%.u64.bin
-	./tools/assets/bin_to_u64.py $< $@
+	tools/assets/bin2c/bin2c u64 <$< >$@
 
 DRAGONEW_o_files: $(foreach f,$(DRAGONEW_INC_C_FILES),$(if $(wildcard f),,$f))
 $(DRAGONEW_O_FILES): | DRAGONEW_o_files
