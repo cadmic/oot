@@ -353,6 +353,7 @@ class File:
         self.data = data
         self.resources: list[Resource] = []
         self.is_resources_sorted = True
+        self.referenced_files: set[File] = set()
 
     def add_resource(self, resource: "Resource"):
         self.resources.append(resource)
@@ -585,17 +586,28 @@ class File:
                 print("Couldn't write extracted resource", resource)
                 raise
 
-    def write_source(
-        self,
-        source_path: Path,
-        additional_includes: list[
-            str
-        ],  # TODO see todo on what gets passed as this, this needs cleanup/thinking
-    ):
+    # These two are set by calling set_source_path
+    source_c_path: Path
+    source_h_path: Path
+
+    def set_source_path(self, source_path: Path):
         file_name = self.name
 
-        with (source_path / f"{file_name}.c").open("w") as c:
-            with (source_path / f"{file_name}.h").open("w") as h:
+        # May catch random problems but not a hard requirement otherwise
+        assert file_name and all(
+            (c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789")
+            for c in file_name
+        ), file_name
+
+        self.source_file_name = file_name
+        self.source_c_path = source_path / f"{file_name}.c"
+        self.source_h_path = source_path / f"{file_name}.h"
+
+    def write_source(self):
+        assert hasattr(self, "source_c_path"), "set_source_path must be called before"
+        assert hasattr(self, "source_h_path")
+        with self.source_c_path.open("w") as c:
+            with self.source_h_path.open("w") as h:
 
                 headers_includes = (
                     '#include "ultra64.h"\n',
@@ -603,13 +615,31 @@ class File:
                     '#include "macros.h"\n',
                 )
 
+                # Paths to files to be included
+                file_include_paths_complete: list[Path] = []
+                file_include_paths_complete.append(self.source_h_path)
+                for referenced_file in self.referenced_files:
+                    file_include_paths_complete.append(referenced_file.source_h_path)
+
+                # Same as file_include_paths_complete,
+                # but paths that can be are made relative to the source C.
+                file_include_paths: list[Path] = []
+                for path_complete in file_include_paths_complete:
+                    try:
+                        path = path_complete.relative_to(self.source_c_path.parent)
+                    except ValueError:
+                        # Included path is not relative to this file's source C folder.
+                        # Just use the complete path.
+                        path = path_complete
+                    file_include_paths.append(path)
+
                 c.writelines(headers_includes)
-                if additional_includes:
-                    c.writelines(f'#include "{p}"\n' for p in additional_includes)
-                c.write(f'#include "{file_name}.h"\n')
+                c.write("\n")
+                for file_include_path in file_include_paths:
+                    c.write(f'#include "{file_include_path}"\n')
                 c.write("\n")
 
-                INCLUDE_GUARD = file_name.upper() + "_H"
+                INCLUDE_GUARD = self.source_file_name.upper() + "_H"
 
                 h.writelines(
                     (

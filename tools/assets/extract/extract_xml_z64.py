@@ -122,10 +122,22 @@ def xml_to_file_step3(file: File):
         pprint(file.resources)
 
 
-def extract_object(object_name):
-    top_xml_path = Path(f"assets/xml/objects/{object_name}.xml")
-    source_path = Path(f"assets/objects/{object_name}/")
-    extract_path = Path(f"assets/_extracted/objects/{object_name}/")
+def extract_object(object_name: str):
+    extract_xml(Path("objects/") / object_name)
+
+
+def extract_scene(subfolder: str, scene_name: str):
+    extract_xml(Path("scenes/") / subfolder / scene_name)
+
+
+def extract_xml(sub_path: Path):
+    """
+    sub_path: Path under assets/ such as objects/gameplay_keep
+    Uses the xml file assets/xml/ sub_path .xml
+    """
+    top_xml_path = (Path(f"assets/xml/") / sub_path).with_suffix(".xml")
+    source_path = Path(f"assets/") / sub_path
+    extract_path = Path(f"assets/_extracted/") / sub_path
 
     memory_context = MemoryContext(I_D_OMEGALUL=I_D_OMEGALUL)  # TODO
 
@@ -204,21 +216,34 @@ def extract_object(object_name):
 
         # end previously File.from_xml
 
-        extract_path.mkdir(parents=True, exist_ok=True)
+        # Call these for every file before writing anything,
+        # since the paths may be used by some files to reference others.
+        # For example for `#include`s.
         file.set_resources_paths(extract_path, BUILD_PATH)
+        file.set_source_path(source_path)
 
         if VERBOSE1:
             print(file.str_report())
 
+    for file in top_files_to_do_stuff_with:
+
         if WRITE_EXTRACT:
+            extract_path.mkdir(parents=True, exist_ok=True)
+
             file.write_resources_extracted()
 
         if WRITE_SOURCE:
             source_path.mkdir(parents=True, exist_ok=True)
 
-            file.write_source(
-                source_path, additional_includes=top_external_files_to_include
+            # TODO fill referenced_files properly,
+            # probably in MemoryContext when references to files are requested,
+            # instead of assuming like here that all files in the xml / referenced by the xml
+            # are included by all files the xml defines
+            # (or if keeping the logic this way, write it better)
+            file.referenced_files = set(top_files_to_do_stuff_with) | set(
+                top_external_files_to_include
             )
+            file.write_source()
 
 
 def main():
@@ -226,6 +251,20 @@ def main():
     z64_resource_handlers.register_resource_handlers()
 
     if True:
+        xmls = list(Path("assets/xml/scenes/").glob("**/*.xml"))
+        for i, scene_xml in enumerate(xmls):
+            subfolder = scene_xml.parent.name
+            scene_name = scene_xml.stem
+            print(
+                f"{i+1:4} / {len(xmls)}",
+                int(i / len(xmls) * 100),
+                subfolder,
+                scene_name,
+            )
+            extract_scene(subfolder, scene_name)
+    elif True:
+        extract_scene("indoors", "hylia_labo")
+    elif True:
         for object_name in ["gameplay_keep"]:
             extract_object(object_name)
 

@@ -309,6 +309,10 @@ def register_resource_handlers():
                 # } CurveAnimationHeader; // size = 0x10
                 0x10
             ),  # TODO
+            "Scene": get_fixed_size_resource_handler(0x8),  # TODO
+            "Room": get_fixed_size_resource_handler(0x8),  # TODO
+            "Path": get_fixed_size_resource_handler(0x8),  # TODO
+            "Cutscene": get_fixed_size_resource_handler(0x4),  # TODO
         }
     )
 
