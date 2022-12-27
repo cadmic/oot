@@ -2,9 +2,9 @@ import abc
 import io
 from typing import Callable, Any, Sequence
 
-from extase import Resource, File
+from . import Resource, File
 
-from extase.repr_c_struct import CData, CData_Value, CData_Struct, CData_Array
+from .repr_c_struct import CData, CData_Value, CData_Struct, CData_Array
 
 
 

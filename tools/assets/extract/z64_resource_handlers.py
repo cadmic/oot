@@ -1,8 +1,8 @@
 from xml.etree import ElementTree
 from typing import Callable
 
-from extase import File, Resource, BinaryBlobResource
-from extase.cdata_resources import Vec3sArrayResource
+from .extase import File, Resource, BinaryBlobResource
+from .extase.cdata_resources import Vec3sArrayResource
 
 #
 # resource handlers
@@ -44,7 +44,7 @@ def register_resource_handlers():
     # with classes being defined twice
     # TODO revisit this, the situation may have changed after splitting the code
 
-    from extase_oot64 import (
+    from .extase_oot64 import (
         skeleton_resources,
         animation_resources,
         collision_resources,

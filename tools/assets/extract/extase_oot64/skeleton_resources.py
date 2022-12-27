@@ -1,16 +1,16 @@
 import io
 
-from extase import (
+from ..extase import (
     File,
 )
-from extase.cdata_resources import (
+from ..extase.cdata_resources import (
     CDataResource,
     CDataExt_Value,
     CDataExt_Struct,
     CDataExt_Array,
 )
 
-from extase_oot64.dlist_resources import DListResource
+from .dlist_resources import DListResource
 
 
 Vec3s = CDataExt_Struct(

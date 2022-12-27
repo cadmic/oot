@@ -2,7 +2,7 @@
 # fully imported, to avoid weird import behavior
 # TODO revisit this, the situation may have changed after splitting the code
 
-import extract_xml_z64
+from . import extract_xml_z64
 
 if __name__ == "__main__":
     profile = True

@@ -1,9 +1,9 @@
 import io
 
-from extase import (
+from ..extase import (
     File,
 )
-from extase.cdata_resources import (
+from ..extase.cdata_resources import (
     CDataResource,
     CDataExt_Value,
     CDataExt_Struct,

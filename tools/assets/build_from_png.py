@@ -42,8 +42,7 @@ def png_to_data(file):
 
 n64texconv.png_to_data = png_to_data
 
-# TODO put G_IM_FMT, G_IM_SIZ somewhere else
-from extase_oot64.dlist_resources import G_IM_FMT, G_IM_SIZ
+from n64 import G_IM_FMT, G_IM_SIZ
 
 suffixes = png_path.suffixes
 assert len(suffixes) >= 2

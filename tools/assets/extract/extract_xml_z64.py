@@ -2,9 +2,9 @@ from pathlib import Path
 from xml.etree import ElementTree
 from pprint import pprint
 
-from extase import MemoryContext, File
+from .extase import MemoryContext, File
 
-import z64_resource_handlers
+from . import z64_resource_handlers
 
 #
 # main
@@ -16,7 +16,7 @@ RM_SOURCE = True
 WRITE_SOURCE = True
 RM_EXTRACT = True
 WRITE_EXTRACT = True
-from conf import WRITE_HINTS, I_D_OMEGALUL
+from ..conf import WRITE_HINTS, I_D_OMEGALUL
 
 
 BASEROM_PATH = Path("baserom")
@@ -225,11 +225,11 @@ def main():
 
     z64_resource_handlers.register_resource_handlers()
 
-    if False:
+    if True:
         for object_name in ["gameplay_keep"]:
             extract_object(object_name)
 
-    if True:
+    elif True:
         xmls = list(Path("assets/xml/objects/").glob("*.xml"))
         # xmls = xmls[250:]
         for i, object_xml in enumerate(xmls):
