@@ -19,10 +19,12 @@ endif
 
 all: $(PROGRAMS)
 	$(MAKE) -C fado
+	$(MAKE) -C assets
 
 clean:
 	$(RM) $(PROGRAMS) $(addsuffix .exe,$(PROGRAMS))
 	$(MAKE) -C fado clean
+	$(MAKE) -C assets clean
 
 distclean: clean
 

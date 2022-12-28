@@ -251,7 +251,7 @@ clean:
 	$(RM) -r $(ROM) $(ELF) build
 
 assetclean:
-	$(RM) -r $(ASSET_BIN_DIRS)
+	$(RM) -r assets/_extracted
 	$(RM) -r assets/text/*.h
 	$(RM) -r build/assets
 	$(RM) -r .extracted-assets.json
@@ -264,7 +264,8 @@ setup:
 	$(MAKE) -C tools
 	python3 fixbaserom.py
 	python3 extract_baserom.py
-	python3 extract_assets.py -j$(N_THREADS)
+	python3 -m tools.assets.extract
+	./tools/msgdis.py --text-out assets/text/message_data.h --staff-text-out assets/text/message_data_staff.h
 
 test: $(ROM)
 	$(EMULATOR) $(EMU_FLAGS) $<

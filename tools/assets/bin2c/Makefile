@@ -1,2 +1,9 @@
+CFLAGS := -Wall
+
 bin2c: bin2c.c
-	gcc -Wall -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	$(RM) bin2c
+
+.PHONY: clean
