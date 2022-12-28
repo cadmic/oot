@@ -52,6 +52,7 @@ def register_resource_handlers():
         dlist_resources,
         playeranim_resources,
         skelcurve_resources,
+        misc_resources,
     )
 
     def skeleton_resource_handler(
@@ -308,12 +309,22 @@ def register_resource_handlers():
         return skelcurve_resources.CurveAnimationHeaderResource(
             file, offset, resource_elem.attrib["Name"]
         )
+
     def Mtx_handler(
         file: File,
         resource_elem: ElementTree.Element,
         offset: int,
     ):
         return dlist_resources.MtxResource(
+            file, offset, resource_elem.attrib["Name"]
+        )
+
+    def cutscene_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        return misc_resources.CutsceneResource(
             file, offset, resource_elem.attrib["Name"]
         )
 
@@ -339,7 +350,7 @@ def register_resource_handlers():
             "Scene": get_fixed_size_resource_handler(0x8),  # TODO
             "Room": get_fixed_size_resource_handler(0x8),  # TODO
             "Path": get_fixed_size_resource_handler(0x8),  # TODO
-            "Cutscene": get_fixed_size_resource_handler(0x4),  # TODO
+            "Cutscene": cutscene_resource_handler,
         }
     )
 

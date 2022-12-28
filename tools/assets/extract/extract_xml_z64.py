@@ -681,6 +681,7 @@ def main():
     # extract_xml(Path("overlays/ovl_En_Jsjutan"))  # The only xml with <Symbol>
     # extract_xml(Path("overlays/ovl_Magic_Wind"))  # SkelCurve
     # extract_xml(Path("objects/object_link_child"))  # The only xml with <Mtx>
+    # extract_xml(Path("scenes/dungeons/ddan")) # cutscene test
     extract_all_xmls(Path("objects"))
     extract_all_xmls(Path("scenes"))
     extract_all_xmls(Path("overlays"))

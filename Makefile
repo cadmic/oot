@@ -173,7 +173,8 @@ DRAGONEW_C_FILES := $(shell find assets/ -path assets/overlays -prune -o -name '
 DRAGONEW_O_FILES := $(foreach f,$(DRAGONEW_C_FILES:.c=.o),build/$f)
 DRAGONEW_BIN_FILES := $(shell find assets/_extracted/ -name '*.bin')
 DRAGONEW_PNG_FILES := $(shell find assets/_extracted/ -name '*.png')
-DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c),build/$f) $(foreach f,$(DRAGONEW_PNG_FILES:.png=.inc.c),build/$f)
+DRAGONEW_csdata_f32_FILES := $(shell find assets/_extracted/ -name '*.csdata.f32.inc.c')
+DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c) $(DRAGONEW_PNG_FILES:.png=.inc.c) $(DRAGONEW_csdata_f32_FILES:.csdata.f32.inc.c=.csdata.inc.c),build/$f)
 DRAGONEW_DEPS := $(DRAGONEW_O_FILES:.o=.d)
 
 _ := $(shell mkdir --parents build)
@@ -374,5 +375,9 @@ build/%.u64.inc.c: %.u64.png
 	tools/assets/build_from_png.py $< $(@:.inc.c=.bin)
 	@echo // From file://`realpath $<` >$@
 	tools/assets/bin2c/bin2c u64 <$(@:.inc.c=.bin) >>$@
+
+build/%.csdata.inc.c: %.csdata.f32.inc.c
+	@echo // From file://`realpath $<` >$@
+	tools/assets/f32hex.py <$< >>$@
 
 -include $(DEP_FILES)
