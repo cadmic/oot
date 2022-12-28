@@ -20,7 +20,8 @@ def resource_handler(
 del resource_handler
 ResourceHandler = Callable[[File, ElementTree.Element, int], Resource]
 
-
+# Returns a dummy resource_handler that produces a `BinaryBlobResource` of the given size
+# This is meant as a "placeholder resource" until a resource is properly implemented
 def get_fixed_size_resource_handler(size) -> ResourceHandler:
     def resource_handler(
         file: File,
@@ -307,6 +308,14 @@ def register_resource_handlers():
         return skelcurve_resources.CurveAnimationHeaderResource(
             file, offset, resource_elem.attrib["Name"]
         )
+    def Mtx_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        return dlist_resources.MtxResource(
+            file, offset, resource_elem.attrib["Name"]
+        )
 
     RESOURCE_HANDLERS.update(
         {
@@ -320,10 +329,7 @@ def register_resource_handlers():
             "Array": array_resource_handler,
             "PlayerAnimation": PlayerAnimation_handler,
             "Blob": binary_blob_resource_handler,
-            "Mtx": get_fixed_size_resource_handler(
-                # I assume Mtx and not MtxF, but would be the same size in bytes anyway
-                (4 * 4 * 2 * 2)
-            ),  # TODO
+            "Mtx": Mtx_handler,
             "LegacyAnimation": get_fixed_size_resource_handler(0xC),  # TODO
             "LimbTable": get_fixed_size_resource_handler(
                 # idk, probably an array

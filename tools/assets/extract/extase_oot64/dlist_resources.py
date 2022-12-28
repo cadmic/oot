@@ -16,6 +16,7 @@ from ..extase.cdata_resources import (
     CDataExt_Array,
     CDataExt_Struct,
     CDataExt_Value,
+    INDENT,
 )
 
 
@@ -28,6 +29,66 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ......pygfxd import pygfxd
+
+
+class MtxResource(CDataResource):
+    def write_mtx(resource, v, f: io.TextIOBase, line_prefix):
+        assert isinstance(v, dict)
+        assert v.keys() == {"intPart", "fracPart"}
+        intPart = v["intPart"]
+        fracPart = v["fracPart"]
+
+        f.write(line_prefix)
+        f.write("gdSPDefMtx(\n")
+
+        for i in range(4):
+            if i != 0:
+                f.write(",\n")
+            f.write(line_prefix + INDENT)
+
+            for j in range(4):
+                # #define IPART(x) (((s32)((x) * 0x10000) >> 16) & 0xFFFF)
+                xi = intPart[j][i]
+                # #define FPART(x)  ((s32)((x) * 0x10000) & 0xFFFF)
+                xf = fracPart[j][i]
+                # Reconstruct the `(s32)((x) * 0x10000)` but as a u32
+                # (u32 since intPart and fracPart are u16 arrays)
+                # This works since `(s32)((x) * 0x10000)` in the IPART and FPART
+                # macros could be switched to `(u32)(s32)((x) * 0x10000)` without issue
+                u32_x_s15_16 = (xi << 16) | xf
+                # Cast to s32 (`(s32)(u32)(s32)((x) * 0x10000)` == `(s32)((x) * 0x10000)`)
+                s32_x_s15_16 = (
+                    u32_x_s15_16
+                    if u32_x_s15_16 < 0x8000_0000
+                    else u32_x_s15_16 - 0x1_0000_0000
+                )
+                x = s32_x_s15_16 / 0x10000
+
+                if j != 0:
+                    f.write(", ")
+                f.write(f"{x}f")
+        f.write("\n")
+
+        f.write(line_prefix)
+        f.write(")")
+
+        return True
+
+    cdata_ext = CDataExt_Struct(
+        (
+            ("intPart", CDataExt_Array(CDataExt_Array(CDataExt_Value.u16, 4), 4)),
+            ("fracPart", CDataExt_Array(CDataExt_Array(CDataExt_Value.u16, 4), 4)),
+        )
+    ).set_write(write_mtx)
+
+    def get_c_declaration_base(self):
+        return f"Mtx {self.symbol_name}"
+
+    def get_c_reference(self, resource_offset: int):
+        if resource_offset == 0:
+            return f"&{self.symbol_name}"
+        else:
+            raise ValueError
 
 
 class VtxArrayResource(CDataResource):
@@ -213,6 +274,7 @@ def gfxdis(
     vtx_callback: Optional[Callable[[int, int], int]] = None,
     timg_callback: Optional[Callable[[int, int, int, int, int, int], int]] = None,
     tlut_callback: Optional[Callable[[int, int, int], int]] = None,
+    mtx_callback: Optional[Callable[[int], int]] = None,
     macro_fn: Optional[Callable[[], int]] = None,
     arg_fn: Optional[Callable[[int], None]] = None,
 ):
@@ -324,9 +386,31 @@ def gfxdis(
 
     pygfxd.gfxd_tlut_callback(tlut_callback_wrapper)
 
+    # mtx_callback
+
+    if mtx_callback:
+
+        def mtx_callback_wrapper(mtx):
+            try:
+                ret = mtx_callback(mtx)
+            except:
+                import sys
+
+                e = sys.exc_info()[1]
+                exceptions.append(e)
+
+                ret = 0
+            return ret
+
+    else:
+
+        def mtx_callback_wrapper(mtx):
+            return 0
+
+    pygfxd.gfxd_mtx_callback(mtx_callback_wrapper)
+
     # TODO
     # pygfxd.gfxd_dl_callback
-    # pygfxd.gfxd_mtx_callback
 
     # macro_fn
 
@@ -498,10 +582,21 @@ class DListResource(Resource, can_size_be_unknown=True):
                 pass
             return 0
 
+        def mtx_cb(mtx):
+            self.file.memory_context.report_resource_at_segmented(
+                mtx,
+                lambda file, offset: MtxResource(
+                    file, offset, f"{self.name}_{mtx:08X}_Mtx"
+                ),
+            )
+            return 0
+
         size = gfxdis(
             input_buffer=self.file.data[self.range_start :],
             vtx_callback=vtx_cb,
             timg_callback=timg_cb,
+            # tlut_callback=, # TODO
+            mtx_callback=mtx_cb,
         )
 
         self.range_end = self.range_start + size
@@ -643,9 +738,14 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 0
 
         def tlut_cb(tlut, idx, count):
-            print("tlut_cb", hex(tlut), idx, count)
             tlut_c_ref = self.file.memory_context.get_c_reference_at_segmented(tlut)
             pygfxd.gfxd_puts(tlut_c_ref)
+            return 1
+
+        def mtx_cb(mtx):
+            print("mtx_cb", hex(mtx))
+            mtx_c_ref = self.file.memory_context.get_c_reference_at_segmented(mtx)
+            pygfxd.gfxd_puts(mtx_c_ref)
             return 1
 
         with self.extract_to_path.open("wb") as f:
@@ -663,6 +763,7 @@ class DListResource(Resource, can_size_be_unknown=True):
                 vtx_callback=vtx_cb,
                 timg_callback=timg_cb,
                 tlut_callback=tlut_cb,
+                mtx_callback=mtx_cb,
                 macro_fn=macro_fn,
                 arg_fn=arg_fn,
             )

@@ -1089,7 +1089,7 @@ class Resource(abc.ABC):
                             else "..."
                         )
                     ),
-                    repr(self.file),
+                    f"file.name={self.file.name!r}",
                 )
             )
             + ")"

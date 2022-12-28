@@ -377,29 +377,79 @@ def extract_xml(sub_path: Path):
             return self.size
 
     class DummyResource:
-        def __init__(self, range_start):
+        def __init__(self, segment_num: int, range_start: int):
+            self.segment_num = segment_num
             self.range_start = range_start
 
         def get_c_reference(self, resource_offset: int):
-            addr = 0x0C00_0000 | (self.range_start + resource_offset)
+            addr = (self.segment_num << 24) | (self.range_start + resource_offset)
             return f"0x{addr:08X}"
 
     class DummyFile(File):
-        def __init__(self, memory_context: MemoryContext, name: str, size: int):
+        def __init__(
+            self, memory_context: MemoryContext, name: str, size: int, segment_num: int
+        ):
             super().__init__(memory_context, name, DummyData(size))
+            self.segment_num = segment_num
 
         def get_resource_at(self, offset: int):
             from .extase import GetResourceAtResult
 
-            return GetResourceAtResult.DEFINITIVE, DummyResource(offset)
+            return GetResourceAtResult.DEFINITIVE, DummyResource(
+                self.segment_num, offset
+            )
 
-    if str(sub_path) in {
-        "overlays/ovl_En_Ganon_Mant",
-        "overlays/ovl_En_Jsjutan",
-    }:
+    def set_dummy_segment(memory_context: MemoryContext, segment_num: int):
+        print("Setting dummy segment", segment_num)
         memory_context.set_segment(
-            0xC, DummyFile(memory_context, "dummy_segment_12", 1024 * 1024)
+            segment_num,
+            DummyFile(
+                memory_context,
+                f"dummy_segment_{segment_num}",
+                1024 * 1024,
+                segment_num,
+            ),
         )
+
+    if sub_path.is_relative_to("objects") or sub_path.is_relative_to("overlays"):
+        # billboardMtx, typically (but not always) TODO
+        set_dummy_segment(memory_context, 1)
+
+    for segment_num, set_dummy_for_sub_paths in (
+        (
+            0x9,
+            ("objects/object_warp1",),
+        ),
+        (
+            0xA,
+            ("objects/object_warp1",),
+        ),
+        (
+            0xB,
+            ("objects/object_link_child",),
+        ),
+        (
+            0xC,
+            (
+                "overlays/ovl_En_Ganon_Mant",
+                "overlays/ovl_En_Jsjutan",
+                "objects/object_bxa",
+                "objects/object_rr",
+                "objects/object_mo",
+                "objects/object_zl2",
+            ),
+        ),
+        (
+            0xD,
+            (
+                "objects/object_link_child",
+                "objects/object_link_boy",
+                "overlays/ovl_Boss_Ganon",
+            ),
+        ),
+    ):
+        if str(sub_path) in set_dummy_for_sub_paths:
+            set_dummy_segment(memory_context, segment_num)
 
     if RM_SOURCE:
         import shutil
@@ -546,6 +596,14 @@ def extract_xml(sub_path: Path):
             if file in top_files_by_segment[segment_num]:
                 memory_context.set_segment(segment_num, file)
 
+        # TODO along with dummy segments cleanup: clean this hack
+        # set 0xD dummy segment for flex skeletons
+        from .extase_oot64.skeleton_resources import SkeletonFlexResource
+
+        if any(isinstance(r, SkeletonFlexResource) for r in file.resources):
+            set_dummy_segment(memory_context, 0xD)
+        # end flex seg hack
+
         # TODO parsing data should be done
         # iteratively across all files at once instead of one file at a time
         # For example imagine a scene file is parsed before a room,
@@ -571,6 +629,13 @@ def extract_xml(sub_path: Path):
         for segment_num in disputed_segments:
             if file in top_files_by_segment[segment_num]:
                 memory_context.set_segment(segment_num, file)
+
+        # TODO same as above, this is copypasta
+        from .extase_oot64.skeleton_resources import SkeletonFlexResource
+
+        if any(isinstance(r, SkeletonFlexResource) for r in file.resources):
+            set_dummy_segment(memory_context, 0xD)
+        # end flex seg hack
 
         # write to assets/_extracted/
         if WRITE_EXTRACT:
@@ -601,9 +666,11 @@ def main():
 
     XMLS_PATH = Path("assets/xml")
 
-    def extract_all_xmls(subpath: Path):
+    def extract_all_xmls(subpath: Path, slice_start=None):
         path = XMLS_PATH / subpath
         xmls = list(path.glob("**/*.xml"))
+        if slice_start:
+            xmls = xmls[slice_start:]
         for i, xml in enumerate(xmls):
             sub_path = xml.relative_to(XMLS_PATH).with_suffix("")
             print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), sub_path)
@@ -613,8 +680,9 @@ def main():
     # extract_xml(Path("objects/gameplay_keep"))
     # extract_xml(Path("overlays/ovl_En_Jsjutan"))  # The only xml with <Symbol>
     # extract_xml(Path("overlays/ovl_Magic_Wind"))  # SkelCurve
-    extract_all_xmls("objects")
-    extract_all_xmls("scenes")
-    extract_all_xmls("overlays")
-    extract_all_xmls("code")
-    extract_all_xmls("textures")
+    # extract_xml(Path("objects/object_link_child"))  # The only xml with <Mtx>
+    extract_all_xmls(Path("objects"))
+    extract_all_xmls(Path("scenes"))
+    extract_all_xmls(Path("overlays"))
+    extract_all_xmls(Path("code"))
+    extract_all_xmls(Path("textures"))

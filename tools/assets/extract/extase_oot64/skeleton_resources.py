@@ -186,7 +186,10 @@ class SkeletonNormalResource(CDataResource):
 class SkeletonFlexResource(CDataResource):
     cdata_ext = CDataExt_Struct(
         (
-            ("sh", SkeletonNormalResource.cdata_ext),
+            (
+                "sh",
+                SkeletonNormalResource.cdata_ext,
+            ),  # TODO FIXME this is bad, it ends up using StandardLimb s (or is it fine?)
             ("dListCount", CDataExt_Value.u8),
             ("pad9", CDataExt_Value.pad8),
             ("pad10", CDataExt_Value.pad16),
