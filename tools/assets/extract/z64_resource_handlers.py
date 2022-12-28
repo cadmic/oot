@@ -344,23 +344,12 @@ RESOURCE_HANDLERS: dict[str, ResourceHandler] = {}
 def get_resource_from_xml(
     file: File,
     resource_elem: ElementTree.Element,
-    # subtract to offsets before passing to resource handlers
-    # (indicates the offset the file starts at)
-    offset_origin: int,
-    default_offset=None,  # has offset_origin *already* applied
+    offset: int,
 ) -> Resource:
     resource_handler = RESOURCE_HANDLERS.get(resource_elem.tag)
 
     if resource_handler is None:
         raise Exception("Unknown resource tag", resource_elem.tag)
-
-    offset = resource_elem.attrib.get("Offset")
-    if offset is None:
-        if default_offset is None:
-            raise Exception("no Offset nor default_offset")
-        offset = default_offset
-    else:
-        offset = int(offset, 16) - offset_origin
 
     resource = resource_handler(file, resource_elem, offset)
 

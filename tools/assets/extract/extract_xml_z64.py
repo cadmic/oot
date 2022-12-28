@@ -2,6 +2,8 @@ from pathlib import Path
 from xml.etree import ElementTree
 from pprint import pprint
 
+from typing import Optional, Union
+
 from .extase import MemoryContext, File
 
 from . import z64_resource_handlers
@@ -23,19 +25,105 @@ BASEROM_PATH = Path("baserom")
 BUILD_PATH = Path("build")
 
 
-# 0) load the file data bytes
-def xml_to_file_step0(
+class XmlProcessError(Exception):
+    def __init__(
+        self,
+        *args,
+        xml_elem: ElementTree.Element,
+        xml_file_path: Optional[Path] = None,
+    ):
+        super().__init__(*args)
+        self.xml_elem = xml_elem
+        self.xml_file_path = xml_file_path
+
+    def set_xml_file_path(self, xml_file_path: Path):
+        if self.xml_file_path is not None:
+            raise Exception("xml_file_path is already set")
+        self.xml_file_path = xml_file_path
+
+    def set_xml_file_path_if_missing(self, xml_file_path: Path):
+        if self.xml_file_path is None:
+            self.xml_file_path = xml_file_path
+
+
+def xml_check_tag(elem: ElementTree.Element, valid_tags: Union[str, set[str]]):
+    if isinstance(valid_tags, str):
+        tag = valid_tags
+        if elem.tag != tag:
+            raise XmlProcessError(
+                f"Element tag is {elem.tag!r} instead of the expected {tag!r}",
+                xml_elem=elem,
+            )
+    else:
+        if elem.tag not in valid_tags:
+            valid_tags_str = ", ".join(map(repr, valid_tags))
+            raise XmlProcessError(
+                f"Element tag is {elem.tag!r} instead of one of the expected {valid_tags_str}",
+                xml_elem=elem,
+            )
+
+
+def xml_check_attributes(
+    elem: ElementTree.Element,
+    required_attributes: set[str],
+    optional_attributes: set[str],
+):
+    attributes = elem.attrib.keys()
+
+    if not required_attributes.issubset(attributes):
+        missing_attributes = required_attributes - attributes
+        raise XmlProcessError(
+            f"{len(missing_attributes)} missing attribute(s)",
+            missing_attributes,
+            xml_elem=elem,
+        )
+
+    all_known_attributes = required_attributes | optional_attributes
+    if not all_known_attributes.issuperset(attributes):
+        unknown_attributes = attributes - all_known_attributes
+        raise XmlProcessError(
+            f"{len(unknown_attributes)} unknown attribute(s)",
+            unknown_attributes,
+            xml_elem=elem,
+        )
+
+
+def xml_process_file(
     memory_context: MemoryContext,
     file_elem: ElementTree.Element,
     files_by_segment: dict[
         int, list[File]
     ],  # mutable, contents modified by this function
 ):
+    """Create a File object from a <File> xml element.
 
-    baserom_file_name = file_elem.attrib.get("Name")
+    Handles all the <File> attributes.
 
-    if baserom_file_name is None:
-        raise Exception("baserom_file_name is None")
+    Returns a (file, file_range_start) tuple that contains the new File object,
+    and the RangeStart offset value (file_range_start, typically 0).
+
+    About why file_range_start is returned:
+     Resource objects of File objects handle offsets relative to the start of
+     the File, but xml resource elements in <File> elements are relative to
+     the start of the full data of the base file (baserom file).
+     So file_range_start is needed when processing xml resource elements, to
+     go from offsets relative to the start of the base file, to offsets relative
+     to file_range_start.
+     Note that typically file_range_start is 0 when a whole baserom file
+     corresponds to a single <File> / File object.
+
+    This does not process the resources inside the <File>
+    (for that, see xml_process_resources_of_file)
+    """
+
+    assert file_elem.tag == "File"  # Already checked
+    xml_check_attributes(
+        file_elem,
+        {"Name"},
+        {"OutName", "RangeStart", "RangeEnd", "Segment", "BaseAddress"},
+    )
+
+    baserom_file_name = file_elem.attrib["Name"]
 
     file_name = file_elem.attrib.get("OutName")
     if file_name is None:
@@ -43,7 +131,11 @@ def xml_to_file_step0(
 
     # TODO if the same file (on disk / in the rom) is used by several <File>s,
     # reading the file every time is very wasteful
+    # (note data for external files is read too)
     file_bytes_all = memoryview((BASEROM_PATH / baserom_file_name).read_bytes())
+
+    # Handle range start/end, if any,
+    # or default to start/end of the full data.
 
     file_range_start_str = file_elem.attrib.get("RangeStart")
     if file_range_start_str is not None:
@@ -63,7 +155,10 @@ def xml_to_file_step0(
     )
     file_bytes_ranged = file_bytes_all[file_range_start:file_range_end]
 
+    # Create the File object
     file = File(memory_context, file_name, file_bytes_ranged)
+
+    # Handle where in memory is this file (nowhere, segment or vram)
 
     # TODO not sure if this is the right place to set the segment,
     # maybe it should be more external
@@ -86,6 +181,14 @@ def xml_to_file_step0(
         file_ram_start = file_base_ram_start + file_range_start
         memory_context.set_vram(file_ram_start, file)
 
+    if segment_str is not None and file_base_ram_start_str is not None:
+        # It doesn't entirely not make sense,
+        # but it's probably a mistake, so just error.
+        raise Exception(
+            "It doesn't make sense for both Segment and BaseAddress to be set",
+            file_name,
+        )
+
     return file, file_range_start
 
 
@@ -93,10 +196,16 @@ def xml_to_file_step0(
 def HACK_handle_symbol_fakeresource(
     file_elem: ElementTree.Element, file: File, resource_elem: ElementTree.Element
 ):
-    assert {"Name", "Type", "TypeSize", "Count", "Offset"}.issuperset(
-        resource_elem.attrib.keys()
+    assert file_elem.tag == "File", file_elem.tag  # Already checked
+    assert (
+        "BaseAddress" in file_elem.attrib
+    )  # TODO if not in vram idk what <Symbol> means
+
+    assert resource_elem.tag == "Symbol", resource_elem.tag  # Already checked
+    xml_check_attributes(
+        resource_elem, {"Name", "Type", "TypeSize", "Offset"}, {"Count"}
     )
-    assert {"Name", "Type", "TypeSize", "Offset"}.issubset(resource_elem.attrib.keys())
+
     name = resource_elem.attrib["Name"]
     type_name = resource_elem.attrib["Type"]
     type_size_str = resource_elem.attrib["TypeSize"]
@@ -130,10 +239,18 @@ def HACK_handle_symbol_fakeresource(
     file.memory_context.vram_symbols.append(sym)
 
 
-# 1) read resources as described from the xml
-def xml_to_file_step1(
+def xml_process_resources_of_file(
     file_elem: ElementTree.Element, file: File, file_range_start: int
 ):
+    """Collect resources from the xml into the file object.
+
+    Turn resource elements from the xml (children of <File>) into resource objects,
+    and adds them to the file object.
+
+    Does not do any processing of the data itself: no parsing, no discovering more resources.
+    """
+
+    assert file_elem.tag == "File"  # Already checked
 
     prev_resource = None
 
@@ -147,33 +264,53 @@ def xml_to_file_step1(
             prev_resource = None
             continue
 
+        # A resource element is allowed to not set Offset,
+        # then its start offset defaults to the end offset of the element before it.
         if prev_resource is not None:
+            # Note this may be None
             default_offset = prev_resource.range_end
         else:
             default_offset = None
 
-        # TODO centralize Offset logic in this function here, outside of get_resource_from_xml
-        # and only pass the final offset to get_resource_from_xml
-        # would avoid passing file_range_start further
+        base_file_offset_str = resource_elem.attrib.get("Offset")
+        if base_file_offset_str is None:
+            if default_offset is None:
+                # TODO better message
+                raise Exception("no Offset nor default_offset")
+            file_offset = default_offset
+        else:
+            base_file_offset = int(base_file_offset_str, 16)
+            # Offset in the xml is relative to the base file (baserom file),
+            # while resource ranges are relative to the start of the File.
+            # Subtracting file_range_start accounts for that.
+            # Typically a File is the full base file and file_range_start is 0.
+            file_offset = base_file_offset - file_range_start
+
         resource = z64_resource_handlers.get_resource_from_xml(
-            file, resource_elem, file_range_start, default_offset
+            file, resource_elem, file_offset
         )
 
         file.add_resource(resource)
 
         prev_resource = resource
 
+    # At this point, all xml-declared resources were turned into the
+    # appropriate resource objects, with no parsing nor discovering
+    # other resources done at all (yet).
+    # So the file resources are exactly the ones declared in the xml.
+
     if VERBOSE1:
         print(file)
         print(file.name, file.resources)
 
+    # Check if xml-declared resources overlap
     file.sort_resources()
     file.check_overlapping_resources()
 
 
 # 2) parse: iteratively discover and parse data
 # (discover = add resources, parse = make friendlier than binary)
-def xml_to_file_step2(file: File):
+def parse_resources(file: File):
 
     file.parse_resources_data()
 
@@ -205,7 +342,7 @@ def xml_to_file_step2(file: File):
 
 
 # 3) add dummy (binary) resources for the unaccounted gaps
-def xml_to_file_step3(file: File):
+def add_unaccounted_resources(file: File):
 
     file.add_unaccounted_resources()
 
@@ -220,34 +357,14 @@ def xml_to_file_step3(file: File):
         pprint(file.resources)
 
 
-def extract_object(object_name: str):
-    extract_xml(Path("objects/") / object_name)
-
-
-def extract_scene(subfolder: str, scene_name: str):
-    extract_xml(Path("scenes/") / subfolder / scene_name)
-
-
-def extract_overlaydata(ovl_name: str):
-    extract_xml(Path("overlays/") / ovl_name)
-
-
-def extract_codedata(coded_name: str):
-    extract_xml(Path("code/") / coded_name)
-
-
-def extract_filetexture(ftex_name: str):
-    extract_xml(Path("textures/") / ftex_name)
-
-
 def extract_xml(sub_path: Path):
     """
     sub_path: Path under assets/ such as objects/gameplay_keep
     Uses the xml file assets/xml/ sub_path .xml
     """
-    top_xml_path = (Path(f"assets/xml/") / sub_path).with_suffix(".xml")
-    top_source_path = Path(f"assets/") / sub_path
-    top_extract_path = Path(f"assets/_extracted/") / sub_path
+    top_xml_path = (Path("assets/xml/") / sub_path).with_suffix(".xml")
+    top_source_path = Path("assets/") / sub_path
+    top_extract_path = Path("assets/_extracted/") / sub_path
 
     memory_context = MemoryContext(I_D_OMEGALUL=I_D_OMEGALUL)  # TODO
 
@@ -300,29 +417,48 @@ def extract_xml(sub_path: Path):
             # (due to include path having build/ and ./ )
             shutil.rmtree(BUILD_PATH / top_extract_path)
 
-    def mainxml_wrap_steps01(xml_path: Path, source_path: Path):
+    def xml_process(xml_path: Path, source_path: Path):
 
         with xml_path.open() as f:
             xml = ElementTree.parse(f)
 
         root_elem = xml.getroot()
 
-        assert root_elem.tag == "Root", root_elem.tag
-        assert set().issuperset(root_elem.attrib.keys()), root_elem.attrib
+        xml_check_tag(root_elem, "Root")
+        xml_check_attributes(root_elem, set(), set())
 
         files_to_do_stuff_with: list[File] = []
         external_files_all: list[File] = []
         files_by_segment: dict[int, list[File]] = dict()
 
         for file_elem in root_elem:
-            assert file_elem.tag in {"File", "ExternalFile"}, file_elem.tag
+            xml_check_tag(file_elem, {"File", "ExternalFile"})
 
-            if file_elem.tag == "ExternalFile":
-                assert {
-                    "XmlPath",
-                    "OutPath",
-                }.issuperset(file_elem.attrib.keys()), file_elem.attrib
-                external_xml = file_elem.attrib["XmlPath"]
+            if file_elem.tag == "File":
+                assert file_elem.tag == "File"
+
+                file, file_range_start = xml_process_file(
+                    memory_context, file_elem, files_by_segment
+                )
+
+                xml_process_resources_of_file(file_elem, file, file_range_start)
+
+                # Call these for every file before writing anything,
+                # since the paths may be used by some files to reference others.
+                # For example for `#include`s.
+                # It is fine to call this before the resources in the file are parsed,
+                # since that has no bearing on the source path.
+                # (also note the resources in the file may not even be parsed if this file
+                #  isn't from the top xml, but from an external one instead)
+                file.set_source_path(source_path)
+
+                files_to_do_stuff_with.append(file)
+
+            elif file_elem.tag == "ExternalFile":
+                xml_check_attributes(file_elem, {"XmlPath", "OutPath"}, set())
+
+                external_xml_partial_path_str = file_elem.attrib["XmlPath"]
+                external_xml_path = Path("assets/xml") / external_xml_partial_path_str
 
                 # From the ZAPD extraction XML reference:
                 # > The path were the header for the corresponding external file is
@@ -335,9 +471,7 @@ def extract_xml(sub_path: Path):
                     external_files_to_do_stuff_with,
                     _,  # external_files_all for the file external to the current xml_path, ignore (TODO?)
                     external_files_by_segment,  # files_by_segment for the external files
-                ) = mainxml_wrap_steps01(
-                    Path("assets/xml") / external_xml, external_out_path
-                )
+                ) = xml_process(external_xml_path, external_out_path)
 
                 external_files_all.extend(external_files_to_do_stuff_with)
 
@@ -347,41 +481,8 @@ def extract_xml(sub_path: Path):
                 for segment_num, files in external_files_by_segment.items():
                     files_by_segment.setdefault(segment_num, []).extend(files)
 
-                continue
-
-            assert file_elem.tag == "File"
-            assert {
-                "Name",
-                "OutName",
-                "Segment",
-                "BaseAddress",
-                "RangeStart",
-                "RangeEnd",
-            }.issuperset(file_elem.attrib.keys()), file_elem.attrib
-
-            file, file_range_start = xml_to_file_step0(
-                memory_context, file_elem, files_by_segment
-            )
-
-            xml_to_file_step1(file_elem, file, file_range_start)
-
-            # Call these for every file before writing anything,
-            # since the paths may be used by some files to reference others.
-            # For example for `#include`s.
-            # It is fine to call this before the resources in the file are parsed,
-            # since that has no bearing on the source path.
-            # (also note the resources in the file may not even be parsed if this file
-            # isn't from the top xml, but from an external one instead)
-            file.set_source_path(source_path)
-
-            # TODO step 1) should be done on several files if
-            # there are several in the context, to have the
-            # memory_context ready before going to step 2
-            # -> this means this function should be split by step
-            #     (or the steps moved at the memorycontext level but hmm)
-            # this todo also applies to parsing data, that should be done
-            # iteratively across all files at once instead of one file at a time
-            files_to_do_stuff_with.append(file)
+            else:
+                assert False, file_elem.tag
 
         if __debug__:
             names = [file.name for file in external_files_all]
@@ -393,8 +494,18 @@ def extract_xml(sub_path: Path):
         top_files_to_do_stuff_with,
         top_external_files_to_include,
         top_files_by_segment,
-    ) = mainxml_wrap_steps01(top_xml_path, top_source_path)
+    ) = xml_process(top_xml_path, top_source_path)
 
+    # Disputed segments are segments that several files were set to use (with the Segment attribute).
+    # For example, segment 3 is typically used by the several room files associated to a scene.
+    # But only one file can be set on a segment at once, because a segment simply cannot point to
+    # several things at once.
+    # This is resolved by figuring out the disputed segments, and (for now) only setting the segment
+    # bases (with MemoryContext.set_segment) for non-disputed segments that are used by a single file.
+    # Later, when parsing/extracting, disputed segments are set according to the current file being
+    # parsed/extracted.
+    # For example with scenes and rooms, while the scene is parsed segment 3 is unset,
+    # and while a room is parsed segment 3 is set to that file.
     disputed_segments: list[int] = []
     for segment_num, files in top_files_by_segment.items():
         if len(files) == 1:
@@ -403,6 +514,10 @@ def extract_xml(sub_path: Path):
         else:
             for file in files:
                 if file not in top_files_to_do_stuff_with:
+                    # This is not really a problem for processing but it's weird enough
+                    # to raise an error.
+                    # For example it could happen if a scene xml had a ExternalFile
+                    # for another scene xml (which afaict doesn't make sense) (TODO test)
                     raise Exception(
                         "Segment is used for several files,"
                         " so it would normally be set to each file as they are processed one by one."
@@ -421,18 +536,26 @@ def extract_xml(sub_path: Path):
         # TODO this may actually be fine but idk
         raise NotImplementedError(disputed_segments)
 
-    # solves the above TODO about step 1 and splitting by step, maybe
     for file in top_files_to_do_stuff_with:
 
+        # Save the current segment map, before setting disputed segments,
+        # and to be restored before moving on from this file
         saved_segment_map = memory_context.save_segment_map()
 
         for segment_num in disputed_segments:
             if file in top_files_by_segment[segment_num]:
                 memory_context.set_segment(segment_num, file)
 
-        xml_to_file_step2(file)
-        # TODO run all step2 before any step3 ? (I think that's part of the "TODO step 1)" above)
-        xml_to_file_step3(file)
+        # TODO parsing data should be done
+        # iteratively across all files at once instead of one file at a time
+        # For example imagine a scene file is parsed before a room,
+        # then the room discovers a resource, such as a dlist, in the scene,
+        # that would mean the scene will keep a non-parsed resource
+        parse_resources(file)
+        add_unaccounted_resources(file)
+
+        # At this point the file is completely mapped with resources
+        # (though per the above TODO this will be reworked)
 
         file.set_resources_paths(top_extract_path, BUILD_PATH)
 
@@ -449,11 +572,13 @@ def extract_xml(sub_path: Path):
             if file in top_files_by_segment[segment_num]:
                 memory_context.set_segment(segment_num, file)
 
+        # write to assets/_extracted/
         if WRITE_EXTRACT:
             top_extract_path.mkdir(parents=True, exist_ok=True)
 
             file.write_resources_extracted()
 
+        # "source" refers to the main .c and .h `#include`ing all the extracted resources
         if WRITE_SOURCE:
             top_source_path.mkdir(parents=True, exist_ok=True)
 
@@ -474,57 +599,22 @@ def main():
 
     z64_resource_handlers.register_resource_handlers()
 
-    def extract_all_objects():
-        xmls = list(Path("assets/xml/objects/").glob("*.xml"))
-        # xmls = xmls[250:]
-        for i, object_xml in enumerate(xmls):
-            object_name = object_xml.stem
-            print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), object_name)
-            extract_object(object_name)
+    XMLS_PATH = Path("assets/xml")
 
-    def extract_all_scenes():
-        xmls = list(Path("assets/xml/scenes/").glob("**/*.xml"))
-        for i, scene_xml in enumerate(xmls):
-            subfolder = scene_xml.parent.name
-            scene_name = scene_xml.stem
-            print(
-                f"{i+1:4} / {len(xmls)}",
-                int(i / len(xmls) * 100),
-                subfolder,
-                scene_name,
-            )
-            extract_scene(subfolder, scene_name)
+    def extract_all_xmls(subpath: Path):
+        path = XMLS_PATH / subpath
+        xmls = list(path.glob("**/*.xml"))
+        for i, xml in enumerate(xmls):
+            sub_path = xml.relative_to(XMLS_PATH).with_suffix("")
+            print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), sub_path)
+            extract_xml(sub_path)
 
-    def extract_all_overlaysdata():
-        xmls = list(Path("assets/xml/overlays/").glob("*.xml"))
-        # xmls = xmls[250:]
-        for i, ovld_xml in enumerate(xmls):
-            ovl_name = ovld_xml.stem
-            print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), ovl_name)
-            extract_overlaydata(ovl_name)
-
-    def extract_all_codedata():
-        xmls = list(Path("assets/xml/code/").glob("*.xml"))
-        # xmls = xmls[250:]
-        for i, coded_xml in enumerate(xmls):
-            coded_name = coded_xml.stem
-            print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), coded_name)
-            extract_codedata(coded_name)
-
-    def extract_all_filetextures():
-        xmls = list(Path("assets/xml/textures/").glob("*.xml"))
-        # xmls = xmls[250:]
-        for i, ftex_xml in enumerate(xmls):
-            ftex_name = ftex_xml.stem
-            print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), ftex_name)
-            extract_filetexture(ftex_name)
-
-    # extract_scene("indoors", "hylia_labo")
-    # extract_object("gameplay_keep")
-    # extract_overlaydata("ovl_En_Jsjutan")  # The only xml with <Symbol>
-    # extract_overlaydata("ovl_Magic_Wind")  # SkelCurve
-    extract_all_objects()
-    extract_all_scenes()
-    extract_all_overlaysdata()
-    extract_all_codedata()
-    extract_all_filetextures()
+    # extract_xml(Path("scenes/indoors/hylia_labo"))
+    # extract_xml(Path("objects/gameplay_keep"))
+    # extract_xml(Path("overlays/ovl_En_Jsjutan"))  # The only xml with <Symbol>
+    # extract_xml(Path("overlays/ovl_Magic_Wind"))  # SkelCurve
+    extract_all_xmls("objects")
+    extract_all_xmls("scenes")
+    extract_all_xmls("overlays")
+    extract_all_xmls("code")
+    extract_all_xmls("textures")
