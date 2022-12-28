@@ -79,7 +79,18 @@ class LimbsArrayResource(CDataResource, can_size_be_unknown=True):
             ),
         )
 
-    elem_cdata_ext = CDataExt_Value("I").set_report(report_limb_element)
+    def write_limb_element(resource, v, f: io.TextIOBase, line_prefix):
+        assert isinstance(v, int)
+        address = v
+        f.write(line_prefix)
+        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        return True
+
+    elem_cdata_ext = (
+        CDataExt_Value("I")
+        .set_report(report_limb_element)
+        .set_write(write_limb_element)
+    )
 
     def __init__(self, file: File, range_start: int, name: str):
         super().__init__(file, range_start, name)

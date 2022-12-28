@@ -2,6 +2,7 @@ from pathlib import Path
 import abc
 from dataclasses import dataclass
 import enum
+import reprlib
 
 import io
 from typing import Sequence, Optional, Callable, Union
@@ -12,11 +13,10 @@ from typing import Sequence, Optional, Callable, Union
 #
 
 
+# TODO rename to just AddressResolution
 class SegmentedAddressResolution(enum.Enum):
     SYMBOL = enum.auto()
     FILE = enum.auto()
-    UNK_RAM = enum.auto()
-    UNK_SEGMENTED = enum.auto()
 
 
 @dataclass
@@ -48,6 +48,18 @@ class NoSegmentBaseError(Exception):
     pass
 
 
+class NoPhysicalMappingError(Exception):
+    """Indicates a physical address could not be resolved because nothing was found for the address."""
+
+    pass
+
+
+class NoVRAMMappingError(Exception):
+    """Indicates a vram address could not be resolved because nothing was found for the address."""
+
+    pass
+
+
 class MemoryContext:
     """
     handles segmented addresses, pointers, external symbols (eg gMtxClear)
@@ -61,24 +73,122 @@ class MemoryContext:
             # TODO config for this
             Symbol("gMtxClear", 0x12DB80, 0x12DB80 + 0x40),
         )
+        self.vram_symbols: list[Symbol] = []  # TODO
         self.files_by_physical: dict[
             int, File
         ] = dict()  # range_start (physical) : file
+        self.files_by_vram: dict[int, File] = dict()  # range_start (vram) : file
         self.resource_buffer_markers_by_resource_type: dict[
             type[Resource], list[ResourceBufferMarker]
         ] = dict()
 
         self.I_D_OMEGALUL = I_D_OMEGALUL  # accomodate for IDO stuff (TODO rework)
 
+    def save_segment_map(self):
+        saved_segment_map = self.segments.copy()
+        return saved_segment_map
+
+    def restore_segment_map(self, saved_segment_map):
+        self.segments = saved_segment_map
+
     def set_segment(self, segment_num: int, target: "File"):
-        assert segment_num != 0
-        assert segment_num < 16
+        if not (1 <= segment_num < 16):
+            raise ValueError(
+                "Segment number must be between 1 and 15 (inclusive)", segment_num
+            )
+
+        if self.segments[segment_num] is not None:
+            raise Exception("Segment is already set", segment_num)
 
         self.segments[segment_num] = target
 
+    def set_vram(self, address: int, target: "File"):
+        # TODO this function is copypasted from set_physical, find a way to refactor
+        # note I want to keep vram/physical mapping separate as finding an umbrella term is uneasy
+        # vram refers to the linker's knowledge of the rom,
+        # and physical to the addresses at run time
+        try:
+            resolved_result = self.resolve_vram(address)
+        except NoVRAMMappingError:
+            # The address isn't taken, we can use it.
+            self.files_by_vram[address] = target
+        else:
+            # Successfuly resolved the address.
+            # The address is taken, we cannot use it.
+            raise ValueError(
+                "Address is already mapped to something", hex(address), resolved_result
+            )
+
+    def resolve_vram(self, address: int):
+        # TODO this function is copypasted from resolve_physical, find a way to refactor (but, see set_vram)
+        for symbol in self.vram_symbols:
+            if symbol.range_start <= address < symbol.range_end:
+                offset = address - symbol.range_start
+                return SegmentedAddressResolution.SYMBOL, (symbol, offset)
+
+        if __debug__:
+            for range_start_vram_a, file_a in self.files_by_vram.items():
+                range_end_vram_a = range_start_vram_a + len(file_a.data)
+                assert range_start_vram_a < range_end_vram_a
+                for range_start_vram_b, file_b in self.files_by_vram.items():
+                    range_end_vram_b = range_start_vram_b + len(file_b.data)
+                    assert range_start_vram_b < range_end_vram_b
+                    if file_a != file_b:
+                        if range_end_vram_a <= range_start_vram_b:
+                            assert (
+                                range_start_vram_a
+                                < range_end_vram_a
+                                <= range_start_vram_b
+                                < range_end_vram_b
+                            )
+                        else:
+                            assert (
+                                range_start_vram_b
+                                < range_end_vram_b
+                                <= range_start_vram_a
+                                < range_end_vram_a
+                            )
+
+        for range_start_vram, file in self.files_by_vram.items():
+            range_end_vram = range_start_vram + len(file.data)
+            if range_start_vram <= address < range_end_vram:
+                offset = address - range_start_vram
+                assert 0 <= offset < len(file.data)
+                return SegmentedAddressResolution.FILE, (file, offset)
+
+        raise NoVRAMMappingError("vram address doesn't map to anything", hex(address))
+
+    def set_virtual(self, address: int, target: "File"):
+        if (address & 0xF000_0000) != 0x8000_0000:
+            raise ValueError(
+                "address high bits are not 0x8000_0000 (KSEG0, typically for ram addresses),"
+                " something is probably wrong.",
+                hex(address),
+            )
+
+        return self.set_physical(address & 0x0FFF_FFFF, target)
+
+    def set_physical(self, address: int, target: "File"):
+        assert address < 8 * 1024 * 1024, (
+            "addressing physical memory beyond 8MB of ram: this is probably wrong",
+            hex(address),
+        )
+        try:
+            resolved_result = self.resolve_physical(address)
+        except NoPhysicalMappingError:
+            # The address isn't taken, we can use it.
+            self.files_by_physical[address] = target
+        else:
+            # Successfuly resolved the address.
+            # The address is taken, we cannot use it.
+            raise ValueError(
+                "Address is already mapped to something", hex(address), resolved_result
+            )
+
     def resolve_physical(self, address: int):
         assert address < 8 * 1024 * 1024, (
-            "addressing physical memory beyond 8MB of ram: " "this is probably wrong"
+            "addressing physical memory beyond 8MB of ram: this is probably wrong",
+            hex(address),
         )
 
         for symbol in self.symbols:
@@ -113,18 +223,44 @@ class MemoryContext:
             range_end_physical = range_start_physical + len(file.data)
             if range_start_physical <= address < range_end_physical:
                 offset = address - range_start_physical
-                if offset >= len(file.data):
-                    raise Exception("offset is past the bounds of file", hex(address))
+                assert 0 <= offset < len(file.data)
                 return SegmentedAddressResolution.FILE, (file, offset)
 
-        raise Exception("physical address maps to nothing", hex(address))
+        raise NoPhysicalMappingError(
+            "physical address doesn't map to anything", hex(address)
+        )
 
     def resolve_segmented(self, address: int):
+        address_high_bits = address & 0xF000_0000
+        # global TODO that is relevant in a lot of places: clean up asserts (ie replace with errors)
+        assert address_high_bits in {0, 0x8000_0000}, (
+            "Address high bits are not 0 (typically for segmented addresses)"
+            " nor 0x8000_0000 (KSEG0, typically for ram addresses),"
+            " something is probably wrong.",
+            hex(address),
+        )
         segment_num = (address & 0x0F00_0000) >> 24
         offset = address & 0x00FF_FFFF
 
         if segment_num == 0:
-            return self.resolve_physical(offset)
+            """
+            # TODO idk. also there's nothing checking for overlap between physical and vram
+            # so this implementation allows the vram mapping to overshadow the physical ones
+            # Start with trying vram, because physical checks 8 MB bounds so it fails on pure vram addresses
+            try:
+                return self.resolve_vram(offset)
+            except NoVRAMMappingError:
+                return self.resolve_physical(offset)
+            """
+            # the above doesn't work for figuring out stuff since it hides if a vram check non-legitimately / unintendedly fails
+            # TODO idk how to pick physical/vram
+            # for now assume <8MB=physical
+            if offset < 8 * 1024 * 1024:
+                return self.resolve_physical(offset)
+            else:
+                # note: using the address here, ie offset with the "high bits" (eg 0x8000_0000)
+                # indeed vram is mapped from the linker's pov which includes the virtual memory segment (eg kseg0)
+                return self.resolve_vram(address)
         else:
             file = self.segments.get(segment_num)
             if file is None:
@@ -203,8 +339,13 @@ class MemoryContext:
             assert isinstance(symbol, Symbol)
             assert isinstance(offset, int)
 
-            raise NotImplementedError(
-                "not sure what to do here if it ever happens", resolution
+            # TODO
+            print(
+                "!!!",
+                resolution,
+                symbol,
+                hex(offset),
+                "resource found at symbol, ignoring",
             )
 
         else:
@@ -273,7 +414,14 @@ class MemoryContext:
             assert resource is not None
 
             resource_offset = offset - resource.range_start
-            return resource.get_c_reference(resource_offset)
+            try:
+                return resource.get_c_reference(resource_offset)
+            except:
+                print(
+                    f"Couldn't call resource.get_c_reference(0x{resource_offset:X}) on",
+                    resource,
+                )
+                raise
 
         elif resolution == SegmentedAddressResolution.SYMBOL:
             assert isinstance(resolution_info, tuple)
@@ -484,11 +632,18 @@ class File:
             any_resource_added = len(self.resources) != len(resources_copy)
             keep_looping = any_data_parsed or any_resource_added
 
+        # TODO replace having Resource.try_parse_data set is_data_parsed to True/False,
+        # by them raising a DataNotParsed exception instead.
+        # Would also allow to provide a reason why data was not parsed
         if __debug__:
             resources_data_not_parsed = [
                 resource for resource in self.resources if not resource.is_data_parsed
             ]
-            assert not resources_data_not_parsed, resources_data_not_parsed
+            assert not resources_data_not_parsed, (
+                len(resources_data_not_parsed),
+                [(r.name, r.__class__) for r in resources_data_not_parsed],
+                resources_data_not_parsed,
+            )
 
     def add_unaccounted_resources(self):
         assert self.is_resources_sorted
@@ -604,7 +759,9 @@ class File:
         self.source_h_path = source_path / f"{file_name}.h"
 
     def write_source(self):
-        assert hasattr(self, "source_c_path"), "set_source_path must be called before"
+        assert hasattr(
+            self, "source_c_path"
+        ), "set_source_path must be called before write_source"
         assert hasattr(self, "source_h_path")
         with self.source_c_path.open("w") as c:
             with self.source_h_path.open("w") as h:
@@ -619,6 +776,13 @@ class File:
                 file_include_paths_complete: list[Path] = []
                 file_include_paths_complete.append(self.source_h_path)
                 for referenced_file in self.referenced_files:
+                    assert isinstance(referenced_file, File), referenced_file
+                    repr(referenced_file)
+                    assert hasattr(referenced_file, "source_c_path"), (
+                        "set_source_path must be called on all files before any write_source call",
+                        referenced_file,
+                    )
+                    assert hasattr(referenced_file, "source_h_path")
                     file_include_paths_complete.append(referenced_file.source_h_path)
 
                 # Same as file_include_paths_complete,
@@ -675,6 +839,13 @@ class File:
             )
             + f" {resource.name}"
             for resource in self.resources
+        )
+
+    @reprlib.recursive_repr()
+    def __repr__(self):
+        return (
+            self.__class__.__qualname__
+            + f"({self.name!r}, {self.data!r}, {self.resources!r})"
         )
 
 
@@ -764,7 +935,7 @@ class Resource(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_c_reference(self, resource_offset: int):
+    def get_c_reference(self, resource_offset: int) -> str:
         """Get a C expression for referencing data in this resource (as a pointer)
 
         The offset `resource_offset` is relative to the resource:
@@ -869,7 +1040,7 @@ class Resource(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_c_declaration_base(self):
+    def get_c_declaration_base(self) -> str:
         """Get the base source for declaring this resource's symbol in C.
 
         For example:
@@ -883,6 +1054,8 @@ class Resource(abc.ABC):
         Returns True if something was written
         """
 
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            c.write("static ")
         c.write(self.get_c_declaration_base())
         c.write(" =\n")
 
@@ -893,16 +1066,33 @@ class Resource(abc.ABC):
 
     def write_c_declaration(self, h: io.TextIOBase) -> None:
 
-        h.write("extern ")
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            h.write("static ")
+        else:
+            h.write("extern ")
         h.write(self.get_c_declaration_base())
         h.write(";\n")
 
+    @reprlib.recursive_repr()
     def __repr__(self):
         return (
             self.__class__.__qualname__
-            + f"(0x{self.range_start:08X}-"
-            + (f"0x{self.range_end:08X}" if self.range_end is not None else "...")
-            + f", {self.name!r})"
+            + "("
+            + ", ".join(
+                (
+                    repr(self.name),
+                    (
+                        f"0x{self.range_start:08X}-"
+                        + (
+                            f"0x{self.range_end:08X}"
+                            if self.range_end is not None
+                            else "..."
+                        )
+                    ),
+                    repr(self.file),
+                )
+            )
+            + ")"
         )
 
 

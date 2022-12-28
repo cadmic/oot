@@ -36,6 +36,8 @@ class CollisionVtxListResource(CDataResource):
         super().__init__(file, range_start, name)
 
     def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            return f"Vec3s {self.symbol_name}[{self.cdata_ext.length}]"
         return f"Vec3s {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
@@ -131,6 +133,8 @@ class CollisionPolyListResource(CDataResource):
         assert isinstance(self.max_surface_type_index, int)
 
     def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            return f"CollisionPoly {self.symbol_name}[{self.cdata_ext.length}]"
         return f"CollisionPoly {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
@@ -202,7 +206,7 @@ class CollisionSurfaceTypeListResource(CDataResource):
                 else:
                     f.write("  ")
 
-                f.write(f"({val} << {shift:2}) & 0x{mask:08X} // {name}\n")
+                f.write(f"(({val} << {shift:2}) & 0x{mask:08X}) // {name}\n")
 
                 has_prev = True
 
@@ -230,6 +234,8 @@ class CollisionSurfaceTypeListResource(CDataResource):
         )
 
     def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            return f"SurfaceType {self.symbol_name}[{self.cdata_ext.length}]"
         return f"SurfaceType {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
@@ -272,6 +278,8 @@ class CollisionBgCamListResource(CDataResource):
         super().__init__(file, range_start, name)
 
     def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            return f"BgCamInfo {self.symbol_name}[{self.cdata_ext.length}]"
         return f"BgCamInfo {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
@@ -298,6 +306,12 @@ class CollisionWaterBoxesResource(CDataResource):
     # implement that once working from a xml that does have some
 
 
+def transfer_HACK_IS_STATIC_ON(source, dest):
+    if hasattr(source, "HACK_IS_STATIC_ON"):
+        dest.HACK_IS_STATIC_ON = source.HACK_IS_STATIC_ON
+    return dest
+
+
 class CollisionResource(CDataResource):
     def write_numVertices(
         resource: "CollisionResource", v, f: io.TextIOBase, line_prefix
@@ -314,11 +328,14 @@ class CollisionResource(CDataResource):
         assert isinstance(v, int)
         resource.file.memory_context.report_resource_at_segmented(
             v,
-            lambda file, offset: CollisionVtxListResource(
-                file,
-                offset,
-                f"{resource.name}_VtxList_",
-                resource.cdata_unpacked["numVertices"],
+            lambda file, offset: transfer_HACK_IS_STATIC_ON(
+                resource,
+                CollisionVtxListResource(
+                    file,
+                    offset,
+                    f"{resource.name}_VtxList_",
+                    resource.cdata_unpacked["numVertices"],
+                ),
             ),
         )
 
@@ -343,11 +360,14 @@ class CollisionResource(CDataResource):
         assert isinstance(v, int)
         resource.file.memory_context.report_resource_at_segmented(
             v,
-            lambda file, offset: CollisionPolyListResource(
-                file,
-                offset,
-                f"{resource.name}_PolyList_",
-                resource.cdata_unpacked["numPolygons"],
+            lambda file, offset: transfer_HACK_IS_STATIC_ON(
+                resource,
+                CollisionPolyListResource(
+                    file,
+                    offset,
+                    f"{resource.name}_PolyList_",
+                    resource.cdata_unpacked["numPolygons"],
+                ),
             ),
         )
 
@@ -379,11 +399,14 @@ class CollisionResource(CDataResource):
             assert v != 0, v  # should not be NULL
             resource.file.memory_context.report_resource_at_segmented(
                 v,
-                lambda file, offset: CollisionWaterBoxesResource(
-                    file,
-                    offset,
-                    f"{resource.name}_WaterBoxes_",
-                    length,
+                lambda file, offset: transfer_HACK_IS_STATIC_ON(
+                    resource,
+                    CollisionWaterBoxesResource(
+                        file,
+                        offset,
+                        f"{resource.name}_WaterBoxes_",
+                        length,
+                    ),
                 ),
             )
 
@@ -482,11 +505,14 @@ class CollisionResource(CDataResource):
                 length_surfaceTypeList = resource.max_surface_type_index + 1
                 self.file.memory_context.report_resource_at_segmented(
                     self.cdata_unpacked["surfaceTypeList"],
-                    lambda file, offset: CollisionSurfaceTypeListResource(
-                        file,
-                        offset,
-                        f"{self.name}_SurfaceTypes_",
-                        length_surfaceTypeList,
+                    lambda file, offset: transfer_HACK_IS_STATIC_ON(
+                        self,
+                        CollisionSurfaceTypeListResource(
+                            file,
+                            offset,
+                            f"{self.name}_SurfaceTypes_",
+                            length_surfaceTypeList,
+                        ),
                     ),
                 )
                 self.is_reported_surfaceTypeList = True
@@ -517,11 +543,14 @@ class CollisionResource(CDataResource):
                     length_bgCamList = resource.max_bgCamIndex + 1
                     self.file.memory_context.report_resource_at_segmented(
                         self.cdata_unpacked["bgCamList"],
-                        lambda file, offset: CollisionBgCamListResource(
-                            file,
-                            offset,
-                            f"{self.name}_BgCamList_",
-                            length_bgCamList,
+                        lambda file, offset: transfer_HACK_IS_STATIC_ON(
+                            self,
+                            CollisionBgCamListResource(
+                                file,
+                                offset,
+                                f"{self.name}_BgCamList_",
+                                length_bgCamList,
+                            ),
                         ),
                     )
                     self.is_reported_bgCamList = True

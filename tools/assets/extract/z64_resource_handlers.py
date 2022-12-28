@@ -49,6 +49,8 @@ def register_resource_handlers():
         animation_resources,
         collision_resources,
         dlist_resources,
+        playeranim_resources,
+        skelcurve_resources,
     )
 
     def skeleton_resource_handler(
@@ -86,11 +88,9 @@ def register_resource_handlers():
                 file, offset, offset + 0x8, resource_elem.attrib["Name"]
             )
         elif limb_type == "Curve":
-            # TODO
             assert resource_elem.attrib["Type"] == "Curve"
-            # } CurveSkeletonHeader; // size = 0x8
-            return BinaryBlobResource(
-                file, offset, offset + 0x8, resource_elem.attrib["Name"]
+            return skelcurve_resources.CurveSkeletonHeaderResource(
+                file, offset, resource_elem.attrib["Name"]
             )
         else:
             raise NotImplementedError(
@@ -141,6 +141,10 @@ def register_resource_handlers():
             # } LegacyLimb; // size = 0x20
             return BinaryBlobResource(
                 file, offset, offset + 0x20, resource_elem.attrib["Name"]
+            )
+        elif resource_elem.attrib["LimbType"] == "Curve":
+            return skelcurve_resources.SkelCurveLimbResource(
+                file, offset, resource_elem.attrib["Name"]
             )
         else:
             raise NotImplementedError(
@@ -236,6 +240,17 @@ def register_resource_handlers():
             resource_elem.attrib["FrameCount"],
         )
 
+    def PlayerAnimation_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        return playeranim_resources.PlayerAnimationResource(
+            file,
+            offset,
+            resource_elem.attrib["Name"],
+        )
+
     def array_resource_handler(
         file: File,
         resource_elem: ElementTree.Element,
@@ -284,6 +299,15 @@ def register_resource_handlers():
             resource_elem.attrib["Name"],
         )
 
+    def CurveAnimation_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        return skelcurve_resources.CurveAnimationHeaderResource(
+            file, offset, resource_elem.attrib["Name"]
+        )
+
     RESOURCE_HANDLERS.update(
         {
             "Skeleton": skeleton_resource_handler,
@@ -294,7 +318,7 @@ def register_resource_handlers():
             "Texture": texture_resource_handler,
             "PlayerAnimationData": PlayerAnimationData_handler,
             "Array": array_resource_handler,
-            "PlayerAnimation": get_fixed_size_resource_handler(8),  # TODO
+            "PlayerAnimation": PlayerAnimation_handler,
             "Blob": binary_blob_resource_handler,
             "Mtx": get_fixed_size_resource_handler(
                 # I assume Mtx and not MtxF, but would be the same size in bytes anyway
@@ -305,10 +329,7 @@ def register_resource_handlers():
                 # idk, probably an array
                 4
             ),  # TODO
-            "CurveAnimation": get_fixed_size_resource_handler(
-                # } CurveAnimationHeader; // size = 0x10
-                0x10
-            ),  # TODO
+            "CurveAnimation": CurveAnimation_handler,
             "Scene": get_fixed_size_resource_handler(0x8),  # TODO
             "Room": get_fixed_size_resource_handler(0x8),  # TODO
             "Path": get_fixed_size_resource_handler(0x8),  # TODO
@@ -323,7 +344,10 @@ RESOURCE_HANDLERS: dict[str, ResourceHandler] = {}
 def get_resource_from_xml(
     file: File,
     resource_elem: ElementTree.Element,
-    default_offset=None,
+    # subtract to offsets before passing to resource handlers
+    # (indicates the offset the file starts at)
+    offset_origin: int,
+    default_offset=None,  # has offset_origin *already* applied
 ) -> Resource:
     resource_handler = RESOURCE_HANDLERS.get(resource_elem.tag)
 
@@ -336,8 +360,32 @@ def get_resource_from_xml(
             raise Exception("no Offset nor default_offset")
         offset = default_offset
     else:
-        offset = int(offset, 16)
+        offset = int(offset, 16) - offset_origin
 
     resource = resource_handler(file, resource_elem, offset)
+
+    static_str = resource_elem.attrib.get("Static")
+    if static_str is not None:
+        assert static_str in {"On", "Off"}
+        is_static = static_str == "On"
+        if is_static:
+            # TODO nice hack right here.
+            # probably instead rework the "c declaration" system into a more opaque object
+            # not that this is really a required long term feature as it's only relevant for writing the source files (main .c/.h), not extracting
+            if file.name.startswith("ovl_"):
+                resource.HACK_IS_STATIC_ON = ...
+            else:
+                # TODO
+                # object_link_ boy/child has Static="On"
+                # and ofc the static forward declaration means the .h declares bss
+                # not sure what "Static" means... again not really required long term
+                print("Ignoring static on", file.name)
+        """
+        see https://github.com/zeldaret/ZAPD/blob/master/docs/zapd_extraction_xml_reference.md#resources-types
+        for what's the deal with static
+        and indeed extract_assets.py has
+        if "overlays" in xmlPath:
+            execStr += " --static"
+        """
 
     return resource

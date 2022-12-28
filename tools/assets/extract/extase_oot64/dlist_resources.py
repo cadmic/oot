@@ -27,7 +27,7 @@ import pygfxd
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ....pygfxd import pygfxd
+    from ......pygfxd import pygfxd
 
 
 class VtxArrayResource(CDataResource):
@@ -66,6 +66,8 @@ class VtxArrayResource(CDataResource):
         super().__init__(file, range_start, name)
 
     def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            return f"Vtx {self.symbol_name}[{self.cdata_ext.length}]"
         return f"Vtx {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
@@ -77,6 +79,7 @@ class VtxArrayResource(CDataResource):
             )
         index = resource_offset // self.element_cdata_ext.size
         return f"&{self.symbol_name}[{index}]"
+
 
 from ...n64 import G_IM_FMT, G_IM_SIZ
 
@@ -165,6 +168,8 @@ class TextureResource(Resource):
         )
 
     def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            return f"{self.elem_type} {self.symbol_name}[{self.height_name}*{self.width_name}*{self.siz.bpp}/8/sizeof({self.elem_type})]"
         return f"{self.elem_type} {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
@@ -207,6 +212,7 @@ def gfxdis(
     target=pygfxd.gfxd_f3dex2,
     vtx_callback: Optional[Callable[[int, int], int]] = None,
     timg_callback: Optional[Callable[[int, int, int, int, int, int], int]] = None,
+    tlut_callback: Optional[Callable[[int, int, int], int]] = None,
     macro_fn: Optional[Callable[[], int]] = None,
     arg_fn: Optional[Callable[[int], None]] = None,
 ):
@@ -295,10 +301,32 @@ def gfxdis(
 
     pygfxd.gfxd_timg_callback(timg_callback_wrapper)
 
+    # tlut_callback
+
+    if tlut_callback:
+
+        def tlut_callback_wrapper(tlut, idx, count):
+            try:
+                ret = tlut_callback(tlut, idx, count)
+            except:
+                import sys
+
+                e = sys.exc_info()[1]
+                exceptions.append(e)
+
+                ret = 0
+            return ret
+
+    else:
+
+        def tlut_callback_wrapper(tlut, idx, count):
+            return 0
+
+    pygfxd.gfxd_tlut_callback(tlut_callback_wrapper)
+
     # TODO
     # pygfxd.gfxd_dl_callback
     # pygfxd.gfxd_mtx_callback
-    # pygfxd.gfxd_tlut_callback
 
     # macro_fn
 
@@ -484,6 +512,9 @@ class DListResource(Resource, can_size_be_unknown=True):
         self.is_data_parsed = True
 
     def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            length = (self.range_end - self.range_start) // 8
+            return f"Gfx {self.symbol_name}[{length}]"
         return f"Gfx {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
@@ -498,12 +529,9 @@ class DListResource(Resource, can_size_be_unknown=True):
             pygfxd.gfxd_puts(",\n")
             return ret
 
-        def arg_fn(arg_num: int):
+        def arg_fn_handle_Dim(arg_num: int):
             timg = pygfxd.gfxd_value_by_type(pygfxd.GfxdArgType.Timg, 0)
-            if (
-                timg is not None
-                and pygfxd.gfxd_arg_type(arg_num) == pygfxd.GfxdArgType.Dim
-            ):
+            if timg is not None:
                 _, timg_segmented, _ = timg
                 dim_args_i = []
                 for arg_i in range(pygfxd.gfxd_arg_count()):
@@ -521,6 +549,9 @@ class DListResource(Resource, can_size_be_unknown=True):
                             resolution_info,
                         ) = self.file.memory_context.resolve_segmented(timg_segmented)
                     except NoSegmentBaseError:
+                        # TODO store failed resolutions somewhere, for later printing
+                        # (in general, it would be nice to fail less and *firmly* warn more instead,
+                        #  even if it means having compilation fail on purpose (#error))
                         resolution = None
                     if resolution == SegmentedAddressResolution.FILE:
                         resolved_file, resolved_offset = resolution_info
@@ -539,11 +570,12 @@ class DListResource(Resource, can_size_be_unknown=True):
                             if arg_num == width_arg_i:
                                 if resolved_resource.width_name:
                                     pygfxd.gfxd_puts(resolved_resource.width_name)
+                                    return True
                             else:
                                 assert arg_num == height_arg_i
                                 if resolved_resource.height_name:
                                     pygfxd.gfxd_puts(resolved_resource.height_name)
-                            return
+                                    return True
                         else:
                             if arg_num == width_arg_i:
                                 print(
@@ -566,8 +598,28 @@ class DListResource(Resource, can_size_be_unknown=True):
                                         ),
                                     )
                                 )
+                            # end if arg_num == width_arg_i
+                        # end width, height check
+                    # end resolved to file
+                # end 2 dim args
+            # end timg check
+            return False
 
-            pygfxd.gfxd_arg_dflt(arg_num)
+        arg_fn_handlers = {
+            pygfxd.GfxdArgType.Dim: arg_fn_handle_Dim,
+        }
+
+        def arg_fn(arg_num: int):
+            arg_type = pygfxd.gfxd_arg_type(arg_num)
+            arg_handler = arg_fn_handlers.get(arg_type)
+
+            if arg_handler is not None:
+                inhibit_default = arg_handler(arg_num)
+            else:
+                inhibit_default = False
+
+            if not inhibit_default:
+                pygfxd.gfxd_arg_dflt(arg_num)
 
         def vtx_cb(vtx, num):
             pygfxd.gfxd_puts(self.file.memory_context.get_c_reference_at_segmented(vtx))
@@ -590,6 +642,12 @@ class DListResource(Resource, can_size_be_unknown=True):
                 return 1
             return 0
 
+        def tlut_cb(tlut, idx, count):
+            print("tlut_cb", hex(tlut), idx, count)
+            tlut_c_ref = self.file.memory_context.get_c_reference_at_segmented(tlut)
+            pygfxd.gfxd_puts(tlut_c_ref)
+            return 1
+
         with self.extract_to_path.open("wb") as f:
             f.write(b"{\n")
 
@@ -604,6 +662,7 @@ class DListResource(Resource, can_size_be_unknown=True):
                 enable_caps={pygfxd.GfxdCap.emit_dec_color},
                 vtx_callback=vtx_cb,
                 timg_callback=timg_cb,
+                tlut_callback=tlut_cb,
                 macro_fn=macro_fn,
                 arg_fn=arg_fn,
             )

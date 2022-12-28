@@ -7,7 +7,6 @@ from . import Resource, File
 from .repr_c_struct import CData, CData_Value, CData_Struct, CData_Array
 
 
-
 class CDataExt(CData, abc.ABC):
 
     report_f = None
@@ -38,7 +37,11 @@ class CDataExt(CData, abc.ABC):
 
     def report(self, resource: "CDataResource", v: Any):
         if self.report_f:
-            self.report_f(resource, v)
+            try:
+                self.report_f(resource, v)
+            except:
+                print("Error reporting data", self, self.report_f, resource, v)
+                raise
 
     def write(
         self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
@@ -49,7 +52,9 @@ class CDataExt(CData, abc.ABC):
         """
         if self.write_f:
             ret = self.write_f(resource, v, f, line_prefix)
-            assert isinstance(ret, bool), self.write_f
+            # This assert is meant to ensure the function returns a value at all,
+            # since it's easy to forget to return a value (typically True)
+            assert isinstance(ret, bool), ("must return a bool", self.write_f)
         else:
             ret = self.write_default(resource, v, f, line_prefix)
             assert isinstance(ret, bool), self
@@ -176,6 +181,19 @@ class CDataResource(Resource):
         self.is_cdata_processed = False
 
     def try_parse_data(self):
+        if self.can_size_be_unknown:
+            assert hasattr(self, "cdata_ext") and self.cdata_ext is not None, (
+                "Subclasses with can_size_be_unknown=True should redefine try_parse_data"
+                " and call the superclass definition (CDataResource.try_parse_data)"
+                " only once cdata_ext has been set",
+                self.__class__,
+            )
+            assert (
+                self.range_end is not None
+            ), "Subclasses with can_size_be_unknown=True should also set range_end once the size is known"
+        assert hasattr(self, "cdata_ext")
+        assert self.cdata_ext is not None
+
         # Use own bool is_cdata_processed to remember if data has been unpacked and
         # reported already, to let subclasses use is_data_parsed if they want to
         if not self.is_cdata_processed:

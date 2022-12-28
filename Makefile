@@ -157,14 +157,10 @@ else
 SRC_DIRS := $(shell find src -type d)
 endif
 
-ASSET_BIN_DIRS := $(shell find assets/* -type d -not -path "assets/xml*" -not -path "assets/text")
-ASSET_FILES_XML := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.xml))
-ASSET_FILES_BIN := $(foreach dir,$(ASSET_BIN_DIRS),$(wildcard $(dir)/*.bin))
-
 UNDECOMPILED_DATA_DIRS := $(shell find data -type d)
 
 # source files
-C_FILES       := $(filter-out %.inc.c,$(foreach dir,$(SRC_DIRS) $(ASSET_BIN_DIRS),$(wildcard $(dir)/*.c)))
+C_FILES       := $(filter-out %.inc.c,$(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c)))
 S_FILES       := $(foreach dir,$(SRC_DIRS) $(UNDECOMPILED_DATA_DIRS),$(wildcard $(dir)/*.s))
 O_FILES       := $(foreach f,$(S_FILES:.s=.o),build/$f) \
                  $(foreach f,$(C_FILES:.c=.o),build/$f) \
@@ -172,14 +168,15 @@ O_FILES       := $(foreach f,$(S_FILES:.s=.o),build/$f) \
 
 OVL_RELOC_FILES := $(shell $(CPP) $(CPPFLAGS) $(SPEC) | grep -o '[^"]*_reloc.o' )
 
-DRAGONEW_enabled_subpaths := objects/ scenes/indoors/hylia_labo/
-DRAGONEW_C_FILES := $(shell find $(foreach f,$(DRAGONEW_enabled_subpaths),assets/$f) -name '*.c')
+# find all .c files in assets/ (except assets/overlays/), excluding .inc.c files
+DRAGONEW_C_FILES := $(shell find assets/ -path assets/overlays -prune -o -name '*.c' \! -name '*.inc.c' -print)
 DRAGONEW_O_FILES := $(foreach f,$(DRAGONEW_C_FILES:.c=.o),build/$f)
 DRAGONEW_BIN_FILES := $(shell find assets/_extracted/ -name '*.bin')
 DRAGONEW_PNG_FILES := $(shell find assets/_extracted/ -name '*.png')
 DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c),build/$f) $(foreach f,$(DRAGONEW_PNG_FILES:.png=.inc.c),build/$f)
 DRAGONEW_DEPS := $(DRAGONEW_O_FILES:.o=.d)
 
+_ := $(shell mkdir --parents build)
 $(file > build/mkdir.txt,$(sort $(dir $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES))))
 $(shell xargs mkdir --parents < build/mkdir.txt)
 

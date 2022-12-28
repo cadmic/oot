@@ -24,6 +24,6 @@
         </Array>
         <DList Name="sFlashDL" Offset="0x23D8"/>
 
-        <Collision Name="sCol" Offset="0x2570"/>
+        <Collision Name="sCol" Offset="0x2570" Static="On"/>
     </File>
 </Root>
