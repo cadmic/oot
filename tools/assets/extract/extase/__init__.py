@@ -268,7 +268,12 @@ class MemoryContext:
                     "no file set on this segment", hex(address), segment_num
                 )
             if offset >= len(file.data):
-                raise Exception("offset is past the bounds of file", hex(address))
+                raise Exception(
+                    "offset is past the bounds of file",
+                    hex(address),
+                    hex(offset),
+                    hex(len(file.data)),
+                )
             return SegmentedAddressResolution.FILE, (file, offset)
 
     def report_resource_at_segmented(
@@ -348,6 +353,10 @@ class MemoryContext:
                 "resource found at symbol, ignoring",
             )
 
+            # TODO return what? check up on callers what they expect
+            # (symbol, offset) would make sense maybe
+            return None
+
         else:
             raise NotImplementedError(
                 "unhandled SegmentedAddressResolution", resolution
@@ -415,13 +424,19 @@ class MemoryContext:
 
             resource_offset = offset - resource.range_start
             try:
-                return resource.get_c_reference(resource_offset)
+                c_ref = resource.get_c_reference(resource_offset)
             except:
                 print(
                     f"Couldn't call resource.get_c_reference(0x{resource_offset:X}) on",
                     resource,
                 )
                 raise
+            assert isinstance(c_ref, str), (
+                c_ref,
+                resource.__class__,
+                resource.get_c_reference,
+            )
+            return c_ref
 
         elif resolution == SegmentedAddressResolution.SYMBOL:
             assert isinstance(resolution_info, tuple)
@@ -652,6 +667,12 @@ class File:
 
         def add_unaccounted(range_start, range_end):
             if self.memory_context.I_D_OMEGALUL:
+                # IDO aligns every declaration to 4, so declaring zeros
+                # that is actually padding for that purpose throws off matching.
+                # This block strips such zeros from the unaccounted range.
+
+                # Compute the amount of bytes from range_start to the
+                # next multiple of 4.
                 pad_bytes = (4 - range_start % 4) % 4
                 if pad_bytes != 0:
                     pad_range_end = range_start + pad_bytes
@@ -674,7 +695,9 @@ class File:
                     )
                     unaccounted_resources.append(pad_resource)
                     range_start += pad_bytes
-                    if range_start == pad_range_end:
+                    if range_start == range_end:
+                        # It turns out the whole unaccounted range is
+                        # zero padding, so do nothing else
                         return
             assert range_start < range_end
             unaccounted_data = self.data[range_start:range_end]

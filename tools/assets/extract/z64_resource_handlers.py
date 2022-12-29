@@ -4,6 +4,8 @@ from typing import Callable
 from .extase import File, Resource, BinaryBlobResource
 from .extase.cdata_resources import Vec3sArrayResource
 
+from . import xml_errors
+
 #
 # resource handlers
 #
@@ -53,6 +55,7 @@ def register_resource_handlers():
         playeranim_resources,
         skelcurve_resources,
         misc_resources,
+        scene_rooms_resources,
     )
 
     def skeleton_resource_handler(
@@ -315,9 +318,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
-        return dlist_resources.MtxResource(
-            file, offset, resource_elem.attrib["Name"]
-        )
+        return dlist_resources.MtxResource(file, offset, resource_elem.attrib["Name"])
 
     def cutscene_resource_handler(
         file: File,
@@ -325,6 +326,24 @@ def register_resource_handlers():
         offset: int,
     ):
         return misc_resources.CutsceneResource(
+            file, offset, resource_elem.attrib["Name"]
+        )
+
+    def room_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name", "Offset"}, {"HackMode"})
+        if resource_elem.attrib.get("HackMode") == "syotes_room":
+            # TODO
+            return BinaryBlobResource(
+                file,
+                offset,
+                offset + 4,
+                resource_elem.attrib["Name"] + "_HackMode_syotes_room",
+            )
+        return scene_rooms_resources.SceneCommandsResource(
             file, offset, resource_elem.attrib["Name"]
         )
 
@@ -348,7 +367,7 @@ def register_resource_handlers():
             ),  # TODO
             "CurveAnimation": CurveAnimation_handler,
             "Scene": get_fixed_size_resource_handler(0x8),  # TODO
-            "Room": get_fixed_size_resource_handler(0x8),  # TODO
+            "Room": room_resource_handler,
             "Path": get_fixed_size_resource_handler(0x8),  # TODO
             "Cutscene": cutscene_resource_handler,
         }

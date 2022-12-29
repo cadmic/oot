@@ -8,53 +8,19 @@ from ..extase.cdata_resources import (
     CDataExt_Value,
     CDataExt_Struct,
     CDataExt_Array,
+    cdata_ext_Vec3s,
 )
 
-from .dlist_resources import DListResource
-
-
-Vec3s = CDataExt_Struct(
-    (
-        ("x", CDataExt_Value.s16),
-        ("y", CDataExt_Value.s16),
-        ("z", CDataExt_Value.s16),
-    )
-)
+from . import dlist_resources
 
 
 class StandardLimbResource(CDataResource):
-    def report_dList(resource, v):
-        assert isinstance(v, int)
-        address = v
-        if address != 0:
-            resource.file.memory_context.report_resource_at_segmented(
-                address,
-                lambda file, offset: DListResource(
-                    file,
-                    offset,
-                    f"{resource.name}_DL",
-                ),
-            )
-
-    def write_dList(resource, v, f: io.TextIOBase, line_prefix):
-        assert isinstance(v, int)
-        address = v
-        f.write(line_prefix)
-        if address == 0:
-            f.write("NULL")
-        else:
-            f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
-        return True
-
     cdata_ext = CDataExt_Struct(
         (
-            ("jointPos", Vec3s),
+            ("jointPos", cdata_ext_Vec3s),
             ("child", CDataExt_Value.u8),
             ("sibling", CDataExt_Value.u8),
-            (
-                "dList",
-                CDataExt_Value("I").set_report(report_dList).set_write(write_dList),
-            ),
+            ("dList", dlist_resources.cdata_ext_gfx_segmented),
         )
     )
 

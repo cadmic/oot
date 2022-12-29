@@ -270,27 +270,6 @@ class CurveAnimationHeaderResource(CDataResource):
 
 
 class SkelCurveLimbResource(CDataResource):
-    def report_dList_element(resource, v):
-        assert isinstance(v, int)
-        address = v
-        if address != 0:
-            resource.file.memory_context.report_resource_at_segmented(
-                address,
-                lambda file, offset: dlist_resources.DListResource(
-                    file, offset, f"{resource.name}_{address:08X}_Dl"
-                ),
-            )
-
-    def write_dList_element(resource, v, f: io.TextIOBase, line_prefix):
-        assert isinstance(v, int)
-        address = v
-        f.write(line_prefix)
-        if address == 0:
-            f.write("NULL")
-        else:
-            f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
-        return True
-
     cdata_ext = CDataExt_Struct(
         (
             ("child", CDataExt_Value.u8),
@@ -299,9 +278,7 @@ class SkelCurveLimbResource(CDataResource):
             (
                 "dList",
                 CDataExt_Array(
-                    CDataExt_Value("I")
-                    .set_report(report_dList_element)
-                    .set_write(write_dList_element),  # Gfx*
+                    dlist_resources.cdata_ext_gfx_segmented,  # Gfx*
                     2,
                 ),
             ),

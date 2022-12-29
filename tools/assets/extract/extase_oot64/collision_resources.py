@@ -10,16 +10,10 @@ from ..extase.cdata_resources import (
     CDataExt_Struct,
     CDataExt_Array,
     CDataExt_Value,
+    cdata_ext_Vec3s,
     INDENT,
 )
 
-Vec3s = CDataExt_Struct(
-    (
-        ("x", CDataExt_Value.s16),
-        ("y", CDataExt_Value.s16),
-        ("z", CDataExt_Value.s16),
-    )
-)
 
 # TODO would be better for array resources to be of unknown size at instanciation
 # and have their size set later, like LimbsArrayResource,
@@ -29,7 +23,7 @@ Vec3s = CDataExt_Struct(
 
 
 class CollisionVtxListResource(CDataResource):
-    cdata_ext_elem = Vec3s
+    cdata_ext_elem = cdata_ext_Vec3s
 
     def __init__(self, file: File, range_start: int, name: str, length: int):
         self.cdata_ext = CDataExt_Array(self.cdata_ext_elem, length)
@@ -443,8 +437,8 @@ class CollisionResource(CDataResource):
 
     cdata_ext = CDataExt_Struct(
         (
-            ("minBounds", Vec3s),
-            ("maxBounds", Vec3s),
+            ("minBounds", cdata_ext_Vec3s),
+            ("maxBounds", cdata_ext_Vec3s),
             ("numVertices", CDataExt_Value("H").set_write(write_numVertices)),
             ("pad14", CDataExt_Value.pad16),
             (

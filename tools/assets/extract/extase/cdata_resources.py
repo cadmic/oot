@@ -1,6 +1,6 @@
 import abc
 import io
-from typing import Callable, Any, Sequence
+from typing import Callable, Any, Sequence, Union
 
 from . import Resource, File
 
@@ -21,6 +21,9 @@ class CDataExt(CData, abc.ABC):
     def set_write(
         self, write_f: Callable[["CDataResource", Any, io.TextIOBase, str], bool]
     ):
+        """
+        write_f should return True if it wrote anything
+        """
         self.write_f = write_f
         return self
 
@@ -169,7 +172,7 @@ class CDataResource(Resource):
 
     def __init__(self, file: File, range_start: int, name: str):
         if not self.can_size_be_unknown:
-            assert hasattr(self, "cdata_ext")
+            assert hasattr(self, "cdata_ext"), self.__class__
             assert self.cdata_ext is not None
             range_end = range_start + self.cdata_ext.size
         else:
@@ -213,15 +216,83 @@ class CDataResource(Resource):
             f.write("\n")
 
 
+class CDataArrayResource(CDataResource):
+    """Helper for variable-length array resources.
+
+    The length is unknown at object creation, and must be set eventually
+    with set_length (for example by another resource).
+
+    The length being set then allows this resource to be parsed.
+
+    For static-length array resources, just use CDataResource.
+    """
+
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(can_size_be_unknown=True, **kwargs)
+
+    elem_cdata_ext: CDataExt
+
+    def __init__(self, file: File, range_start: int, name: str):
+        super().__init__(file, range_start, name)
+        self._length: Union[None, int] = None
+
+    def set_length(self, length: int):
+        if self._length is not None:
+            if self._length != length:
+                raise Exception(
+                    "length already set and is different", self._length, length
+                )
+        assert length > 0
+        self._length = length
+
+    def try_parse_data(self):
+        if self._length is None:
+            return
+        self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self._length)
+        self.range_end = self.range_start + self.cdata_ext.size
+        super().try_parse_data()
+
+    def get_c_reference(self, resource_offset: int):
+        return self.symbol_name
+
+    def get_c_expression_length(self, resource_offset: int):
+        if resource_offset == 0:
+            return f"ARRAY_COUNT({self.symbol_name})"
+        else:
+            raise ValueError
+
+
+class CDataArrayNamedLengthResource(CDataArrayResource):
+    """CDataArrayResource and with a macro (define) for its length.
+
+    This is useful for arrays that have a length that should be referenced somewhere,
+    but cannot due to the order the definitions are in.
+
+    This writes a macro to the .h for the length, along the symbol declaration,
+    to be used in the declaration base (! by the subclass, in get_c_declaration_base)
+    """
+
+    def __init__(self, file: File, range_start: int, name: str):
+        super().__init__(file, range_start, name)
+        self.length_name = f"LENGTH_{self.symbol_name}"
+
+    def write_c_declaration(self, h: io.TextIOBase):
+        h.write(f"#define {self.length_name} {self._length}\n")
+        super().write_c_declaration(h)
+
+
+cdata_ext_Vec3s = CDataExt_Struct(
+    (
+        ("x", CDataExt_Value.s16),
+        ("y", CDataExt_Value.s16),
+        ("z", CDataExt_Value.s16),
+    )
+)
+
+
 class Vec3sArrayResource(CDataResource):
 
-    elem_cdata_ext = CDataExt_Struct(
-        (
-            ("x", CDataExt_Value.s16),
-            ("y", CDataExt_Value.s16),
-            ("z", CDataExt_Value.s16),
-        )
-    )
+    elem_cdata_ext = cdata_ext_Vec3s
 
     def __init__(self, file: File, range_start: int, name: str, length: int):
         assert length > 0

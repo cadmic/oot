@@ -655,7 +655,9 @@ class DListResource(Resource, can_size_be_unknown=True):
                         )
                         assert result == GetResourceAtResult.DEFINITIVE
                         assert resolved_resource is not None
-                        assert isinstance(resolved_resource, TextureResource)
+                        assert isinstance(resolved_resource, TextureResource), hex(
+                            timg_segmented
+                        )
                         width_arg_value = pygfxd.gfxd_arg_value(width_arg_i)[1]
                         height_arg_value = pygfxd.gfxd_arg_value(height_arg_i)[1]
                         if (resolved_resource.width, resolved_resource.height) == (
@@ -772,5 +774,34 @@ class DListResource(Resource, can_size_be_unknown=True):
 
             f.write(b"}\n")
 
+
+def report_gfx_segmented(resource: Resource, v):
+    assert isinstance(v, int)
+    address = v
+    if address != 0:
+        resource.file.memory_context.report_resource_at_segmented(
+            address,
+            lambda file, offset: DListResource(
+                file,
+                offset,
+                f"{resource.name}_{address:08X}_DL",
+            ),
+        )
+
+
+def write_gfx_segmented(resource: Resource, v, f: io.TextIOBase, line_prefix: str):
+    assert isinstance(v, int)
+    address = v
+    f.write(line_prefix)
+    if address == 0:
+        f.write("NULL")
+    else:
+        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+    return True
+
+
+cdata_ext_gfx_segmented = (
+    CDataExt_Value("I").set_report(report_gfx_segmented).set_write(write_gfx_segmented)
+)
 
 VERBOSE2 = False
