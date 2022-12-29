@@ -75,6 +75,19 @@ class CDataExt_Value(CData_Value, CDataExt):
         self.padding = None
         return super().freeze()
 
+    def set_write_str_v(self, str_v: Callable[[Any], str]):
+        """Utility wrapper for set_write, writes the value as stringified by str_v."""
+
+        def write_f(
+            resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix: str
+        ):
+            f.write(line_prefix)
+            f.write(str_v(v))
+            return True
+
+        self.set_write(write_f)
+        return self
+
     def report(self, resource: "CDataResource", v: Any):
         super().report(resource, v)
         if self.is_padding:
@@ -248,6 +261,7 @@ class CDataArrayResource(CDataResource):
     def try_parse_data(self):
         if self._length is None:
             return
+        assert isinstance(self.elem_cdata_ext, CDataExt), (self.__class__, self)
         self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self._length)
         self.range_end = self.range_start + self.cdata_ext.size
         super().try_parse_data()

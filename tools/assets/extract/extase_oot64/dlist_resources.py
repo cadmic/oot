@@ -585,7 +585,7 @@ class DListResource(Resource, can_size_be_unknown=True):
                     lambda file, offset: TextureResource(
                         file,
                         offset,
-                        f"{self.name}_Tex_{offset:08X}_",
+                        f"{self.name}_{offset:08X}_Tex",
                         G_IM_FMT.by_i[fmt],
                         G_IM_SIZ.by_i[siz],
                         width,

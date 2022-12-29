@@ -8,6 +8,9 @@ import io
 from typing import Sequence, Optional, Callable, Union
 
 
+VERBOSE_SPLIT_PERHAPS = False
+
+
 #
 # memory context
 #
@@ -301,16 +304,17 @@ class MemoryContext:
                 raise
 
             if result == GetResourceAtResult.PERHAPS:
-                # TODO figure out what to do with perhaps resources
-                # for now just add resources, but this may dupe stuff if the resource is supposed to be the same
-                # (eg vertex arrays, currently handled with the buffer reporting mark_resource_buffer_at_segmented )
-                print(
-                    "!!! GetResourceAtResult.PERHAPS report_resource_at_segmented , may duplicate stuff idk !!!",
-                    hex(address),
-                    hex(offset),
-                    existing_resource,
-                    existing_resource.name,
-                )
+                if VERBOSE_SPLIT_PERHAPS:
+                    # TODO figure out what to do with perhaps resources
+                    # for now just add resources, but this may dupe stuff if the resource is supposed to be the same
+                    # (eg vertex arrays, currently handled with the buffer reporting mark_resource_buffer_at_segmented )
+                    print(
+                        "!!! GetResourceAtResult.PERHAPS report_resource_at_segmented , may duplicate stuff idk !!!",
+                        hex(address),
+                        hex(offset),
+                        existing_resource,
+                        existing_resource.name,
+                    )
             """
             assert (
                 result != GetResourceAtResult.PERHAPS
@@ -325,16 +329,17 @@ class MemoryContext:
                 file.add_resource(new_resource)
 
                 if result == GetResourceAtResult.PERHAPS:
-                    # TODO (see above)
-                    print(
-                        "     >>> ",
-                        result,
-                        "followup",
-                        "added:",
-                        new_resource.name,
-                        new_resource.__class__,
-                        new_resource,
-                    )
+                    if VERBOSE_SPLIT_PERHAPS:
+                        # TODO (see above)
+                        print(
+                            "     >>> ",
+                            result,
+                            "followup",
+                            "added:",
+                            new_resource.name,
+                            new_resource.__class__,
+                            new_resource,
+                        )
 
                 return new_resource, offset
 
@@ -744,10 +749,18 @@ class File:
 
             # Add unaccounted if needed between two successive resources
             if resource_a.range_end < resource_b.range_start:
-                add_unaccounted(
-                    resource_a.range_end,
-                    resource_b.range_start,
-                )
+                try:
+                    add_unaccounted(
+                        resource_a.range_end,
+                        resource_b.range_start,
+                    )
+                except:
+                    print(
+                        "Could not add an unaccounted resource between the two resources:"
+                    )
+                    print(resource_a)
+                    print(resource_b)
+                    raise
 
         self.extend_resources(unaccounted_resources)
 

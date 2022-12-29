@@ -627,6 +627,7 @@ def main():
     # extract_xml(Path("overlays/ovl_Magic_Wind"))  # SkelCurve
     # extract_xml(Path("objects/object_link_child"))  # The only xml with <Mtx>
     # extract_xml(Path("scenes/dungeons/ddan")) # cutscene test
+    # extract_xml(Path("scenes/dungeons/ganontikasonogo")) # has a spawn not in the entrance table
     extract_all_xmls(Path("objects"))
     extract_all_xmls(Path("scenes"))
     extract_all_xmls(Path("overlays"))

@@ -14,6 +14,7 @@ from ..extase.cdata_resources import (
     INDENT,
 )
 
+from .. import oot64_data
 
 # TODO would be better for array resources to be of unknown size at instanciation
 # and have their size set later, like LimbsArrayResource,
@@ -279,7 +280,12 @@ class CollisionBgCamListResource(CDataResource):
 
     cdata_ext_elem = CDataExt_Struct(
         (
-            ("setting", CDataExt_Value.u16),
+            (
+                "setting",
+                CDataExt_Value("H").set_write_str_v(
+                    lambda v: oot64_data.get_camera_setting_type_name(v)
+                ),
+            ),
             ("count", CDataExt_Value.s16),
             (
                 "bgCamFuncData",
@@ -356,7 +362,7 @@ class CollisionWaterBoxesResource(CDataResource):
             ("xLength", CDataExt_Value.s16),
             ("zLength", CDataExt_Value.s16),
             ("pad12", CDataExt_Value.pad16),
-            ("properties", CDataExt_Value.u32),
+            ("properties", CDataExt_Value.u32),  # TODO formatting
         )
     )
 
@@ -471,17 +477,18 @@ class CollisionResource(CDataResource):
 
     def report_waterBoxes(resource: "CollisionResource", v):
         assert isinstance(v, int)
+        address = v
         length = resource.cdata_unpacked["numWaterBoxes"]
         if length != 0:
-            assert v != 0, v  # should not be NULL
+            assert address != 0, address  # should not be NULL
             resource.file.memory_context.report_resource_at_segmented(
-                v,
+                address,
                 lambda file, offset: transfer_HACK_IS_STATIC_ON(
                     resource,
                     CollisionWaterBoxesResource(
                         file,
                         offset,
-                        f"{resource.name}_WaterBoxes_",
+                        f"{resource.name}_{address:08X}_WaterBoxes",
                         length,
                     ),
                 ),

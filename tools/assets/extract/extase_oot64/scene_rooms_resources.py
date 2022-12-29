@@ -10,8 +10,11 @@ from ..extase.cdata_resources import (
     CDataExt_Array,
     CDataExt_Value,
     cdata_ext_Vec3s,
+    INDENT,
     Vec3sArrayResource,
 )
+
+from .. import oot64_data
 
 from . import collision_resources
 from . import room_shape_resources
@@ -25,6 +28,9 @@ def _SHIFTR(v: int, s: int, w: int):
     assert s >= 0
     assert w >= 1
     return (v >> s) & ((1 << w) - 1)
+
+
+VERBOSE_NOT_FULLY_PARSED_SCENECMD = False
 
 
 class SceneCmdId(enum.Enum):
@@ -99,6 +105,8 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
     def __init__(self, file: File, range_start: int, name: str):
         super().__init__(file, range_start, None, name)
         self.parsed_commands: set[SceneCmdId] = set()
+        self.player_entry_list_length = None
+        self.room_list_length = None
 
     def try_parse_data(self):
         data = self.file.data[self.range_start :]
@@ -163,6 +171,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 self.parsed_commands.add(cmd_id)
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_LIST:
+                self.room_list_length = data1
                 resource, _ = self.file.memory_context.report_resource_at_segmented(
                     data2_I,
                     lambda file, offset: RoomListResource(
@@ -184,22 +193,24 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 self.parsed_commands.add(cmd_id)
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ENTRANCE_LIST:
-                # TODO
-                # list size isn't in the command
-                # the appropriate way to derive that size is reading the entrance table
-                # and list the spawns associated to the scene, and those spawns index into this list
-                # (yeah btw this is the "spawn list", names are jank)
-                # could also (and probably will for now) just guess the length
                 assert data1 == 0
-                self.file.memory_context.report_resource_at_segmented(
+                resource, _ = self.file.memory_context.report_resource_at_segmented(
                     data2_I,
                     lambda file, offset: SpawnListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_SpawnList"
                     ),
                 )
-                self.parsed_commands.add(cmd_id)
+                assert isinstance(resource, SpawnListResource)
+                if (
+                    self.player_entry_list_length is not None
+                    and self.room_list_length is not None
+                ):
+                    resource.player_entry_list_length = self.player_entry_list_length
+                    resource.room_list_length = self.room_list_length
+                    self.parsed_commands.add(cmd_id)
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_SPAWN_LIST:
+                self.player_entry_list_length = data1
                 resource, _ = self.file.memory_context.report_resource_at_segmented(
                     data2_I,
                     lambda file, offset: ActorEntryListResource(
@@ -286,16 +297,18 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
         self.range_end = self.range_start + end_offset
         assert self.parsed_commands.issubset(found_commands)
         self.is_data_parsed = self.parsed_commands == found_commands
-        print(
-            "NOT FULLY PARSED:",
-            self,
-            "Found commands:",
-            found_commands,
-            "Parsed commands:",
-            self.parsed_commands,
-            "FOUND BUT NOT PARSED:",
-            found_commands - self.parsed_commands,
-        )
+        if found_commands - self.parsed_commands:
+            if VERBOSE_NOT_FULLY_PARSED_SCENECMD:
+                print(
+                    "NOT FULLY PARSED:",
+                    self,
+                    "Found commands:",
+                    found_commands,
+                    "Parsed commands:",
+                    self.parsed_commands,
+                    "FOUND BUT NOT PARSED:",
+                    found_commands - self.parsed_commands,
+                )
 
     def get_c_declaration_base(self):
         return f"SceneCmd {self.symbol_name}[]"
@@ -378,12 +391,24 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_BEHAVIOR:
                     gpFlags1 = data1
                     gpFlags2 = data2_I
-                    curRoomUnk3 = gpFlags1
-                    curRoomUnk2 = _SHIFTR(gpFlags2, 0, 8)
-                    showInvisActors = _SHIFTR(gpFlags2, 8, 1)
+                    behaviorType1 = gpFlags1
+                    behaviorType2 = _SHIFTR(gpFlags2, 0, 8)
+                    lensMode = _SHIFTR(gpFlags2, 8, 1)
                     disableWarpSongs = _SHIFTR(gpFlags2, 10, 1)
+                    behaviorType1_name = oot64_data.get_room_behavior_type1_name(
+                        behaviorType1
+                    )
+                    behaviorType2_name = oot64_data.get_room_behavior_type2_name(
+                        behaviorType2
+                    )
+                    lensMode_name = oot64_data.get_lens_mode_name(lensMode)
+                    disableWarpSongs_name = (
+                        "true /* no warp songs */"
+                        if disableWarpSongs
+                        else "false /* warp songs enabled */"
+                    )
                     f.write(
-                        f"{curRoomUnk3}, {curRoomUnk2}, {showInvisActors}, {disableWarpSongs}"
+                        f"{behaviorType1_name}, {behaviorType2_name}, {lensMode_name}, {disableWarpSongs_name}"
                     )
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_UNDEFINED_9:
                     assert data1 == 0
@@ -441,7 +466,16 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     min_ = data2_B1
                     timeSpeed = data2_B2
                     assert data2_B3 == 0
-                    f.write(f"{hour}, {min_}, {timeSpeed}")
+
+                    hour_str = "0xFF" if hour == 0xFF else str(hour)
+                    min_str = "0xFF" if min_ == 0xFF else str(min_)
+                    timeSpeed_str = "0xFF" if timeSpeed == 0xFF else str(timeSpeed)
+
+                    if hour == 0xFF or min_ == 0xFF:
+                        f.write("/* don't set time */ ")
+                    f.write(f"{hour_str}, {min_str}, {timeSpeed_str}")
+                    if timeSpeed == 0xFF or timeSpeed == 0:
+                        f.write(" /* time doesn't move */")
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_SKYBOX_SETTINGS:
                     assert data1 == 0
                     skyboxId = data2_B0
@@ -454,7 +488,17 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     skyboxDisabled = data2_B0
                     sunMoonDisabled = data2_B1
                     assert data2_B2 == data2_B3 == 0
-                    f.write(f"{skyboxDisabled}, {sunMoonDisabled}")
+                    skyboxDisabled_name = (
+                        "true /* no skybox */"
+                        if skyboxDisabled
+                        else "false /* skybox enabled */"
+                    )
+                    sunMoonDisabled_name = (
+                        "true /* no sun/moon */"
+                        if sunMoonDisabled
+                        else "false /* sun/moon enabled */"
+                    )
+                    f.write(f"{skyboxDisabled_name}, {sunMoonDisabled_name}")
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_EXIT_LIST:
                     assert data1 == 0
                     address = data2_I
@@ -470,7 +514,11 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     assert data2_B1 == 0
                     natureAmbienceId = data2_B2
                     seqId = data2_B3
-                    f.write(f"{specId}, {natureAmbienceId}, {seqId}")
+                    natureAmbienceId_name = oot64_data.get_nature_ambience_id_name(
+                        natureAmbienceId
+                    )
+                    seqId_name = oot64_data.get_sequence_id_name(seqId)
+                    f.write(f"{specId}, {natureAmbienceId_name}, {seqId_name}")
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ECHO_SETTINGS:
                     assert data1 == 0
                     assert data2_B0 == data2_B1 == data2_B2 == 0
@@ -486,7 +534,8 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_MISC_SETTINGS:
                     sceneCamType = data1
                     worldMapLocation = data2_I
-                    f.write(f"{sceneCamType}, {worldMapLocation}")
+                    sceneCamType_name = oot64_data.get_scene_cam_type_name(sceneCamType)
+                    f.write(f"{sceneCamType_name}, {worldMapLocation}")
 
                 f.write("),\n")
             f.write("}\n")
@@ -498,7 +547,75 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
 # TODO move resources other than scenecmd to their own file "scene_resources"
 
 
+def fmt_hex_s(v: int, nibbles: int = 0):
+    """Format v to 0x-prefixed uppercase hexadecimal, using (at least) the specified amount of nibbles.
+
+    Meant for signed values (_s suffix),
+    adds a space in place of where the - sign would be for positive values.
+
+    Note compared to this,
+    - f"{v:#X}" would produce an uppercase 0X (1 -> 0X1)
+    - f"0x{v:X}" doesn't work with negative values (-1 -> 0x-1)
+    """
+    v_str = f"{v:0{nibbles}X}"
+    if v < 0:
+        v_str = v_str.removeprefix("-")
+        return f"-0x{v_str}"
+    else:
+        return f" 0x{v_str}"
+
+
+def fmt_hex_u(v: int, nibbles: int = 0):
+    """Format v to 0x-prefixed uppercase hexadecimal, using (at least) the specified amount of nibbles.
+
+    Meant for unsigned values (_u suffix),
+    but won't fail for negative values.
+
+    See: fmt_hex_s
+    """
+    v_str = f"{v:0{nibbles}X}"
+    if v < 0:
+        # Also handle v being negative just in case,
+        # it will only mean the output isn't aligned as expected
+        v_str = v_str.removeprefix("-")
+        return f"-0x{v_str}"
+    else:
+        return f"0x{v_str}"
+
+
 class ActorEntryListResource(CDataArrayNamedLengthResource):
+    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+        assert isinstance(v, dict)
+        f.write(line_prefix)
+        f.write("{\n")
+
+        f.write(line_prefix + INDENT)
+        f.write(oot64_data.get_actor_id_name(v["id"]))
+        f.write(",\n")
+
+        f.write(line_prefix + INDENT)
+        f.write("{ ")
+        f.write(", ".join(f"{p:6}" for p in (v["pos"][axis] for axis in "xyz")))
+        f.write(" }, // pos\n")
+
+        f.write(line_prefix + INDENT)
+        f.write("{ ")
+        f.write(", ".join(fmt_hex_s(r, 4) for r in (v["rot"][axis] for axis in "xyz")))
+        f.write(" }, // rot\n")
+
+        f.write(line_prefix + INDENT)
+        params = v["params"]
+        f.write(fmt_hex_s(params, 4))
+        if params < 0:
+            params_u16 = params + 0x1_0000
+            f.write(f" /* 0x{params_u16:04X} */")
+        f.write(", // params\n")
+
+        f.write(line_prefix)
+        f.write("}")
+
+        return True
+
     elem_cdata_ext = CDataExt_Struct(
         (
             ("id", CDataExt_Value.s16),
@@ -506,14 +623,16 @@ class ActorEntryListResource(CDataArrayNamedLengthResource):
             ("rot", cdata_ext_Vec3s),
             ("params", CDataExt_Value.s16),
         )
-    )
+    ).set_write(write_elem)
 
     def get_c_declaration_base(self):
         return f"ActorEntry {self.symbol_name}[{self.length_name}]"
 
 
 class ObjectListResource(CDataArrayNamedLengthResource):
-    elem_cdata_ext = CDataExt_Value.s16
+    elem_cdata_ext = CDataExt_Value("h").set_write_str_v(
+        lambda v: oot64_data.get_object_id_name(v)
+    )
 
     def get_c_declaration_base(self):
         return f"s16 {self.symbol_name}[{self.length_name}]"
@@ -542,10 +661,75 @@ class SpawnListResource(CDataArrayResource):
         )
     )
 
+    # (eventually) set by SceneCommandsResource
+    player_entry_list_length = None
+    room_list_length = None
+
     def try_parse_data(self):
-        # TODO guess or parse entrance table
-        # using 2 for alignment purposes
-        self.set_length(2)
+        if self.player_entry_list_length is None or self.room_list_length is None:
+            return
+
+        # File.name comes from the Name attribute on a <File> element,
+        # which is also used to make the path to the baserom file to read from.
+        # So File.name is the name of the baserom file.
+        # This may change in the future though ¯\_(ツ)_/¯
+        rom_file_name = self.file.name
+        # This way we can get the scene ID of the file
+        scene_id = oot64_data.get_scene_id_from_rom_file_name(rom_file_name)
+        scene_id_name = oot64_data.get_scene_id_name(scene_id)
+        # Get all the spawns used by all entrances using the scene
+        entrance_ids = oot64_data.get_entrance_ids_from_scene_id_name(scene_id_name)
+        all_used_spawns = set()
+        for entrance_id in entrance_ids:
+            entrance_spawn = oot64_data.get_entrance_spawn(entrance_id)
+            all_used_spawns.add(entrance_spawn)
+        num_spawns = max(all_used_spawns) + 1
+
+        # Handle the cases where the entrance table references spawn outside the spawn list,
+        # by checking if the indices in the last spawn in the list make sense.
+        # This is required for a few scenes in practice, otherwise the spawn list and exit list overlap.
+        while True:
+            last_spawn_unpacked = self.elem_cdata_ext.unpack_from(
+                self.file.data,
+                self.range_start + (num_spawns - 1) * self.elem_cdata_ext.size,
+            )
+            if (
+                last_spawn_unpacked["playerEntryIndex"] < self.player_entry_list_length
+                and last_spawn_unpacked["room"] < self.room_list_length
+            ):
+                break
+            print(
+                self,
+                "Removing one spawn because the last spawn of the list has bad indices",
+                last_spawn_unpacked,
+                num_spawns,
+                "->",
+                num_spawns - 1,
+            )
+            num_spawns -= 1
+            assert num_spawns > 0
+
+        # Handle the case where there may be an unused spawn, in the place of
+        # what would otherwise be padding.
+        if self.file.memory_context.I_D_OMEGALUL:
+            assert self.elem_cdata_ext.size == 2
+            if num_spawns % 2 == 1:
+                data_to_next_4align = self.file.data[
+                    self.range_start + num_spawns * 2 :
+                ][:2]
+                if data_to_next_4align != b"\x00\x00":
+                    print(
+                        self,
+                        "Adding one spawn because the next supposedly-padding"
+                        " two bytes are not padding (not zero)",
+                        bytes(data_to_next_4align),
+                        num_spawns,
+                        "->",
+                        num_spawns + 1,
+                    )
+                    num_spawns += 1
+
+        self.set_length(num_spawns)
         super().try_parse_data()
 
     def get_c_declaration_base(self):
@@ -566,6 +750,7 @@ class ExitListResource(CDataArrayResource):
 
 
 class EnvLightSettingsListResource(CDataArrayNamedLengthResource):
+    # TODO formatting
     elem_cdata_ext = CDataExt_Struct(
         (
             ("ambientColor", CDataExt_Array(CDataExt_Value.u8, 3)),
@@ -584,6 +769,52 @@ class EnvLightSettingsListResource(CDataArrayNamedLengthResource):
 
 
 class TransitionActorEntryListResource(CDataArrayNamedLengthResource):
+    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+        assert isinstance(v, dict)
+        f.write(line_prefix)
+        f.write("{\n")
+
+        f.write(line_prefix + INDENT)
+        f.write("{\n")
+        f.write(line_prefix + 2 * INDENT)
+        f.write("// { room, bgCamIndex }\n")
+        for side_i in range(2):
+            side = v["sides"][side_i]
+            room = side["room"]
+            bgCamIndex = side["bgCamIndex"]
+            f.write(line_prefix + 2 * INDENT)
+            f.write("{ ")
+            f.write(f"{room}, {bgCamIndex}")
+            f.write(" },\n")
+        f.write(line_prefix + INDENT)
+        f.write("}, // sides\n")
+
+        f.write(line_prefix + INDENT)
+        f.write(oot64_data.get_actor_id_name(v["id"]))
+        f.write(",\n")
+
+        f.write(line_prefix + INDENT)
+        f.write("{ ")
+        f.write(", ".join(f"{p:6}" for p in (v["pos"][axis] for axis in "xyz")))
+        f.write(" }, // pos\n")
+
+        f.write(line_prefix + INDENT)
+        f.write(fmt_hex_s(v["rotY"], 4))
+        f.write(", // rotY\n")
+
+        f.write(line_prefix + INDENT)
+        params = v["params"]
+        f.write(fmt_hex_s(params, 4))
+        if params < 0:
+            params_u16 = params + 0x1_0000
+            f.write(f" /* 0x{params_u16:04X} */")
+        f.write(", // params\n")
+
+        f.write(line_prefix)
+        f.write("}")
+
+        return True
+
     elem_cdata_ext = CDataExt_Struct(
         (
             (
@@ -603,7 +834,7 @@ class TransitionActorEntryListResource(CDataArrayNamedLengthResource):
             ("rotY", CDataExt_Value.s16),
             ("params", CDataExt_Value.s16),
         )
-    )
+    ).set_write(write_elem)
 
     def get_c_declaration_base(self):
         return f"TransitionActorEntry {self.symbol_name}[{self.length_name}]"
