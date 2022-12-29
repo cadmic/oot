@@ -58,6 +58,9 @@ def register_resource_handlers():
         scene_rooms_resources,
     )
 
+    # TODO check attributes more in the handlers
+    # (xml_errors.xml_check_attributes)
+
     def skeleton_resource_handler(
         file: File,
         resource_elem: ElementTree.Element,
@@ -329,6 +332,16 @@ def register_resource_handlers():
             file, offset, resource_elem.attrib["Name"]
         )
 
+    def scene_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name", "Offset"}, set())
+        return scene_rooms_resources.SceneCommandsResource(
+            file, offset, resource_elem.attrib["Name"]
+        )
+
     def room_resource_handler(
         file: File,
         resource_elem: ElementTree.Element,
@@ -366,7 +379,7 @@ def register_resource_handlers():
                 4
             ),  # TODO
             "CurveAnimation": CurveAnimation_handler,
-            "Scene": get_fixed_size_resource_handler(0x8),  # TODO
+            "Scene": scene_resource_handler,
             "Room": room_resource_handler,
             "Path": get_fixed_size_resource_handler(0x8),  # TODO
             "Cutscene": cutscene_resource_handler,

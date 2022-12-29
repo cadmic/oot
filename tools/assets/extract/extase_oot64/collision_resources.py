@@ -239,19 +239,42 @@ class CollisionSurfaceTypeListResource(CDataResource):
             raise ValueError()
 
 
-class CollisionBgCamListResource(CDataResource):
-    def report_bgCamFuncData(resource, v):
-        if v != 0:
-            raise NotImplementedError(
-                "didn't implement extracting BgCamFuncData yet", hex(v)
-            )
+class BgCamFuncDataResource(CDataResource):
+    element_cdata_ext = cdata_ext_Vec3s
 
+    def __init__(self, file: File, range_start: int, range_end: int, name: str):
+        # TODO see VtxArrayResource
+        count = (range_end - range_start) // self.element_cdata_ext.size
+        self.cdata_ext = CDataExt_Array(self.element_cdata_ext, count)
+        super().__init__(file, range_start, name)
+
+    def get_c_declaration_base(self):
+        if hasattr(self, "HACK_IS_STATIC_ON"):
+            return f"Vec3s {self.symbol_name}[{self.cdata_ext.length}]"
+        return f"Vec3s {self.symbol_name}[]"
+
+    def get_c_reference(self, resource_offset: int):
+        if resource_offset % self.element_cdata_ext.size != 0:
+            raise ValueError(
+                "unaligned offset into Vec3s array (BgCamFuncData)",
+                hex(resource_offset),
+                self.element_cdata_ext.size,
+            )
+        index = resource_offset // self.element_cdata_ext.size
+        return f"&{self.symbol_name}[{index}]"
+
+
+class CollisionBgCamListResource(CDataResource):
     def write_bgCamFuncData(
         resource: "CollisionSurfaceTypeListResource", v, f: io.TextIOBase, line_prefix
     ):
-        assert v == 0, "should have NotImplementedError'ed in report_bgCamFuncData"
+        assert isinstance(v, int)
+        address = v
         f.write(line_prefix)
-        f.write("NULL")
+        if address != 0:
+            f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        else:
+            f.write("NULL")
         return True
 
     cdata_ext_elem = CDataExt_Struct(
@@ -260,9 +283,7 @@ class CollisionBgCamListResource(CDataResource):
             ("count", CDataExt_Value.s16),
             (
                 "bgCamFuncData",
-                CDataExt_Value("I")
-                .set_report(report_bgCamFuncData)
-                .set_write(write_bgCamFuncData),
+                CDataExt_Value("I").set_write(write_bgCamFuncData),
             ),  # Vec3s*
         )
     )
@@ -270,6 +291,49 @@ class CollisionBgCamListResource(CDataResource):
     def __init__(self, file: File, range_start: int, name: str, length: int):
         self.cdata_ext = CDataExt_Array(self.cdata_ext_elem, length)
         super().__init__(file, range_start, name)
+
+    def try_parse_data(self):
+        super().try_parse_data()
+        # Note: operating directly on the segmented addresses here,
+        # so assuming from the start all bgCamFuncData use the same segment
+        bgCamFuncData_buffer_start = None
+        bgCamFuncData_buffer_end = None
+        for bgCamInfo in self.cdata_unpacked:
+            count = bgCamInfo["count"]
+            assert isinstance(count, int)
+            bgCamFuncData = bgCamInfo["bgCamFuncData"]
+            assert isinstance(bgCamFuncData, int)
+
+            if bgCamFuncData == 0:
+                continue
+
+            if bgCamFuncData_buffer_start is None:
+                bgCamFuncData_buffer_start = bgCamFuncData
+                bgCamFuncData_buffer_end = (
+                    bgCamFuncData + count * BgCamFuncDataResource.element_cdata_ext.size
+                )
+                continue
+
+            assert bgCamFuncData_buffer_start is not None
+            assert bgCamFuncData_buffer_end is not None
+            if bgCamFuncData != bgCamFuncData_buffer_end:
+                raise NotImplementedError(
+                    "bgCamFuncData buffer not used in the same order as its elements"
+                )
+            bgCamFuncData_buffer_end += (
+                count * BgCamFuncDataResource.element_cdata_ext.size
+            )
+        if bgCamFuncData_buffer_start is not None:
+            assert bgCamFuncData_buffer_end is not None
+            self.file.memory_context.report_resource_at_segmented(
+                bgCamFuncData_buffer_start,
+                lambda file, offset: BgCamFuncDataResource(
+                    file,
+                    offset,
+                    offset + bgCamFuncData_buffer_end - bgCamFuncData_buffer_start,
+                    f"{self.name}_{bgCamFuncData_buffer_start:08X}_BgCamFuncData",
+                ),
+            )
 
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):
@@ -284,7 +348,7 @@ class CollisionBgCamListResource(CDataResource):
 
 
 class CollisionWaterBoxesResource(CDataResource):
-    cdata_ext_elem = CDataExt_Struct(
+    elem_cdata_ext = CDataExt_Struct(
         (
             ("xMin", CDataExt_Value.s16),
             ("ySurface", CDataExt_Value.s16),
@@ -296,8 +360,24 @@ class CollisionWaterBoxesResource(CDataResource):
         )
     )
 
-    # TODO object_am collision doesn't have waterboxes,
-    # implement that once working from a xml that does have some
+    def __init__(self, file: File, range_start: int, name: str, length: int):
+        self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, length)
+        super().__init__(file, range_start, name)
+
+    def get_c_declaration_base(self):
+        return f"WaterBox {self.symbol_name}[]"
+
+    def get_c_reference(self, resource_offset: int):
+        if resource_offset == 0:
+            return self.symbol_name
+        else:
+            raise ValueError
+
+    def get_c_expression_length(self, resource_offset: int):
+        if resource_offset == 0:
+            return f"ARRAY_COUNT({self.symbol_name})"
+        else:
+            raise ValueError
 
 
 def transfer_HACK_IS_STATIC_ON(source, dest):
