@@ -290,6 +290,7 @@ cdata_ext_Vec3s = CDataExt_Struct(
 )
 
 
+# TODO move to z64 ?
 class Vec3sArrayResource(CDataResource):
 
     elem_cdata_ext = cdata_ext_Vec3s
@@ -303,4 +304,13 @@ class Vec3sArrayResource(CDataResource):
         return f"Vec3s {self.symbol_name}[]"
 
     def get_c_reference(self, resource_offset: int):
-        raise NotImplementedError()
+        if resource_offset == 0:
+            return self.symbol_name
+        else:
+            raise ValueError()
+
+    def get_c_expression_length(self, resource_offset: int):
+        if resource_offset == 0:
+            return f"ARRAY_COUNT({self.symbol_name})"
+        else:
+            raise ValueError()

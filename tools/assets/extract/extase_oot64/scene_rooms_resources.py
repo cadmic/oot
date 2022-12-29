@@ -1,5 +1,6 @@
 import enum
 import struct
+import io
 
 from ..extase import File, Resource
 from ..extase.cdata_resources import (
@@ -9,6 +10,7 @@ from ..extase.cdata_resources import (
     CDataExt_Array,
     CDataExt_Value,
     cdata_ext_Vec3s,
+    Vec3sArrayResource,
 )
 
 from . import collision_resources
@@ -608,18 +610,52 @@ class TransitionActorEntryListResource(CDataArrayNamedLengthResource):
 
 
 class PathListResource(CDataArrayResource):
-    elem_cdata_ext = CDataExt_Struct(
-        (
-            ("count", CDataExt_Value.u8),
-            ("pad1", CDataExt_Value.pad8),
-            ("pad2", CDataExt_Value.pad16),
-            ("points", CDataExt_Value.pointer),  # TODO Vec3s*
+    def report_elem(resource, v):
+        assert isinstance(v, dict)
+        count = v["count"]
+        assert isinstance(count, int)
+        points = v["points"]
+        assert isinstance(points, int)
+        resource.file.memory_context.report_resource_at_segmented(
+            points,
+            lambda file, offset: Vec3sArrayResource(
+                file, offset, f"{resource.name}_{points:08X}_Points", count
+            ),
         )
+
+    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+        assert isinstance(v, dict)
+        count = v["count"]
+        assert isinstance(count, int)
+        points = v["points"]
+        assert isinstance(points, int)
+        f.write(line_prefix)
+        f.write("{ ")
+        f.write(
+            resource.file.memory_context.get_c_expression_length_at_segmented(points)
+        )
+        f.write(", ")
+        f.write(resource.file.memory_context.get_c_reference_at_segmented(points))
+        f.write(" }")
+        return True
+
+    elem_cdata_ext = (
+        CDataExt_Struct(
+            (
+                ("count", CDataExt_Value.u8),
+                ("pad1", CDataExt_Value.pad8),
+                ("pad2", CDataExt_Value.pad16),
+                ("points", CDataExt_Value("I")),  # Vec3s*
+            )
+        )
+        .set_report(report_elem)
+        .set_write(write_elem)
     )
 
     def try_parse_data(self):
-        # TODO guess
-        self.set_length(1)
+        if self._length is None:
+            # TODO guess
+            self.set_length(1)
         super().try_parse_data()
 
     def get_c_declaration_base(self):

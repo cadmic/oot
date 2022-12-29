@@ -360,6 +360,24 @@ def register_resource_handlers():
             file, offset, resource_elem.attrib["Name"]
         )
 
+    def path_list_resource_handler(
+        file: File,
+        resource_elem: ElementTree.Element,
+        offset: int,
+    ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name", "Offset"}, {"NumPaths"})
+        num_paths_str = resource_elem.attrib.get("NumPaths")
+        if num_paths_str is not None:
+            num_paths = int(num_paths_str)
+        else:
+            num_paths = None
+        resource = scene_rooms_resources.PathListResource(
+            file, offset, resource_elem.attrib["Name"]
+        )
+        if num_paths:
+            resource.set_length(num_paths)
+        return resource
+
     RESOURCE_HANDLERS.update(
         {
             "Skeleton": skeleton_resource_handler,
@@ -381,7 +399,7 @@ def register_resource_handlers():
             "CurveAnimation": CurveAnimation_handler,
             "Scene": scene_resource_handler,
             "Room": room_resource_handler,
-            "Path": get_fixed_size_resource_handler(0x8),  # TODO
+            "Path": path_list_resource_handler,
             "Cutscene": cutscene_resource_handler,
         }
     )
