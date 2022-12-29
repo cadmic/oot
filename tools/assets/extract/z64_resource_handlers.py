@@ -66,6 +66,11 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(
+            resource_elem,
+            {"Name", "Type", "LimbType"},
+            {"Offset", "EnumName", "LimbNone", "LimbMax"},
+        )
         # TODO clean up and make proper
         limb_type = resource_elem.attrib["LimbType"]
         if limb_type == "Standard":
@@ -129,6 +134,9 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(
+            resource_elem, {"Name", "LimbType"}, {"Offset", "EnumName"}
+        )
         if resource_elem.attrib["LimbType"] == "Standard":
             return skeleton_resources.StandardLimbResource(
                 file,
@@ -165,6 +173,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset"})
         return animation_resources.AnimationResource(
             file,
             offset,
@@ -176,6 +185,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset"})
         return collision_resources.CollisionResource(
             file,
             offset,
@@ -187,31 +197,47 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset", "Ucode"})
+        ucode_str = resource_elem.get("Ucode")
+        if ucode_str is None:
+            ucode = dlist_resources.Ucode.f3dex2
+        else:
+            ucode = dlist_resources.Ucode[ucode_str]
         return dlist_resources.DListResource(
             file,
             offset,
             resource_elem.attrib["Name"],
+            target_ucode=ucode,
         )
+
+    texture_formats = {
+        f"{fmt.name.lower()}{siz.bpp}": (fmt, siz)
+        for fmt in dlist_resources.G_IM_FMT
+        for siz in dlist_resources.G_IM_SIZ
+    }
 
     def texture_resource_handler(
         file: File,
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        # the reference document says OutName is mandatory but there are resources without it
+        xml_errors.xml_check_attributes(
+            resource_elem,
+            {"Name", "Format", "Width", "Height"},
+            {"Offset", "OutName", "TlutOffset", "ExternalTlut", "ExternalTlutOffset", "SplitTlut"},
+        )
         # TODO use OutName, TlutOffset
         format_str = resource_elem.attrib["Format"]
         width_str = resource_elem.attrib["Width"]
         height_str = resource_elem.attrib["Height"]
 
-        format_matches = [
-            (fmt, siz)
-            for fmt in dlist_resources.G_IM_FMT
-            for siz in dlist_resources.G_IM_SIZ
-            if format_str.lower() == f"{fmt.name.lower()}{siz.bpp}"
-        ]
-        if len(format_matches) != 1:
-            raise ValueError(format_str, format_matches)
-        format_fmt, format_siz = format_matches[0]
+        try:
+            format_fmt, format_siz = texture_formats[format_str.lower()]
+        except KeyError as e:
+            raise xml_errors.XmlProcessError(
+                "Bad texture Format", format_str, xml_elem=resource_elem
+            ) from e
 
         width = int(width_str)
         height = int(height_str)
@@ -231,6 +257,9 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(
+            resource_elem, {"Name", "FrameCount"}, {"Offset"}
+        )
         frame_count_str = resource_elem.attrib["FrameCount"]
         frame_count = int(frame_count_str)
         size = frame_count * (22 * 3 + 1) * 2
@@ -253,6 +282,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset"})
         return playeranim_resources.PlayerAnimationResource(
             file,
             offset,
@@ -264,6 +294,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name", "Count"}, {"Offset"})
         # TODO clean up (the asserts)
         count_str = resource_elem.attrib["Count"]
         count = int(count_str)
@@ -298,6 +329,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name", "Size"}, {"Offset"})
         size_str = resource_elem.attrib["Size"]
         size = int(size_str, 16)
         return BinaryBlobResource(
@@ -312,6 +344,8 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name", "SkelOffset"}, {"Offset"})
+        # TODO use SkelOffset
         return skelcurve_resources.CurveAnimationHeaderResource(
             file, offset, resource_elem.attrib["Name"]
         )
@@ -321,6 +355,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset"})
         return dlist_resources.MtxResource(file, offset, resource_elem.attrib["Name"])
 
     def cutscene_resource_handler(
@@ -328,6 +363,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset"})
         return misc_resources.CutsceneResource(
             file, offset, resource_elem.attrib["Name"]
         )
@@ -337,7 +373,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
-        xml_errors.xml_check_attributes(resource_elem, {"Name", "Offset"}, set())
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset"})
         return scene_rooms_resources.SceneCommandsResource(
             file, offset, resource_elem.attrib["Name"]
         )
@@ -347,7 +383,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
-        xml_errors.xml_check_attributes(resource_elem, {"Name", "Offset"}, {"HackMode"})
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset", "HackMode"})
         if resource_elem.attrib.get("HackMode") == "syotes_room":
             # TODO
             return BinaryBlobResource(
@@ -365,7 +401,7 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
-        xml_errors.xml_check_attributes(resource_elem, {"Name", "Offset"}, {"NumPaths"})
+        xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset", "NumPaths"})
         num_paths_str = resource_elem.attrib.get("NumPaths")
         if num_paths_str is not None:
             num_paths = int(num_paths_str)

@@ -7,13 +7,7 @@ from pathlib import Path
 sys.path.insert(0, "/home/dragorn421/Documents/n64texconv/")
 import n64texconv
 
-sys.path.insert(0, "/home/dragorn421/Documents/oot/tools/assets/png2raw/")
-import png2raw
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from png2raw import png2raw
+from png2raw import png2raw
 
 
 def png_to_data(file):

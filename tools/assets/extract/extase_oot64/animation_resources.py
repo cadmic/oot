@@ -106,29 +106,33 @@ class AnimationResource(CDataResource):
     def try_parse_data(self):
         super().try_parse_data()
 
+        frameData_address = self.cdata_unpacked["frameData"]
+        assert isinstance(frameData_address, int)
         (
             frameData_resource,
             frameData_offset,
         ) = self.file.memory_context.report_resource_at_segmented(
-            self.cdata_unpacked["frameData"],
+            frameData_address,
             lambda file, offset: AnimationFrameDataResource(
                 file,
                 offset,
-                f"{self.name}_FrameData_421_",
+                f"{self.name}_{frameData_address:08X}_FrameData",
             ),
         )
         assert isinstance(frameData_resource, AnimationFrameDataResource)
         assert frameData_resource.range_start == frameData_offset
 
+        jointIndices_address = self.cdata_unpacked["jointIndices"]
+        assert isinstance(jointIndices_address, int)
         (
             jointIndices_resource,
             jointIndices_offset,
         ) = self.file.memory_context.report_resource_at_segmented(
-            self.cdata_unpacked["jointIndices"],
+            jointIndices_address,
             lambda file, offset: AnimationJointIndicesResource(
                 file,
                 offset,
-                f"{self.name}_JointIndices_421_",
+                f"{self.name}_{jointIndices_address:08X}_JointIndices",
             ),
         )
         assert isinstance(jointIndices_resource, AnimationJointIndicesResource)

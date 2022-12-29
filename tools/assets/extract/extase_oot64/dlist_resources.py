@@ -1,4 +1,5 @@
 from pathlib import Path
+import enum
 
 import io
 
@@ -147,11 +148,7 @@ from ...n64 import G_IM_FMT, G_IM_SIZ
 sys.path.insert(0, "/home/dragorn421/Documents/n64texconv/")
 import n64texconv
 
-sys.path.insert(0, "/home/dragorn421/Documents/oot/tools/assets/png2raw/")
-import raw2png
-
-if TYPE_CHECKING:
-    from png2raw import raw2png
+from tools.assets.png2raw import raw2png
 
 
 def png_from_data(
@@ -270,7 +267,7 @@ def gfxdis(
         pygfxd.GfxdCap.stop_on_end,
         pygfxd.GfxdCap.emit_dec_color,
     },
-    target=pygfxd.gfxd_f3dex2,
+    target: pygfxd.gfx_ucode_t = pygfxd.gfxd_f3dex2,
     vtx_callback: Optional[Callable[[int, int], int]] = None,
     timg_callback: Optional[Callable[[int, int, int, int, int, int], int]] = None,
     tlut_callback: Optional[Callable[[int, int, int], int]] = None,
@@ -543,9 +540,25 @@ class StringWrapper:
         self.proc(flush=True)
 
 
+class Ucode(enum.Enum):
+    f3dex = pygfxd.gfxd_f3dex
+    f3dex2 = pygfxd.gfxd_f3dex2
+
+    def __init__(self, gfxd_ucode: pygfxd.gfx_ucode_t):
+        self.gfxd_ucode = gfxd_ucode
+
+
 class DListResource(Resource, can_size_be_unknown=True):
-    def __init__(self, file: File, range_start: int, name: str):
+    def __init__(
+        self,
+        file: File,
+        range_start: int,
+        name: str,
+        *,
+        target_ucode: Ucode = Ucode.f3dex2,
+    ):
         super().__init__(file, range_start, None, name)
+        self.target_ucode = target_ucode
 
     def try_parse_data(self):
         offset = self.range_start
@@ -556,9 +569,10 @@ class DListResource(Resource, can_size_be_unknown=True):
         def vtx_cb(vtx, num):
             # TODO be smarter about buffer merging
             # (don't merge buffers from two different DLs, if they can be split cleanly)
+            # if that even happens
             self.file.memory_context.mark_resource_buffer_at_segmented(
                 VtxArrayResource,
-                f"{self.name}_Vtx_{vtx:08X}",
+                f"{self.name}_{vtx:08X}_Vtx",
                 vtx,
                 vtx + num * VtxArrayResource.element_cdata_ext.size,
             )
@@ -593,6 +607,7 @@ class DListResource(Resource, can_size_be_unknown=True):
 
         size = gfxdis(
             input_buffer=self.file.data[self.range_start :],
+            target=self.target_ucode.gfxd_ucode,
             vtx_callback=vtx_cb,
             timg_callback=timg_cb,
             # tlut_callback=, # TODO
@@ -762,6 +777,7 @@ class DListResource(Resource, can_size_be_unknown=True):
                 input_buffer=self.file.data[self.range_start : self.range_end],
                 output_callback=output_cb,
                 enable_caps={pygfxd.GfxdCap.emit_dec_color},
+                target=self.target_ucode.gfxd_ucode,
                 vtx_callback=vtx_cb,
                 timg_callback=timg_cb,
                 tlut_callback=tlut_cb,

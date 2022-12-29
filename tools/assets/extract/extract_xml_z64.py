@@ -408,6 +408,13 @@ def extract_xml(sub_path: Path):
             shutil.rmtree(BUILD_PATH / top_extract_path)
 
     def xml_process(xml_path: Path, source_path: Path):
+        try:
+            return xml_process_impl(xml_path, source_path)
+        except xml_errors.XmlProcessError as e:
+            e.set_xml_file_path_if_missing(xml_path)
+            raise
+
+    def xml_process_impl(xml_path: Path, source_path: Path):
 
         with xml_path.open() as f:
             xml = ElementTree.parse(f)
@@ -625,3 +632,4 @@ def main():
     extract_all_xmls(Path("overlays"))
     extract_all_xmls(Path("code"))
     extract_all_xmls(Path("textures"))
+    extract_all_xmls(Path("misc"))

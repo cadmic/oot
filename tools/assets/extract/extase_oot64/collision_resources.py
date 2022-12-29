@@ -400,14 +400,15 @@ class CollisionResource(CDataResource):
 
     def report_vtxList(resource: "CollisionResource", v):
         assert isinstance(v, int)
+        address = v
         resource.file.memory_context.report_resource_at_segmented(
-            v,
+            address,
             lambda file, offset: transfer_HACK_IS_STATIC_ON(
                 resource,
                 CollisionVtxListResource(
                     file,
                     offset,
-                    f"{resource.name}_VtxList_",
+                    f"{resource.name}_{address:08X}_VtxList",
                     resource.cdata_unpacked["numVertices"],
                 ),
             ),
@@ -432,14 +433,15 @@ class CollisionResource(CDataResource):
 
     def report_polyList(resource: "CollisionResource", v):
         assert isinstance(v, int)
+        address = v
         resource.file.memory_context.report_resource_at_segmented(
-            v,
+            address,
             lambda file, offset: transfer_HACK_IS_STATIC_ON(
                 resource,
                 CollisionPolyListResource(
                     file,
                     offset,
-                    f"{resource.name}_PolyList_",
+                    f"{resource.name}_{address:08X}_PolyList",
                     resource.cdata_unpacked["numPolygons"],
                 ),
             ),
@@ -447,8 +449,9 @@ class CollisionResource(CDataResource):
 
     def write_polyList(resource: "CollisionResource", v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, int)
+        address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(v))
+        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
         return True
 
     def write_numWaterBoxes(
@@ -575,17 +578,20 @@ class CollisionResource(CDataResource):
             assert resource is not None
             assert isinstance(resource, CollisionPolyListResource)
 
+            # If the CollisionPolyListResource is parsed
             if resource.is_data_parsed:
                 length_surfaceTypeList = resource.max_surface_type_index + 1
+                surfaceTypeList_address = self.cdata_unpacked["surfaceTypeList"]
+                assert isinstance(surfaceTypeList_address, int)
                 self.file.memory_context.report_resource_at_segmented(
-                    self.cdata_unpacked["surfaceTypeList"],
+                    surfaceTypeList_address,
                     lambda file, offset: transfer_HACK_IS_STATIC_ON(
                         self,
                         CollisionSurfaceTypeListResource(
                             file,
                             offset,
-                            f"{self.name}_SurfaceTypes_",
-                            length_surfaceTypeList,
+                            f"{self.name}_{surfaceTypeList_address:08X}_SurfaceTypes",
+                            length_surfaceTypeList,  # TODO change CollisionSurfaceTypeListResource to a CDataArrayResource (same with more resources)
                         ),
                     ),
                 )
@@ -613,16 +619,19 @@ class CollisionResource(CDataResource):
                 assert resource is not None
                 assert isinstance(resource, CollisionSurfaceTypeListResource)
 
+                # If the CollisionSurfaceTypeListResource is parsed
                 if resource.is_data_parsed:
                     length_bgCamList = resource.max_bgCamIndex + 1
+                    bgCamList_address = self.cdata_unpacked["bgCamList"]
+                    assert isinstance(bgCamList_address, int)
                     self.file.memory_context.report_resource_at_segmented(
-                        self.cdata_unpacked["bgCamList"],
+                        bgCamList_address,
                         lambda file, offset: transfer_HACK_IS_STATIC_ON(
                             self,
                             CollisionBgCamListResource(
                                 file,
                                 offset,
-                                f"{self.name}_BgCamList_",
+                                f"{self.name}_{bgCamList_address:08X}_BgCamList",
                                 length_bgCamList,
                             ),
                         ),

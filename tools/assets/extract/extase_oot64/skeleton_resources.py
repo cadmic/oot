@@ -96,7 +96,7 @@ class SkeletonNormalResource(CDataResource):
             lambda file, offset: LimbsArrayResource(
                 file,
                 offset,
-                f"{resource.name}_Limbs_421_",
+                f"{resource.name}_{address:08X}_Limbs",
             ),
         )
         assert isinstance(limbs_resource, LimbsArrayResource)

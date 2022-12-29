@@ -23,6 +23,20 @@ class XmlProcessError(Exception):
         if self.xml_file_path is None:
             self.xml_file_path = xml_file_path
 
+    def __str__(self):
+        message = super().__str__() + " on element: " + str(self.xml_elem)
+        try:
+            elem_str = ElementTree.tostring(self.xml_elem, encoding="unicode")
+        except:
+            import traceback
+
+            message += traceback.format_exc()
+        else:
+            message += " " + elem_str.strip()
+        if self.xml_file_path is not None:
+            message += f" (in {self.xml_file_path})"
+        return message
+
 
 def xml_check_tag(elem: ElementTree.Element, valid_tags: Union[str, set[str]]):
     if isinstance(valid_tags, str):
@@ -41,6 +55,14 @@ def xml_check_tag(elem: ElementTree.Element, valid_tags: Union[str, set[str]]):
             )
 
 
+GLOBALLY_VALID_ATTRIBUTES = {
+    # TODO the HACK_IS_STATIC_ON hack is really something...
+    # note Static isn't globally valid, only on resources besides Symbol (iirc)
+    # but whatever
+    "Static",
+}
+
+
 def xml_check_attributes(
     elem: ElementTree.Element,
     required_attributes: set[str],
@@ -56,7 +78,9 @@ def xml_check_attributes(
             xml_elem=elem,
         )
 
-    all_known_attributes = required_attributes | optional_attributes
+    all_known_attributes = (
+        GLOBALLY_VALID_ATTRIBUTES | required_attributes | optional_attributes
+    )
     if not all_known_attributes.issuperset(attributes):
         unknown_attributes = attributes - all_known_attributes
         raise XmlProcessError(
