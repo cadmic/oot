@@ -1,5 +1,6 @@
 from pathlib import Path
 from xml.etree import ElementTree
+import functools
 from pprint import pprint
 
 from .extase import MemoryContext, File
@@ -22,6 +23,11 @@ from ..conf import WRITE_HINTS, I_D_OMEGALUL
 
 BASEROM_PATH = Path("baserom")
 BUILD_PATH = Path("build")
+
+
+@functools.lru_cache(maxsize=200)
+def get_baserom_file_data(baserom_file_name: str):
+    return memoryview((BASEROM_PATH / baserom_file_name).read_bytes())
 
 
 def xml_process_file(
@@ -65,10 +71,7 @@ def xml_process_file(
     if file_name is None:
         file_name = baserom_file_name
 
-    # TODO if the same file (on disk / in the rom) is used by several <File>s,
-    # reading the file every time is very wasteful
-    # (note data for external files is read too)
-    file_bytes_all = memoryview((BASEROM_PATH / baserom_file_name).read_bytes())
+    file_bytes_all = get_baserom_file_data(baserom_file_name)
 
     # Handle range start/end, if any,
     # or default to start/end of the full data.
@@ -325,6 +328,10 @@ def extract_xml(sub_path: Path):
             addr = (self.segment_num << 24) | (self.range_start + resource_offset)
             return f"0x{addr:08X}"
 
+    # "parse" as long as data is being parsed, so the dummy file receives "real" reported resources,
+    # then set to "write" which 'locks' the DummyFile instances and makes them return DummyResource for non-definitive offsets
+    DUMMY_MODE = "parse"
+
     class DummyFile(File):
         def __init__(
             self, memory_context: MemoryContext, name: str, size: int, segment_num: int
@@ -333,11 +340,27 @@ def extract_xml(sub_path: Path):
             self.segment_num = segment_num
 
         def get_resource_at(self, offset: int):
+            result, resource = super().get_resource_at(offset)
             from .extase import GetResourceAtResult
 
-            return GetResourceAtResult.DEFINITIVE, DummyResource(
-                self.segment_num, offset
-            )
+            if result == GetResourceAtResult.DEFINITIVE or DUMMY_MODE == "parse":
+                if DUMMY_MODE == "write":
+                    resource.segment_num = self.segment_num
+
+                    def get_c_reference(resource_offset):
+                        return DummyResource.get_c_reference(resource, resource_offset)
+
+                    resource.get_c_reference = get_c_reference
+                    from .extase_oot64 import dlist_resources
+
+                    if isinstance(resource, dlist_resources.TextureResource):
+                        resource.width_name = f"{resource.width}"
+                        resource.height_name = f"{resource.height}"
+                return result, resource
+            else:
+                return GetResourceAtResult.DEFINITIVE, DummyResource(
+                    self.segment_num, offset
+                )
 
     def set_dummy_segment(memory_context: MemoryContext, segment_num: int):
         print("Setting dummy segment", segment_num)
@@ -355,18 +378,62 @@ def extract_xml(sub_path: Path):
         # billboardMtx, typically (but not always) TODO
         set_dummy_segment(memory_context, 1)
 
+    if sub_path.is_relative_to("scenes"):
+        # TODO this may be more refined, cf scene configs
+        for segment_num in (0x6, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD):
+            set_dummy_segment(memory_context, segment_num)
+
+    if sub_path.is_relative_to("objects") or sub_path.is_relative_to("overlays"):
+        if str(sub_path) in {
+            "objects/object_mori_objects",
+            "objects/object_mori_hineri2",
+            "objects/object_mori_tex",
+            "objects/object_mori_hineri1a",
+            "objects/object_mori_hineri1",
+            "objects/object_mori_hineri2a",
+        }:
+            set_dummy_segment(memory_context, 9)
+        else:
+            # TODO this can be more refined, but it's a lot of work
+            for segment_num in (0x8, 0x9):
+                set_dummy_segment(memory_context, segment_num)
+
     for segment_num, set_dummy_for_sub_paths in (
         (
-            0x9,
-            ("objects/object_warp1",),
+            0x7,
+            (
+                "objects/object_ny",
+                "objects/object_zf",
+            ),
         ),
         (
             0xA,
-            ("objects/object_warp1",),
+            (
+                "objects/object_warp1",
+                "objects/object_ik",
+                "objects/object_tw",
+                "objects/object_efc_erupc",
+                "objects/object_cne",
+                "objects/object_po_composer",
+                "objects/object_spot07_object",
+                "objects/object_demo_kekkai",
+                "objects/object_bv",
+                "objects/object_po_field",
+                "objects/object_gt",
+                "objects/object_mizu_objects",
+                "objects/object_mu",
+                "overlays/ovl_Boss_Ganon",
+            ),
         ),
         (
             0xB,
-            ("objects/object_link_child",),
+            (
+                "objects/object_link_child",
+                "objects/object_tw",
+                "objects/object_po_composer",
+                "objects/object_zl2",
+                "objects/object_mu",
+            ),
         ),
         (
             0xC,
@@ -377,6 +444,29 @@ def extract_xml(sub_path: Path):
                 "objects/object_rr",
                 "objects/object_mo",
                 "objects/object_zl2",
+                "objects/object_ru2",
+                "objects/object_skj",
+                "objects/object_tw",
+                "objects/object_rl",
+                "objects/object_sa",
+                "objects/object_nb",
+                "objects/object_link_child",
+                "objects/object_po_composer",
+                "objects/object_kw1",
+                "objects/object_im",
+                "objects/object_bigokuta",
+                "objects/object_link_boy",
+                "objects/object_po_field",
+                "objects/object_zo",
+                "objects/object_du",
+                "objects/object_torch2",
+                "objects/object_km1",
+                "objects/object_md",
+                "objects/object_oE1s",
+                "objects/object_fa",
+                "objects/object_oE4s",
+                "objects/object_mizu_objects",
+                "objects/object_ru1",
             ),
         ),
         (
@@ -385,6 +475,20 @@ def extract_xml(sub_path: Path):
                 "objects/object_link_child",
                 "objects/object_link_boy",
                 "overlays/ovl_Boss_Ganon",
+                "objects/object_oE12",
+                "objects/object_oE4",
+                "objects/object_oE5",
+                "objects/object_oE7",
+                "objects/object_oE9",
+                "objects/object_oE3",
+                "objects/object_oE10",
+                "objects/object_oE11",
+                "objects/object_oE1",
+                "objects/object_blkobj",
+                "objects/object_oE6",
+                "objects/object_mo",
+                "objects/object_oE8",
+                "objects/object_oE2",
             ),
         ),
     ):
@@ -424,9 +528,18 @@ def extract_xml(sub_path: Path):
         xml_errors.xml_check_tag(root_elem, "Root")
         xml_errors.xml_check_attributes(root_elem, set(), set())
 
-        files_to_do_stuff_with: list[File] = []
-        external_files_all: list[File] = []
-        files_by_segment: dict[int, list[File]] = dict()
+        # Files defined in the xml being processed (xml_path / xml)
+        own_files: list[File] = []
+        # Files defined by external xmls referenced by <ExternalFile>, **not recursive**
+        # i.e. only contains the files from external xmls directly referenced by the current xml being processed
+        #      and not any file from any "external external xml" referenced by external xml to the current xml
+        # For example, if xml_path is a xml referencing gameplay_keep, gameplay_keep will be in direct_external_files,
+        # but link_animetion (which is referenced by gameplay_keep) will **not** be in direct_external_files.
+        direct_external_files: list[File] = []
+        # Maps segment numbers to Files found for that segment
+        # (files among "own files" and "direct external files", as described above)
+        own_files_by_segment: dict[int, list[File]] = dict()
+        direct_external_files_by_segment: dict[int, list[File]] = dict()
 
         for file_elem in root_elem:
             xml_errors.xml_check_tag(file_elem, {"File", "ExternalFile"})
@@ -435,7 +548,7 @@ def extract_xml(sub_path: Path):
                 assert file_elem.tag == "File"
 
                 file, file_range_start = xml_process_file(
-                    memory_context, file_elem, files_by_segment
+                    memory_context, file_elem, own_files_by_segment
                 )
 
                 xml_process_resources_of_file(file_elem, file, file_range_start)
@@ -449,7 +562,7 @@ def extract_xml(sub_path: Path):
                 #  isn't from the top xml, but from an external one instead)
                 file.set_source_path(source_path)
 
-                files_to_do_stuff_with.append(file)
+                own_files.append(file)
 
             elif file_elem.tag == "ExternalFile":
                 xml_errors.xml_check_attributes(
@@ -466,34 +579,52 @@ def extract_xml(sub_path: Path):
                 external_out_path = Path(external_out_path_str)
 
                 # TODO no protection from infinite recursion
+                # also TODO no need to recurse more than once since recursive info is dropped
+                #     actually this hints that the memorycontext should be per file and not global:
+                #     the own and external direct defines the memoryctx for the current xml
                 (
-                    external_files_to_do_stuff_with,
-                    _,  # external_files_all for the file external to the current xml_path, ignore (TODO?)
-                    external_files_by_segment,  # files_by_segment for the external files
+                    external_own_files,
+                    external_direct_external_files,  # Ignore, since direct_external_ is not recursive.
+                    external_own_files_by_segment,
+                    external_direct_external_files_by_segment,  # same as external_direct_external_files
                 ) = xml_process(external_xml_path, external_out_path)
 
-                external_files_all.extend(external_files_to_do_stuff_with)
-
-                # Recursively collect all files set on each segment
-                # (TODO idk if this makes more sense than only taking
-                #  the immediate neighbours like for external_files_all)
-                for segment_num, files in external_files_by_segment.items():
-                    files_by_segment.setdefault(segment_num, []).extend(files)
+                # Merge the external xml's own files information into the current xml's direct external information
+                direct_external_files.extend(external_own_files)
+                for segment_num, files in external_own_files_by_segment.items():
+                    direct_external_files_by_segment.setdefault(segment_num, []).extend(
+                        files
+                    )
 
             else:
                 assert False, file_elem.tag
 
         if __debug__:
-            names = [file.name for file in external_files_all]
-            assert len(names) == len(set(names)), external_files_all
+            names = [file.name for file in direct_external_files]
+            assert len(names) == len(set(names)), direct_external_files
 
-        return files_to_do_stuff_with, external_files_all, files_by_segment
+        return (
+            own_files,
+            direct_external_files,
+            own_files_by_segment,
+            direct_external_files_by_segment,
+        )
 
     (
-        top_files_to_do_stuff_with,
-        top_external_files_to_include,
-        top_files_by_segment,
+        top_own_files,
+        top_direct_external_files,
+        top_own_files_by_segment,
+        top_direct_external_files_by_segment,
     ) = xml_process(top_xml_path, top_source_path)
+
+    # The "top" segment mapping comes from the top xml and its direct external files
+    top_files_by_segment: dict[int, list[File]] = dict()
+    for _files_by_segment in (
+        top_own_files_by_segment,
+        top_direct_external_files_by_segment,
+    ):
+        for segment_num, files in _files_by_segment.items():
+            top_files_by_segment.setdefault(segment_num, []).extend(files)
 
     # Disputed segments are segments that several files were set to use (with the Segment attribute).
     # For example, segment 3 is typically used by the several room files associated to a scene.
@@ -512,7 +643,7 @@ def extract_xml(sub_path: Path):
             memory_context.set_segment(segment_num, file)
         else:
             for file in files:
-                if file not in top_files_to_do_stuff_with:
+                if file not in top_own_files:
                     # This is not really a problem for processing but it's weird enough
                     # to raise an error.
                     # For example it could happen if a scene xml had a ExternalFile
@@ -527,7 +658,7 @@ def extract_xml(sub_path: Path):
                         segment_num,
                         files,
                         file,
-                        top_files_to_do_stuff_with,
+                        top_own_files,
                     )
             disputed_segments.append(segment_num)
 
@@ -537,7 +668,7 @@ def extract_xml(sub_path: Path):
 
     def for_each_file_with_adequate_memory_context(callback):
 
-        for file in top_files_to_do_stuff_with:
+        for file in top_own_files:
 
             # Save the current segment map, before setting disputed segments,
             # and to be restored before moving on from this file
@@ -581,6 +712,8 @@ def extract_xml(sub_path: Path):
         for_each_file_with_adequate_memory_context(parse_resources)
     for_each_file_with_adequate_memory_context(add_unaccounted_resources)
 
+    DUMMY_MODE = "write"
+
     def file_do_write(file: File):
         # write to assets/_extracted/
         if WRITE_EXTRACT:
@@ -597,9 +730,7 @@ def extract_xml(sub_path: Path):
             # instead of assuming like here that all files in the xml / referenced by the xml
             # are included by all files the xml defines
             # (or if keeping the logic this way, write it better)
-            file.referenced_files = set(top_files_to_do_stuff_with) | set(
-                top_external_files_to_include
-            )
+            file.referenced_files = set(top_own_files) | set(top_direct_external_files)
             file.write_source()
 
     for_each_file_with_adequate_memory_context(file_do_write)
@@ -634,3 +765,5 @@ def main():
     extract_all_xmls(Path("code"))
     extract_all_xmls(Path("textures"))
     extract_all_xmls(Path("misc"))
+
+    pprint(get_baserom_file_data.cache_info())

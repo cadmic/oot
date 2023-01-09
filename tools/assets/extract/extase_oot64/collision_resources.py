@@ -227,6 +227,9 @@ class CollisionSurfaceTypeListResource(CDataResource):
         self.max_bgCamIndex = max(
             elem["data"][0] & 0xFF for elem in self.cdata_unpacked
         )
+        self.max_exitIndex = max(
+            (elem["data"][0] & 0x00001F00) >> 8 for elem in self.cdata_unpacked
+        )
 
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):
@@ -563,6 +566,7 @@ class CollisionResource(CDataResource):
         super().__init__(file, range_start, name)
         self.is_reported_surfaceTypeList = False
         self.is_reported_bgCamList = False
+        self.length_exitList = None
 
     def try_parse_data(self):
         super().try_parse_data()
@@ -644,11 +648,16 @@ class CollisionResource(CDataResource):
                         ),
                     )
                     self.is_reported_bgCamList = True
+
+                    # exitIndex is 1-indexed, so e.g. if the max is 1 the list is of length 1.
+                    self.length_exitList = resource.max_exitIndex
             else:
                 raise NotImplementedError(resolution)
 
         self.is_data_parsed = (
-            self.is_reported_surfaceTypeList and self.is_reported_bgCamList
+            self.is_reported_surfaceTypeList
+            and self.is_reported_bgCamList
+            and self.length_exitList is not None
         )
 
     def get_c_declaration_base(self):

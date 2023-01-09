@@ -25,7 +25,10 @@ class CutsceneResource(Resource, can_size_be_unknown=True):
         self.is_data_parsed = True
 
     def get_c_reference(self, resource_offset: int):
-        raise ValueError
+        if resource_offset == 0:
+            return self.symbol_name
+        else:
+            raise ValueError
 
     extracted_path_suffix = ".f32.inc.c"
 

@@ -69,7 +69,7 @@ typedef struct {
     /* 0x00 */ RoomShapeBase base;
     /* 0x01 */ u8 numEntries;
     /* 0x04 */ RoomShapeDListsEntry* entries;
-    /* 0x08 */ RoomShapeDListsEntry* entriesEnd;
+    /* 0x08 */ void* entriesEnd;
 } RoomShapeNormal; // size = 0x0C
 
 typedef enum {
@@ -129,7 +129,7 @@ typedef struct {
     /* 0x00 */ RoomShapeBase base;
     /* 0x01 */ u8 numEntries;
     /* 0x04 */ RoomShapeCullableEntry* entries;
-    /* 0x08 */ RoomShapeCullableEntry* entriesEnd;
+    /* 0x08 */ void* entriesEnd;
 } RoomShapeCullable; // size = 0x0C
 
 typedef union {

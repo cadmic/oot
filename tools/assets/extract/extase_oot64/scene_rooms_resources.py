@@ -2,7 +2,7 @@ import enum
 import struct
 import io
 
-from ..extase import File, Resource
+from ..extase import File, Resource, SegmentedAddressResolution
 from ..extase.cdata_resources import (
     CDataArrayResource,
     CDataArrayNamedLengthResource,
@@ -18,6 +18,7 @@ from .. import oot64_data
 
 from . import collision_resources
 from . import room_shape_resources
+from . import misc_resources
 
 
 def _SHIFTR(v: int, s: int, w: int):
@@ -107,6 +108,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
         self.parsed_commands: set[SceneCmdId] = set()
         self.player_entry_list_length = None
         self.room_list_length = None
+        self.exit_list_length = None
 
     def try_parse_data(self):
         data = self.file.data[self.range_start :]
@@ -184,13 +186,16 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_COLLISION_HEADER:
                 assert data1 == 0
-                self.file.memory_context.report_resource_at_segmented(
+                resource, _ = self.file.memory_context.report_resource_at_segmented(
                     data2_I,
                     lambda file, offset: collision_resources.CollisionResource(
                         file, offset, f"{self.name}_{data2_I:08X}_Col"
                     ),
                 )
-                self.parsed_commands.add(cmd_id)
+                assert isinstance(resource, collision_resources.CollisionResource)
+                if resource.is_data_parsed:
+                    self.exit_list_length = resource.length_exitList
+                    self.parsed_commands.add(cmd_id)
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ENTRANCE_LIST:
                 assert data1 == 0
@@ -224,13 +229,31 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
             if cmd_id == SceneCmdId.SCENE_CMD_ID_EXIT_LIST:
                 # TODO length from collision
                 assert data1 == 0
-                self.file.memory_context.report_resource_at_segmented(
+                resource, _ = self.file.memory_context.report_resource_at_segmented(
                     data2_I,
                     lambda file, offset: ExitListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_ExitList"
                     ),
                 )
-                self.parsed_commands.add(cmd_id)
+                assert isinstance(resource, ExitListResource)
+                if self.exit_list_length is not None:
+                    # TODO this doesnt work very well, eg need to trim to avoid overlaps
+                    length = self.exit_list_length
+                    # blindly align length to 2 (could/should check for zeros)
+                    length = max(2, (length + 1) // 2 * 2)
+                    # trim based on overlaps
+                    while True:
+                        _, other_resource = resource.file.get_resource_at(
+                            resource.range_start
+                            + length * resource.elem_cdata_ext.size
+                            - 1
+                        )
+                        if other_resource is resource:
+                            break
+                        length -= 2
+                    assert length > 0
+                    resource.set_length(length)
+                    self.parsed_commands.add(cmd_id)
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_LIGHT_SETTINGS_LIST:
                 resource, _ = self.file.memory_context.report_resource_at_segmented(
@@ -274,6 +297,16 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     data2_I,
                     lambda file, offset: AltHeadersResource(
                         file, offset, f"{self.name}_{data2_I:08X}_AltHeaders"
+                    ),
+                )
+                self.parsed_commands.add(cmd_id)
+
+            if cmd_id == SceneCmdId.SCENE_CMD_ID_CUTSCENE_DATA:
+                assert data1 == 0
+                self.file.memory_context.report_resource_at_segmented(
+                    data2_I,
+                    lambda file, offset: misc_resources.CutsceneResource(
+                        file, offset, f"{self.name}_{data2_I:08X}_Cs"
                     ),
                 )
                 self.parsed_commands.add(cmd_id)
@@ -525,7 +558,11 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     echo = data2_B3
                     f.write(f"{echo}")
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_CUTSCENE_DATA:
-                    raise NotImplementedError(cmd_id)
+                    assert data1 == 0
+                    address = data2_I
+                    f.write(
+                        self.file.memory_context.get_c_reference_at_segmented(address)
+                    )
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ALTERNATE_HEADER_LIST:
                     # TODO
                     assert data1 == 0
@@ -541,7 +578,10 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
             f.write("}\n")
 
     def get_c_reference(self, resource_offset: int):
-        raise ValueError
+        if resource_offset == 0:
+            return self.symbol_name
+        else:
+            raise ValueError
 
 
 # TODO move resources other than scenecmd to their own file "scene_resources"
@@ -638,12 +678,24 @@ class ObjectListResource(CDataArrayNamedLengthResource):
         return f"s16 {self.symbol_name}[{self.length_name}]"
 
 
+def write_RomFile(resource, v, f: io.TextIOBase, line_prefix: str):
+    assert isinstance(v, dict)
+    vromStart = v["vromStart"]
+    vromEnd = v["vromEnd"]
+    rom_file_name = oot64_data.get_dmadata_table_rom_file_name_from_vrom(
+        vromStart, vromEnd
+    )
+    f.write(line_prefix)
+    f.write(f"ROM_FILE({rom_file_name})")
+    return True
+
+
 cdata_ext_RomFile = CDataExt_Struct(
     (
         ("vromStart", CDataExt_Value.u32),
         ("vromEnd", CDataExt_Value.u32),
     )
-)
+).set_write(write_RomFile)
 
 
 class RoomListResource(CDataArrayNamedLengthResource):
@@ -729,6 +781,28 @@ class SpawnListResource(CDataArrayResource):
                     )
                     num_spawns += 1
 
+        # Trim the list to avoid overlaps
+        # TODO this may be linked to headers for cutscene layers not having the spawns the entrance table expects
+        # for example spot00 hyrule field seems to always have a single 0,0 spawn for cutscene layers?
+        # (so the above approach using the entrance table does not generalize to cutscene layers)
+        # so it may be relevant to have the layer type when parsing the spawn list
+        # Alternatively, somehow trim the variable-length resources when overlapping
+        while True:
+            range_end = self.range_start + num_spawns * self.elem_cdata_ext.size
+            result, resource = self.file.get_resource_at(range_end - 1)
+            if resource is self:
+                break
+            print(
+                self,
+                "Removing one spawn because the last spawn of the list overlaps with another resource",
+                resource,
+                num_spawns,
+                "->",
+                num_spawns - 1,
+            )
+            num_spawns -= 1
+            assert num_spawns > 0
+
         self.set_length(num_spawns)
         super().try_parse_data()
 
@@ -737,13 +811,11 @@ class SpawnListResource(CDataArrayResource):
 
 
 class ExitListResource(CDataArrayResource):
-    elem_cdata_ext = CDataExt_Value.s16
+    elem_cdata_ext = CDataExt_Value("h").set_write_str_v(
+        lambda v: oot64_data.get_entrance_id_name(v)
+    )
 
-    def try_parse_data(self):
-        # TODO guess or parse collision
-        # using 2 for alignment purposes
-        self.set_length(2)
-        super().try_parse_data()
+    # length set by SceneCommandsResource.try_parse_data
 
     def get_c_declaration_base(self):
         return f"s16 {self.symbol_name}[]"
@@ -894,11 +966,68 @@ class PathListResource(CDataArrayResource):
 
 
 class AltHeadersResource(CDataArrayResource):
-    elem_cdata_ext = CDataExt_Value.pointer  # TODO SceneCmd*
+    def report_elem(resource, v):
+        assert isinstance(v, int)
+        address = v
+        if address != 0:
+            resource.file.memory_context.report_resource_at_segmented(
+                address,
+                lambda file, offset: SceneCommandsResource(
+                    file, offset, f"{resource.name}_{address:08X}_Cmds"
+                ),
+            )
+
+    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+        assert isinstance(v, int)
+        address = v
+        f.write(line_prefix)
+        if address == 0:
+            f.write("NULL")
+        else:
+            f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        return True
+
+    elem_cdata_ext = (
+        CDataExt_Value("I").set_report(report_elem).set_write(write_elem)
+    )  # SceneCmd*
 
     def try_parse_data(self):
-        # TODO guess
-        self.set_length(1)
+        length = 0
+        for i, (v,) in enumerate(
+            struct.iter_unpack(">I", self.file.data[self.range_start :])
+        ):
+            if v == 0:
+                if i < 3:
+                    length = i + 1
+                    continue
+                else:
+                    break
+
+            try:
+                (
+                    resolution,
+                    resolution_info,
+                ) = self.file.memory_context.resolve_segmented(v)
+            except:
+                break
+            if resolution != SegmentedAddressResolution.FILE:
+                break
+            file, offset = resolution_info
+            data_may_be_scenecmds = False
+            for j in range(offset, len(file.data), 8):
+                cmd_id_int = file.data[j]
+                try:
+                    cmd_id = SceneCmdId(cmd_id_int)
+                except ValueError:
+                    break
+                if cmd_id == SceneCmdId.SCENE_CMD_ID_END:
+                    data_may_be_scenecmds = True
+                    break
+            if not data_may_be_scenecmds:
+                break
+            length = i + 1
+        assert length > 0
+        self.set_length(length)
         super().try_parse_data()
 
     def get_c_declaration_base(self):

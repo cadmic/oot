@@ -272,6 +272,7 @@ def gfxdis(
     timg_callback: Optional[Callable[[int, int, int, int, int, int], int]] = None,
     tlut_callback: Optional[Callable[[int, int, int], int]] = None,
     mtx_callback: Optional[Callable[[int], int]] = None,
+    dl_callback: Optional[Callable[[int], int]] = None,
     macro_fn: Optional[Callable[[], int]] = None,
     arg_fn: Optional[Callable[[int], None]] = None,
 ):
@@ -406,8 +407,28 @@ def gfxdis(
 
     pygfxd.gfxd_mtx_callback(mtx_callback_wrapper)
 
-    # TODO
-    # pygfxd.gfxd_dl_callback
+    # dl_callback
+
+    if dl_callback:
+
+        def dl_callback_wrapper(dl):
+            try:
+                ret = dl_callback(dl)
+            except:
+                import sys
+
+                e = sys.exc_info()[1]
+                exceptions.append(e)
+
+                ret = 0
+            return ret
+
+    else:
+
+        def dl_callback_wrapper(dl):
+            return 0
+
+    pygfxd.gfxd_dl_callback(dl_callback_wrapper)
 
     # macro_fn
 
@@ -605,6 +626,18 @@ class DListResource(Resource, can_size_be_unknown=True):
             )
             return 0
 
+        def dl_cb(dl):
+            self.file.memory_context.report_resource_at_segmented(
+                dl,
+                lambda file, offset: DListResource(
+                    file,
+                    offset,
+                    f"{self.name}_{dl:08X}_DL",
+                    target_ucode=self.target_ucode,
+                ),
+            )
+            return 0
+
         size = gfxdis(
             input_buffer=self.file.data[self.range_start :],
             target=self.target_ucode.gfxd_ucode,
@@ -612,6 +645,7 @@ class DListResource(Resource, can_size_be_unknown=True):
             timg_callback=timg_cb,
             # tlut_callback=, # TODO
             mtx_callback=mtx_cb,
+            dl_callback=dl_cb,
         )
 
         self.range_end = self.range_start + size
@@ -670,8 +704,15 @@ class DListResource(Resource, can_size_be_unknown=True):
                         )
                         assert result == GetResourceAtResult.DEFINITIVE
                         assert resolved_resource is not None
-                        assert isinstance(resolved_resource, TextureResource), hex(
-                            timg_segmented
+
+                        # TODO investigate. eg spot18 uses 0x0800_0000 as both a DL and Tex ?
+                        if isinstance(resolved_resource, DListResource):
+                            return False
+
+                        assert isinstance(resolved_resource, TextureResource), (
+                            hex(timg_segmented),
+                            resolved_resource,
+                            resolved_resource.__class__,
                         )
                         width_arg_value = pygfxd.gfxd_arg_value(width_arg_i)[1]
                         height_arg_value = pygfxd.gfxd_arg_value(height_arg_i)[1]
@@ -760,9 +801,14 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 1
 
         def mtx_cb(mtx):
-            print("mtx_cb", hex(mtx))
             mtx_c_ref = self.file.memory_context.get_c_reference_at_segmented(mtx)
             pygfxd.gfxd_puts(mtx_c_ref)
+            return 1
+
+        def dl_cb(dl):
+            print("dl_cb", hex(dl))
+            dl_c_ref = self.file.memory_context.get_c_reference_at_segmented(dl)
+            pygfxd.gfxd_puts(dl_c_ref)
             return 1
 
         with self.extract_to_path.open("wb") as f:
@@ -782,6 +828,7 @@ class DListResource(Resource, can_size_be_unknown=True):
                 timg_callback=timg_cb,
                 tlut_callback=tlut_cb,
                 mtx_callback=mtx_cb,
+                dl_callback=dl_cb,
                 macro_fn=macro_fn,
                 arg_fn=arg_fn,
             )

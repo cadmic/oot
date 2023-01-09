@@ -16,9 +16,12 @@ def get_object_id_name(object_id: int) -> str:
 
 
 from . import entrance_table_mini
+from . import entrance_ids_special
 
 
 def get_entrance_id_name(entrance_id: int) -> str:
+    if entrance_id in entrance_ids_special.DATA:
+        return entrance_ids_special.DATA[entrance_id]
     return entrance_table_mini.DATA[entrance_id][0]
 
 
@@ -74,6 +77,25 @@ from . import dmadata_table
 
 def get_dmadata_table_rom_file_names() -> Sequence[str]:
     return dmadata_table.DATA
+
+
+dmadata = None
+
+
+def get_dmadata_table_rom_file_name_from_vrom(vromStart: int, vromEnd: int) -> str:
+    global dmadata
+    if dmadata is None:
+        import struct
+
+        with open("baserom/dmadata", "rb") as f:
+            bytes = f.read()
+        dmadata = list(struct.iter_unpack(">IIII", bytes))
+    for i, (e_vromStart, e_vromEnd, e_romStart, e_romEnd) in enumerate(dmadata):
+        if e_vromStart == vromStart and e_vromEnd == vromEnd:
+            break
+    if i >= len(dmadata_table.DATA):
+        raise ValueError("Can't find rom file", hex(vromStart), hex(vromEnd))
+    return dmadata_table.DATA[i]
 
 
 from . import audio_ids

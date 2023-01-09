@@ -74,7 +74,8 @@ class MemoryContext:
         self.segments: dict[int, Optional["File"]] = {i: None for i in range(1, 16)}
         self.symbols: Sequence[Symbol] = (
             # TODO config for this
-            Symbol("gMtxClear", 0x12DB80, 0x12DB80 + 0x40),
+            # TODO I had 0x12DB80 but now map (and jabu) says 0x12DB20, what did I do
+            Symbol("gMtxClear", 0x12DB20, 0x12DB20 + 0x40),
         )
         self.vram_symbols: list[Symbol] = []  # TODO
         self.files_by_physical: dict[
@@ -802,10 +803,13 @@ class File:
         with self.source_c_path.open("w") as c:
             with self.source_h_path.open("w") as h:
 
+                # TODO rework how files to include are picked
                 headers_includes = (
                     '#include "ultra64.h"\n',
                     '#include "z64.h"\n',
                     '#include "macros.h"\n',
+                    '#include "segment_symbols.h"\n',
+                    '#include "variables.h"\n',
                 )
 
                 # Paths to files to be included
@@ -813,7 +817,6 @@ class File:
                 file_include_paths_complete.append(self.source_h_path)
                 for referenced_file in self.referenced_files:
                     assert isinstance(referenced_file, File), referenced_file
-                    repr(referenced_file)
                     assert hasattr(referenced_file, "source_c_path"), (
                         "set_source_path must be called on all files before any write_source call",
                         referenced_file,
