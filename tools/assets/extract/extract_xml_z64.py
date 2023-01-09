@@ -12,8 +12,10 @@ from . import z64_resource_handlers
 # main
 #
 
-# "options"
 VERBOSE1 = False
+VERBOSE_DUMMY_SEGMENT = False
+
+# "options"
 RM_SOURCE = True
 WRITE_SOURCE = True
 RM_EXTRACT = True
@@ -310,7 +312,8 @@ def extract_xml(sub_path: Path):
                 )
 
     def set_dummy_segment(memory_context: MemoryContext, segment_num: int):
-        print("Setting dummy segment", segment_num)
+        if VERBOSE_DUMMY_SEGMENT:
+            print("Setting dummy segment", segment_num)
         memory_context.set_segment(
             segment_num,
             DummyFile(

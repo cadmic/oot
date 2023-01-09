@@ -56,6 +56,7 @@ def register_resource_handlers():
         skelcurve_resources,
         misc_resources,
         scene_rooms_resources,
+        scene_commands_resource,
     )
 
     # TODO check attributes more in the handlers
@@ -225,7 +226,14 @@ def register_resource_handlers():
         xml_errors.xml_check_attributes(
             resource_elem,
             {"Name", "Format", "Width", "Height"},
-            {"Offset", "OutName", "TlutOffset", "ExternalTlut", "ExternalTlutOffset", "SplitTlut"},
+            {
+                "Offset",
+                "OutName",
+                "TlutOffset",
+                "ExternalTlut",
+                "ExternalTlutOffset",
+                "SplitTlut",
+            },
         )
         # TODO use OutName, TlutOffset
         format_str = resource_elem.attrib["Format"]
@@ -344,7 +352,9 @@ def register_resource_handlers():
         resource_elem: ElementTree.Element,
         offset: int,
     ):
-        xml_errors.xml_check_attributes(resource_elem, {"Name", "SkelOffset"}, {"Offset"})
+        xml_errors.xml_check_attributes(
+            resource_elem, {"Name", "SkelOffset"}, {"Offset"}
+        )
         # TODO use SkelOffset
         return skelcurve_resources.CurveAnimationHeaderResource(
             file, offset, resource_elem.attrib["Name"]
@@ -374,7 +384,7 @@ def register_resource_handlers():
         offset: int,
     ):
         xml_errors.xml_check_attributes(resource_elem, {"Name"}, {"Offset"})
-        return scene_rooms_resources.SceneCommandsResource(
+        return scene_commands_resource.SceneCommandsResource(
             file, offset, resource_elem.attrib["Name"]
         )
 
@@ -392,7 +402,7 @@ def register_resource_handlers():
                 offset + 4,
                 resource_elem.attrib["Name"] + "_HackMode_syotes_room",
             )
-        return scene_rooms_resources.SceneCommandsResource(
+        return scene_commands_resource.SceneCommandsResource(
             file, offset, resource_elem.attrib["Name"]
         )
 

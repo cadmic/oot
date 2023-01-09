@@ -804,7 +804,6 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 1
 
         def dl_cb(dl):
-            print("dl_cb", hex(dl))
             dl_c_ref = self.file.memory_context.get_c_reference_at_segmented(dl)
             pygfxd.gfxd_puts(dl_c_ref)
             return 1
