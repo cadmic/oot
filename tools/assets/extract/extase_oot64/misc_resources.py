@@ -22,7 +22,6 @@ class CutsceneResource(Resource, can_size_be_unknown=True):
         size_words, cs_source = csdis.disassemble_cutscene(data_words)
         self.range_end = self.range_start + 4 * size_words
         self.cs_source = cs_source
-        self.is_data_parsed = True
 
     def get_c_reference(self, resource_offset: int):
         if resource_offset == 0:

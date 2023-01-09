@@ -5,10 +5,14 @@ import enum
 import reprlib
 
 import io
-from typing import Sequence, Optional, Callable, Union
+from typing import Sequence, Optional, Callable, Union, Any
+
+from pprint import pprint
 
 
 VERBOSE_SPLIT_PERHAPS = False
+VERBOSE_REPORT_RESBUF = False
+VERBOSE_FILE_TRY_PARSE_DATA = 1
 
 
 #
@@ -413,6 +417,25 @@ class MemoryContext:
         while fuse_more():
             pass
 
+    def report_resource_buffers(self):
+        # TODO rework resource buffers handling
+        # this won't play well with manually defined vtx arrays
+        # probably can't merge the vbuf refs so quick
+        for (
+            resource_type,
+            resource_buffer_markers,
+        ) in self.resource_buffer_markers_by_resource_type.items():
+            if VERBOSE_REPORT_RESBUF:
+                print(resource_type, resource_buffer_markers)
+            for rbm in resource_buffer_markers:
+                self.report_resource_at_segmented(
+                    rbm.start,
+                    lambda file, offset: resource_type(
+                        file, offset, offset + rbm.end - rbm.start, rbm.name
+                    ),
+                )
+        self.resource_buffer_markers_by_resource_type = dict()
+
     def get_c_reference_at_segmented(self, address):
         resolution, resolution_info = self.resolve_segmented(address)
 
@@ -502,6 +525,60 @@ class MemoryContext:
 #
 
 
+class ResourceParseException(Exception):
+    pass
+
+
+class ResourceParseWaiting(ResourceParseException):
+    """Resource has nothing to do and can't be parsed yet, try again later.
+
+    For example, another resource may need to be parsed first.
+
+    If all resources fail to parse in this way, it means parsing has come to a deadlock.
+    """
+
+    def __init__(self, *args, waiting_for: list[Any]):
+        """
+        waiting_for should be a non-empty list of things the resource is currently waiting for.
+        (one item per meaningful thing that is waited for)
+        It is only meant for informational purpose (such as debugging).
+        It may contain more than the strict minimum the resource needs to make some progress,
+        and less than everything the resource needs to be fully parsed.
+        """
+        assert waiting_for
+        super().__init__(*args, waiting_for)
+        self.waiting_for = waiting_for
+
+
+class ResourceParseInProgress(ResourceParseException):
+    """Resource can't be parsed yet, try again later.
+    But there was progress (as opposed to ResourceParseWaiting indicating no progress).
+
+    "Progress" includes:
+    - other resources were reported
+    - information was passed to or made available to other resources
+    - data was partially parsed
+    """
+
+    def __init__(self, *args, new_progress_done: list[Any], waiting_for: list[Any]):
+        """
+        new_progress_done, waiting_for: see ResourceParseWaiting.__init__
+        """
+        assert new_progress_done and waiting_for
+        super().__init__(*args, new_progress_done, waiting_for)
+        self.new_progress_done = new_progress_done
+        self.waiting_for = waiting_for
+
+
+class ResourceParseImpossible(ResourceParseException):
+    """Resource cannot be parsed, neither now nor later.
+
+    For example, there is unexpected data or values that cannot be handled properly.
+    """
+
+    pass
+
+
 class GetResourceAtResult(enum.Enum):
     DEFINITIVE = enum.auto()
     PERHAPS = enum.auto()
@@ -520,21 +597,21 @@ class File:
         self.memory_context = memory_context
         self.name = name
         self.data = data
-        self.resources: list[Resource] = []
-        self.is_resources_sorted = True
+        self._resources: list[Resource] = []
+        self._is_resources_sorted = True
         self.referenced_files: set[File] = set()
 
     def add_resource(self, resource: "Resource"):
-        self.resources.append(resource)
-        self.is_resources_sorted = False
+        self._resources.append(resource)
+        self._is_resources_sorted = False
 
     def extend_resources(self, resources: Sequence["Resource"]):
-        self.resources.extend(resources)
-        self.is_resources_sorted = False
+        self._resources.extend(resources)
+        self._is_resources_sorted = False
 
     def sort_resources(self):
-        self.resources.sort(key=lambda resource: resource.range_start)
-        self.is_resources_sorted = True
+        self._resources.sort(key=lambda resource: resource.range_start)
+        self._is_resources_sorted = True
 
     def get_resource_at(self, offset: int):
         assert offset < len(self.data)
@@ -547,7 +624,7 @@ class File:
         # offset (note: that resource may or may not have an end range defined).
         last_resource_before_offset: Union[Resource, None] = None
 
-        for resource in self.resources:
+        for resource in self._resources:
 
             if resource.range_start <= offset:
                 if (
@@ -583,17 +660,17 @@ class File:
             return GetResourceAtResult.NONE_YET, None
 
     def get_overlapping_resources(self):
-        if not self.is_resources_sorted:
+        if not self._is_resources_sorted:
             raise Exception("sort resources first")
 
         overlaps: list[tuple[Resource, Resource]] = []
 
-        for i in range(1, len(self.resources)):
-            resource_a = self.resources[i - 1]
+        for i in range(1, len(self._resources)):
+            resource_a = self._resources[i - 1]
 
             if resource_a.range_end is not None:
-                for j in range(i, len(self.resources)):
-                    resource_b = self.resources[j]
+                for j in range(i, len(self._resources)):
+                    resource_b = self._resources[j]
 
                     # This should hold true, as resources are sorted
                     assert resource_a.range_start <= resource_b.range_start
@@ -603,8 +680,8 @@ class File:
                     else:
                         break
             else:
-                for j in range(i, len(self.resources)):
-                    resource_b = self.resources[j]
+                for j in range(i, len(self._resources)):
+                    resource_b = self._resources[j]
 
                     assert resource_a.range_start <= resource_b.range_start
 
@@ -624,50 +701,103 @@ class File:
             print(self.str_report())
             raise
 
-    def parse_resources_data(self):
+    def get_non_parsed_resources(self):
+        return [
+            resource
+            for resource in self._resources
+            if not resource.is_data_parsed_v2tmp
+        ]
 
-        # Set this to True just to enter the loop
-        keep_looping = True
+    def check_non_parsed_resources(self):
+        try:
+            resources_data_not_parsed = self.get_non_parsed_resources()
+            if resources_data_not_parsed:
+                raise Exception(
+                    "resources not parsed",
+                    len(resources_data_not_parsed),
+                    [(r.name, r.__class__) for r in resources_data_not_parsed],
+                    resources_data_not_parsed,
+                )
+        except:
+            print(self.str_report())
+            raise
 
-        while keep_looping:
+    def try_parse_resources_data(self):
+        """Returns true if any progress was made between the method being called and the method returning."""
+        any_progress = False
+
+        while True:
             any_data_parsed = False
 
             # Parsing resources may add more, copy the list
             # to avoid concurrent modification while iterating
-            resources_copy = self.resources.copy()
+            resources_copy = self._resources.copy()
 
             for resource in resources_copy:
-                if resource.is_data_parsed:
+                if resource.is_data_parsed_v2tmp:
                     pass
                 else:
                     try:
                         resource.try_parse_data()
-                    except:
+
+                        # assert resource implementation follows new exception-based system
+                        # TODO remove eventually
+                        assert not hasattr(resource, "is_data_parsed"), (
+                            resource,
+                            resource.__class__,
+                        )
+                    except ResourceParseInProgress as e:
+                        any_progress = True
+                        if VERBOSE_FILE_TRY_PARSE_DATA >= 1:
+                            pprint(
+                                (
+                                    "(in progress) Defering parsing",
+                                    resource,
+                                    "progress:",
+                                    e.new_progress_done,
+                                    "waiting:",
+                                    e.waiting_for,
+                                )
+                            )
+                    except ResourceParseWaiting as e:
+                        if VERBOSE_FILE_TRY_PARSE_DATA >= 1:
+                            pprint(
+                                (
+                                    "(waiting) Defering parsing",
+                                    resource,
+                                    "waiting:",
+                                    e.waiting_for,
+                                )
+                            )
+                    except ResourceParseException as e:  # TODO ResourceParseImpossible ?
+                        # TODO replace resource with binblob or something idk
                         print("Error while attempting to parse data", resource)
                         raise
-                    any_data_parsed = any_data_parsed or resource.is_data_parsed
+                    except:
+                        # TODO replace resource with binblob or something idk
+                        print("Error while attempting to parse data", resource)
+                        raise
+                    else:
+                        # resource parsed successfully
+                        if VERBOSE_FILE_TRY_PARSE_DATA >= 2:
+                            pprint(("(success) Done parsing", resource))
+                        any_progress = True
+                        assert resource.range_end is not None, (
+                            resource,
+                            resource.__class__,
+                        )
+                        resource.is_data_parsed_v2tmp = True
+                        any_data_parsed = True
 
-                    if resource.is_data_parsed:
-                        assert resource.range_end is not None
-
-            any_resource_added = len(self.resources) != len(resources_copy)
+            any_resource_added = len(self._resources) != len(resources_copy)
             keep_looping = any_data_parsed or any_resource_added
+            if not keep_looping:
+                break
 
-        # TODO replace having Resource.try_parse_data set is_data_parsed to True/False,
-        # by them raising a DataNotParsed exception instead.
-        # Would also allow to provide a reason why data was not parsed
-        if __debug__:
-            resources_data_not_parsed = [
-                resource for resource in self.resources if not resource.is_data_parsed
-            ]
-            assert not resources_data_not_parsed, (
-                len(resources_data_not_parsed),
-                [(r.name, r.__class__) for r in resources_data_not_parsed],
-                resources_data_not_parsed,
-            )
+        return any_progress
 
     def add_unaccounted_resources(self):
-        assert self.is_resources_sorted
+        assert self._is_resources_sorted
 
         unaccounted_resources: list[Resource] = []
 
@@ -723,9 +853,9 @@ class File:
                 )
             unaccounted_resources.append(unaccounted_resource)
 
-        if self.resources:
+        if self._resources:
             # Add unaccounted if needed at the start of the file
-            resource_first = self.resources[0]
+            resource_first = self._resources[0]
             if resource_first.range_start > 0:
                 add_unaccounted(
                     0,
@@ -733,7 +863,7 @@ class File:
                 )
 
             # Add unaccounted if needed at the end of the file
-            resource_last = self.resources[-1]
+            resource_last = self._resources[-1]
             if resource_last.range_end < len(self.data):
                 add_unaccounted(
                     resource_last.range_end,
@@ -743,9 +873,9 @@ class File:
             # Add unaccounted for the whole file
             add_unaccounted(0, len(self.data))
 
-        for i in range(1, len(self.resources)):
-            resource_a = self.resources[i - 1]
-            resource_b = self.resources[i]
+        for i in range(1, len(self._resources)):
+            resource_a = self._resources[i - 1]
+            resource_b = self._resources[i]
             assert resource_a.range_end <= resource_b.range_start
 
             # Add unaccounted if needed between two successive resources
@@ -766,12 +896,12 @@ class File:
         self.extend_resources(unaccounted_resources)
 
     def set_resources_paths(self, extracted_path, build_path):
-        for resource in self.resources:
+        for resource in self._resources:
             resource.set_paths(extracted_path, build_path)
 
     def write_resources_extracted(self):
-        for resource in self.resources:
-            assert resource.is_data_parsed, resource
+        for resource in self._resources:
+            assert resource.is_data_parsed_v2tmp, resource
             try:
                 resource.write_extracted()
             except:
@@ -854,7 +984,7 @@ class File:
                 h.writelines(headers_includes)
                 h.write("\n")
 
-                for resource in self.resources:
+                for resource in self._resources:
 
                     if resource.write_c_definition(c):
                         c.write("\n")
@@ -877,14 +1007,14 @@ class File:
                 else "..."
             )
             + f" {resource.name}"
-            for resource in self.resources
+            for resource in self._resources
         )
 
     @reprlib.recursive_repr()
     def __repr__(self):
         return (
             self.__class__.__qualname__
-            + f"({self.name!r}, {self.data!r}, {self.resources!r})"
+            + f"({self.name!r}, {self.data!r}, {self._resources!r})"
         )
 
 
@@ -935,7 +1065,7 @@ class Resource(abc.ABC):
 
         May be None if the resource size isn't known yet
         (only if can_size_be_unknown is True, see __init_subclass__)
-        Must be set at the latest before is_data_parsed is set to True
+        Must be set at the latest before try_parse_data returns normally (without raising)
 
         See range_start
         """
@@ -953,8 +1083,8 @@ class Resource(abc.ABC):
         self.symbol_name = name
         """Name of the symbol to use to reference this resource"""
 
-        self.is_data_parsed = False
-        """See try_parse_data"""
+        self.is_data_parsed_v2tmp = False
+        """Set to true when the resource is successfully parsed (after a successful try_parse_data call)"""
 
     @abc.abstractmethod
     def try_parse_data(self):
@@ -963,13 +1093,14 @@ class Resource(abc.ABC):
         This can typically result in finding more resources,
         for example from pointer types.
 
-        If data was successfully parsed, set `self.is_data_parsed` to `True`
+        If data can't be parsed yet, ResourceParseInProgress or ResourceParseWaiting should be raised.
+        Then this will be called again later.
 
-        Otherwise it is assumed other resources need to parse their data
-        before this one can be, and this will be called again later.
+        Raising other ResourceParseException s abandons parsing this resource.
+        Other exceptions raised are not caught.
 
         Note this can both add found resources to the file,
-        and wait before further parsing its own data (by not setting `is_data_parsed` to True).
+        and wait before further parsing its own data (by raising ResourceParseInProgress).
         """
         ...
 
@@ -1145,13 +1276,14 @@ class ZeroPaddingResource(Resource):
         *,
         include_in_source=True,
     ):
+        # TODO move to try_parse_data ?
         assert set(file.data[range_start:range_end]) == {0}
         super().__init__(file, range_start, range_end, name)
         self.include_in_source = include_in_source
 
     def try_parse_data(self):
         # Nothing specific to do
-        self.is_data_parsed = True
+        pass
 
     def get_c_reference(self, resource_offset):
         raise ValueError("Referencing zero padding should not happen")
@@ -1184,7 +1316,7 @@ class BinaryBlobResource(Resource):
 
     def try_parse_data(self):
         # Nothing specific to do
-        self.is_data_parsed = True
+        pass
 
     def get_c_reference(self, resource_offset):
         return f"&{self.symbol_name}[{resource_offset}]"

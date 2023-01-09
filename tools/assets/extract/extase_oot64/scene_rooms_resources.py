@@ -2,7 +2,13 @@ import enum
 import struct
 import io
 
-from ..extase import File, Resource, SegmentedAddressResolution
+from ..extase import (
+    File,
+    Resource,
+    SegmentedAddressResolution,
+    ResourceParseInProgress,
+    ResourceParseWaiting,
+)
 from ..extase.cdata_resources import (
     CDataArrayResource,
     CDataArrayNamedLengthResource,
@@ -113,6 +119,9 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
     def try_parse_data(self):
         data = self.file.data[self.range_start :]
 
+        new_progress_done = []
+        waiting_for = []
+
         offset = 0
         cmd_id = None
         end_offset = None
@@ -154,6 +163,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 assert isinstance(resource, ActorEntryListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported ActorEntryListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_OBJECT_LIST:
                 resource, _ = self.file.memory_context.report_resource_at_segmented(
@@ -165,12 +175,14 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 assert isinstance(resource, ObjectListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported ObjectListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_SHAPE:
                 room_shape_resources.report_room_shape_at_segmented(
                     self.file.memory_context, data2_I, self.name
                 )
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported room shape resource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_LIST:
                 self.room_list_length = data1
@@ -183,6 +195,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 assert isinstance(resource, RoomListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported RoomListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_COLLISION_HEADER:
                 assert data1 == 0
@@ -193,9 +206,21 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     ),
                 )
                 assert isinstance(resource, collision_resources.CollisionResource)
-                if resource.is_data_parsed:
+                new_progress_done.append(("reported CollisionResource", cmd_id))
+                if resource.is_data_parsed_v2tmp:
                     self.exit_list_length = resource.length_exitList
                     self.parsed_commands.add(cmd_id)
+                    new_progress_done.append(
+                        ("set self.exit_list_length from CollisionResource", cmd_id)
+                    )
+                else:
+                    waiting_for.append(
+                        (
+                            "CollisionResource to be parsed to set self.exit_list_length",
+                            cmd_id,
+                            resource,
+                        )
+                    )
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ENTRANCE_LIST:
                 assert data1 == 0
@@ -206,6 +231,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     ),
                 )
                 assert isinstance(resource, SpawnListResource)
+                new_progress_done.append(("reported SpawnListResource", cmd_id))
                 if (
                     self.player_entry_list_length is not None
                     and self.room_list_length is not None
@@ -213,6 +239,17 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     resource.player_entry_list_length = self.player_entry_list_length
                     resource.room_list_length = self.room_list_length
                     self.parsed_commands.add(cmd_id)
+                    new_progress_done.append(
+                        ("passed lengths to SpawnListResource", cmd_id)
+                    )
+                else:
+                    waiting_for.append(
+                        (
+                            "self.player_entry_list_length and self.room_list_length"
+                            " to pass to SpawnListResource",
+                            cmd_id,
+                        )
+                    )
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_SPAWN_LIST:
                 self.player_entry_list_length = data1
@@ -225,6 +262,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 assert isinstance(resource, ActorEntryListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported ActorEntryListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_EXIT_LIST:
                 # TODO length from collision
@@ -236,6 +274,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     ),
                 )
                 assert isinstance(resource, ExitListResource)
+                new_progress_done.append(("reported ExitListResource", cmd_id))
                 if self.exit_list_length is not None:
                     # TODO this doesnt work very well, eg need to trim to avoid overlaps
                     length = self.exit_list_length
@@ -254,6 +293,16 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     assert length > 0
                     resource.set_length(length)
                     self.parsed_commands.add(cmd_id)
+                    new_progress_done.append(
+                        ("passed length to ExitListResource", cmd_id, resource)
+                    )
+                else:
+                    waiting_for.append(
+                        (
+                            "self.exit_list_length to (guess a length to) pass to ExitListResource",
+                            cmd_id,
+                        )
+                    )
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_LIGHT_SETTINGS_LIST:
                 resource, _ = self.file.memory_context.report_resource_at_segmented(
@@ -265,6 +314,9 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 assert isinstance(resource, EnvLightSettingsListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(
+                    ("reported EnvLightSettingsListResource", cmd_id)
+                )
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_TRANSITION_ACTOR_LIST:
                 resource, _ = self.file.memory_context.report_resource_at_segmented(
@@ -278,6 +330,9 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 assert isinstance(resource, TransitionActorEntryListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(
+                    ("reported TransitionActorEntryListResource", cmd_id)
+                )
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_PATH_LIST:
                 # TODO guess length, no other way I think
@@ -289,6 +344,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     ),
                 )
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported PathListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ALTERNATE_HEADER_LIST:
                 # TODO guess length, no other way I think
@@ -300,6 +356,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     ),
                 )
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported AltHeadersResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_CUTSCENE_DATA:
                 assert data1 == 0
@@ -310,6 +367,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     ),
                 )
                 self.parsed_commands.add(cmd_id)
+                new_progress_done.append(("reported CutsceneResource", cmd_id))
 
         if cmd_id != SceneCmdId.SCENE_CMD_ID_END:
             raise Exception("reached end of data without encountering end marker")
@@ -329,7 +387,16 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
 
         self.range_end = self.range_start + end_offset
         assert self.parsed_commands.issubset(found_commands)
-        self.is_data_parsed = self.parsed_commands == found_commands
+
+        if waiting_for:
+            if new_progress_done:
+                raise ResourceParseInProgress(
+                    new_progress_done=new_progress_done, waiting_for=waiting_for
+                )
+            else:
+                raise ResourceParseWaiting(waiting_for=waiting_for)
+
+        assert self.parsed_commands == found_commands
         if found_commands - self.parsed_commands:
             if VERBOSE_NOT_FULLY_PARSED_SCENECMD:
                 print(

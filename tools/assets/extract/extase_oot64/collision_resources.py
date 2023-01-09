@@ -4,6 +4,8 @@ from ..extase import (
     SegmentedAddressResolution,
     GetResourceAtResult,
     File,
+    ResourceParseInProgress,
+    ResourceParseWaiting,
 )
 from ..extase.cdata_resources import (
     CDataResource,
@@ -571,6 +573,9 @@ class CollisionResource(CDataResource):
     def try_parse_data(self):
         super().try_parse_data()
 
+        new_progress_done = []
+        waiting_for = []
+
         #  report surfaceTypeList based on its length guessed from polyList data
 
         resolution, resolution_info = self.file.memory_context.resolve_segmented(
@@ -590,7 +595,7 @@ class CollisionResource(CDataResource):
             assert isinstance(resource, CollisionPolyListResource)
 
             # If the CollisionPolyListResource is parsed
-            if resource.is_data_parsed:
+            if resource.is_data_parsed_v2tmp:
                 length_surfaceTypeList = resource.max_surface_type_index + 1
                 surfaceTypeList_address = self.cdata_unpacked["surfaceTypeList"]
                 assert isinstance(surfaceTypeList_address, int)
@@ -607,6 +612,16 @@ class CollisionResource(CDataResource):
                     ),
                 )
                 self.is_reported_surfaceTypeList = True
+
+                new_progress_done.append("reported CollisionSurfaceTypeListResource")
+            else:
+                waiting_for.append(
+                    (
+                        "waiting for CollisionPolyListResource"
+                        " to be parsed to report CollisionSurfaceTypeListResource",
+                        resource,
+                    )
+                )
         else:
             raise NotImplementedError(resolution)
 
@@ -631,7 +646,7 @@ class CollisionResource(CDataResource):
                 assert isinstance(resource, CollisionSurfaceTypeListResource)
 
                 # If the CollisionSurfaceTypeListResource is parsed
-                if resource.is_data_parsed:
+                if resource.is_data_parsed_v2tmp:
                     length_bgCamList = resource.max_bgCamIndex + 1
                     bgCamList_address = self.cdata_unpacked["bgCamList"]
                     assert isinstance(bgCamList_address, int)
@@ -651,10 +666,30 @@ class CollisionResource(CDataResource):
 
                     # exitIndex is 1-indexed, so e.g. if the max is 1 the list is of length 1.
                     self.length_exitList = resource.max_exitIndex
+
+                    new_progress_done.append("reported CollisionBgCamListResource")
+                else:
+                    waiting_for.append(
+                        (
+                            "waiting for CollisionSurfaceTypeListResource"
+                            " to be parsed to report CollisionBgCamListResource",
+                            resource,
+                        )
+                    )
             else:
                 raise NotImplementedError(resolution)
+        else:
+            waiting_for.append("self.is_reported_surfaceTypeList")
 
-        self.is_data_parsed = (
+        if waiting_for:
+            if new_progress_done:
+                raise ResourceParseInProgress(
+                    new_progress_done=new_progress_done, waiting_for=waiting_for
+                )
+            else:
+                raise ResourceParseWaiting(waiting_for=waiting_for)
+
+        assert (
             self.is_reported_surfaceTypeList
             and self.is_reported_bgCamList
             and self.length_exitList is not None

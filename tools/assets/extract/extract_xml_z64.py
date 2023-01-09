@@ -240,64 +240,11 @@ def xml_process_resources_of_file(
 
     if VERBOSE1:
         print(file)
-        print(file.name, file.resources)
+        print(file.name, file._resources)
 
     # Check if xml-declared resources overlap
     file.sort_resources()
     file.check_overlapping_resources()
-
-
-# 2) parse: iteratively discover and parse data
-# (discover = add resources, parse = make friendlier than binary)
-def parse_resources(file: File):
-
-    # some of the "bad code below" leaking here for debugging
-    assert not file.memory_context.resource_buffer_markers_by_resource_type
-
-    file.parse_resources_data()
-
-    # FIXME : bad code, shouldn't be here
-
-    # also actually this won't play well with manually defined vtx arrays
-    # probably can't merge the vbuf refs so quick
-
-    for (
-        resource_type,
-        resource_buffer_markers,
-    ) in file.memory_context.resource_buffer_markers_by_resource_type.items():
-        if VERBOSE1:
-            print(resource_type, resource_buffer_markers)
-        for rbm in resource_buffer_markers:
-            file.memory_context.report_resource_at_segmented(
-                rbm.start,
-                lambda file, offset: resource_type(
-                    file, offset, offset + rbm.end - rbm.start, rbm.name
-                ),
-            )
-    file.memory_context.resource_buffer_markers_by_resource_type = dict()
-
-    file.parse_resources_data()
-
-    # end bad code
-
-    file.sort_resources()
-    file.check_overlapping_resources()
-
-
-# 3) add dummy (binary) resources for the unaccounted gaps
-def add_unaccounted_resources(file: File):
-
-    file.add_unaccounted_resources()
-
-    file.parse_resources_data()  # FIXME this is to set is_data_parsed=True on binary blob unaccounteds, handle better
-
-    file.sort_resources()
-    assert not file.get_overlapping_resources()
-
-    # done loading this file
-
-    if VERBOSE1:
-        pprint(file.resources)
 
 
 def extract_xml(sub_path: Path):
@@ -667,6 +614,7 @@ def extract_xml(sub_path: Path):
         raise NotImplementedError(disputed_segments)
 
     def for_each_file_with_adequate_memory_context(callback):
+        results = []
 
         for file in top_own_files:
 
@@ -682,11 +630,12 @@ def extract_xml(sub_path: Path):
             # set 0xD dummy segment for flex skeletons
             from .extase_oot64.skeleton_resources import SkeletonFlexResource
 
-            if any(isinstance(r, SkeletonFlexResource) for r in file.resources):
+            if any(isinstance(r, SkeletonFlexResource) for r in file._resources):
                 set_dummy_segment(memory_context, 0xD)
             # end flex seg hack
 
-            callback(file)
+            res = callback(file)
+            results.append(res)
 
             # At this point the file is completely mapped with resources
             # (though per the above TODO this will be reworked)
@@ -698,19 +647,54 @@ def extract_xml(sub_path: Path):
 
             memory_context.restore_segment_map(saved_segment_map)
 
-    # TODO parsing data should be done
-    # iteratively across all files at once instead of one file at a time
-    # For example imagine a scene file is parsed before a room,
-    # then the room discovers a resource, such as a dlist, in the scene,
-    # that would mean the scene will keep a non-parsed resource
-    # FIXME Even worse: this makes an unaccounted take the spot of a legitimate resource
+        return results
 
-    # after splitting the for loop, this may be fixed but idk if it covers the whole todo
+    # 2) parse: iteratively discover and parse data
+    # (discover = add resources, parse = make friendlier than binary)
 
-    # TODO yeah not entirely fixed. need to rerun parsing after other files are parsed
-    for i in range(2):  # FIXME hack
-        for_each_file_with_adequate_memory_context(parse_resources)
-    for_each_file_with_adequate_memory_context(add_unaccounted_resources)
+    def file_try_parse_resources_data(file: File):
+        any_progress = file.try_parse_resources_data()
+
+        # TODO rework resource buffers
+        # FIXME this may be a bad place to put this but idk. Ideally would call this after a single file is fully parsed,
+        # but since the memctx may switch segment base for the resource buffers we also can't keep the markers alive across
+        # iterations in for_each_file_with_adequate_memory_context
+        file.memory_context.report_resource_buffers()
+
+        return any_progress
+
+    def parse_all_files():
+        while True:
+            results_any_progress = for_each_file_with_adequate_memory_context(
+                file_try_parse_resources_data
+            )
+            any_progress = any(results_any_progress)
+            if not any_progress:
+                break
+
+        for file in top_own_files:
+            file.check_non_parsed_resources()
+
+    parse_all_files()
+
+    for file in top_own_files:
+        file.sort_resources()
+        file.check_overlapping_resources()
+
+    # 3) add dummy (binary) resources for the unaccounted gaps
+
+    def file_add_unaccounted_resources(file: File):
+        file.add_unaccounted_resources()
+
+    for_each_file_with_adequate_memory_context(file_add_unaccounted_resources)
+
+    parse_all_files()  # FIXME this is to set is_data_parsed=True on binary blob unaccounteds, handle better
+
+    for file in top_own_files:
+        file.sort_resources()
+        assert not file.get_overlapping_resources()
+
+    # 4)
 
     DUMMY_MODE = "write"
 
@@ -752,6 +736,7 @@ def main():
             print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), sub_path)
             extract_xml(sub_path)
 
+    # extract_xml(Path("objects/object_am"))
     # extract_xml(Path("scenes/indoors/hylia_labo"))
     # extract_xml(Path("objects/gameplay_keep"))
     # extract_xml(Path("overlays/ovl_En_Jsjutan"))  # The only xml with <Symbol>

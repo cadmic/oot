@@ -238,7 +238,7 @@ class TextureResource(Resource):
 
     def try_parse_data(self):
         # Nothing to do
-        self.is_data_parsed = True
+        pass
 
     def write_extracted(self) -> None:
         data = self.file.data[self.range_start : self.range_end]
@@ -652,8 +652,6 @@ class DListResource(Resource, can_size_be_unknown=True):
 
         if VERBOSE2:
             print(self.name, hex(offset), hex(self.range_end))
-
-        self.is_data_parsed = True
 
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):

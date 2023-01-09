@@ -2,7 +2,7 @@ import abc
 import io
 from typing import Callable, Any, Sequence, Union
 
-from . import Resource, File
+from . import Resource, File, ResourceParseWaiting
 
 from .repr_c_struct import CData, CData_Value, CData_Struct, CData_Array
 
@@ -194,7 +194,7 @@ class CDataResource(Resource):
             else:
                 range_end = None
         super().__init__(file, range_start, range_end, name)
-        self.is_cdata_processed = False
+        self._is_cdata_processed = False
 
     def try_parse_data(self):
         if self.can_size_be_unknown:
@@ -210,18 +210,18 @@ class CDataResource(Resource):
         assert hasattr(self, "cdata_ext")
         assert self.cdata_ext is not None
 
-        # Use own bool is_cdata_processed to remember if data has been unpacked and
-        # reported already, to let subclasses use is_data_parsed if they want to
-        if not self.is_cdata_processed:
+        # In case the subclass does more involved processing, the self.is_data_parsed
+        # bool wouldn't necessarily reflect the state of the cdata.
+        # Use own bool self._is_cdata_processed to remember if cdata has been unpacked and
+        # reported already.
+        if not self._is_cdata_processed:
             self.cdata_unpacked = self.cdata_ext.unpack_from(
                 self.file.data, self.range_start
             )
 
             self.cdata_ext.report(self, self.cdata_unpacked)
 
-            self.is_cdata_processed = True
-
-        self.is_data_parsed = True
+            self._is_cdata_processed = True
 
     def write_extracted(self):
         with self.extract_to_path.open("w") as f:
@@ -260,7 +260,7 @@ class CDataArrayResource(CDataResource):
 
     def try_parse_data(self):
         if self._length is None:
-            return
+            raise ResourceParseWaiting(waiting_for=["self._length"])
         assert isinstance(self.elem_cdata_ext, CDataExt), (self.__class__, self)
         self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self._length)
         self.range_end = self.range_start + self.cdata_ext.size
