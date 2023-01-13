@@ -1,4 +1,8 @@
 import io
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
 
 from ..extase import (
     File,
@@ -12,7 +16,7 @@ from ..extase.cdata_resources import (
 
 
 class AnimationFrameDataResource(CDataResource, can_size_be_unknown=True):
-    def write_binang(resource, v, f: io.TextIOBase, line_prefix):
+    def write_binang(resource, memory_context, v, f: io.TextIOBase, line_prefix):
         f.write(line_prefix)
         f.write(f" 0x{v:04X}" if v >= 0 else "-0x" + f"{v:04X}".removeprefix("-"))
         return True
@@ -23,11 +27,11 @@ class AnimationFrameDataResource(CDataResource, can_size_be_unknown=True):
         super().__init__(file, range_start, name)
         self.length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data()
+            super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"s16 {self.symbol_name}[]"
@@ -52,11 +56,11 @@ class AnimationJointIndicesResource(CDataResource, can_size_be_unknown=True):
         super().__init__(file, range_start, name)
         self.length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data()
+            super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"JointIndex {self.symbol_name}[]"
@@ -69,18 +73,22 @@ class AnimationJointIndicesResource(CDataResource, can_size_be_unknown=True):
 
 
 class AnimationResource(CDataResource):
-    def write_frameData(resource, v, f: io.TextIOBase, line_prefix):
+    def write_frameData(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def write_jointIndices(resource, v, f: io.TextIOBase, line_prefix):
+    def write_jointIndices(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     cdata_ext = CDataExt_Struct(
@@ -103,40 +111,34 @@ class AnimationResource(CDataResource):
         )
     )
 
-    def try_parse_data(self):
-        super().try_parse_data()
+    def try_parse_data(self, memory_context):
+        super().try_parse_data(memory_context)
 
         frameData_address = self.cdata_unpacked["frameData"]
         assert isinstance(frameData_address, int)
-        (
-            frameData_resource,
-            frameData_offset,
-        ) = self.file.memory_context.report_resource_at_segmented(
+        resource_frameData = memory_context.report_resource_at_segmented(
+            self,
             frameData_address,
+            AnimationFrameDataResource,
             lambda file, offset: AnimationFrameDataResource(
                 file,
                 offset,
                 f"{self.name}_{frameData_address:08X}_FrameData",
             ),
         )
-        assert isinstance(frameData_resource, AnimationFrameDataResource)
-        assert frameData_resource.range_start == frameData_offset
 
         jointIndices_address = self.cdata_unpacked["jointIndices"]
         assert isinstance(jointIndices_address, int)
-        (
-            jointIndices_resource,
-            jointIndices_offset,
-        ) = self.file.memory_context.report_resource_at_segmented(
+        resource_jointIndices = memory_context.report_resource_at_segmented(
+            self,
             jointIndices_address,
+            AnimationJointIndicesResource,
             lambda file, offset: AnimationJointIndicesResource(
                 file,
                 offset,
                 f"{self.name}_{jointIndices_address:08X}_JointIndices",
             ),
         )
-        assert isinstance(jointIndices_resource, AnimationJointIndicesResource)
-        assert jointIndices_resource.range_start == jointIndices_offset
 
         # The length of the frameData and jointIndices arrays is
         # for now assumed to fill the space to the animation,
@@ -144,28 +146,32 @@ class AnimationResource(CDataResource):
         # the offsets belong to the same file
         # TODO better idea for computing this data's size
 
-        if not (frameData_resource.file == jointIndices_resource.file == self.file):
+        if not (resource_frameData.file == resource_jointIndices.file == self.file):
             raise NotImplementedError(
                 "Expected frameData and jointIndices to be in the same file as the animation",
                 self.cdata_unpacked,
-                frameData_resource.file,
-                jointIndices_resource.file,
+                resource_frameData.file,
+                resource_jointIndices.file,
                 self.file,
             )
 
-        if frameData_offset < jointIndices_offset < self.range_start:
-            frameData_resource.length = (
-                jointIndices_offset - frameData_offset
+        if (
+            resource_frameData.range_start
+            < resource_jointIndices.range_start
+            < self.range_start
+        ):
+            resource_frameData.length = (
+                resource_jointIndices.range_start - resource_frameData.range_start
             ) // AnimationFrameDataResource.elem_cdata_ext.size
-            jointIndices_resource.length = (
-                self.range_start - jointIndices_offset
+            resource_jointIndices.length = (
+                self.range_start - resource_jointIndices.range_start
             ) // AnimationJointIndicesResource.elem_cdata_ext.size
         else:
             raise NotImplementedError(
                 "Expected offsets of frameData, jointIndices, animation to be in order",
                 self.cdata_unpacked,
-                hex(frameData_offset),
-                hex(jointIndices_offset),
+                hex(resource_frameData.range_start),
+                hex(resource_jointIndices.range_start),
                 hex(self.range_start),
             )
 

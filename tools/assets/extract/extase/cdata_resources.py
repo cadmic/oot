@@ -1,10 +1,22 @@
 import abc
 import io
-from typing import Callable, Any, Sequence, Union
+from typing import TYPE_CHECKING, Callable, Any, Sequence, Union
 
-from . import Resource, File, ResourceParseWaiting
+if TYPE_CHECKING:
+    from .memorymap import MemoryContext
 
-from .repr_c_struct import CData, CData_Value, CData_Struct, CData_Array
+from . import (
+    Resource,
+    File,
+    ResourceParseWaiting,
+)
+
+from .repr_c_struct import (
+    CData,
+    CData_Value,
+    CData_Struct,
+    CData_Array,
+)
 
 
 class CDataExt(CData, abc.ABC):
@@ -14,12 +26,18 @@ class CDataExt(CData, abc.ABC):
 
     # TODO not sure what to name this, it doesn't have to be used for pointer reporting,
     # more generic "callback" may be better idk yet
-    def set_report(self, report_f: Callable[["CDataResource", Any], None]):
+    def set_report(
+        self, report_f: Callable[["CDataResource", "MemoryContext", Any], None]
+    ):
         self.report_f = report_f
         return self
 
     def set_write(
-        self, write_f: Callable[["CDataResource", Any, io.TextIOBase, str], bool]
+        self,
+        write_f: Callable[
+            ["CDataResource", "MemoryContext", Any, io.TextIOBase, str],
+            bool,
+        ],
     ):
         """
         write_f should return True if it wrote anything
@@ -34,32 +52,47 @@ class CDataExt(CData, abc.ABC):
 
     @abc.abstractmethod
     def write_default(
-        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
+        self,
+        resource: "CDataResource",
+        memory_context: "MemoryContext",
+        v: Any,
+        f: io.TextIOBase,
+        line_prefix: str,
     ) -> bool:
         ...
 
-    def report(self, resource: "CDataResource", v: Any):
+    def report(
+        self,
+        resource: "CDataResource",
+        memory_context: "MemoryContext",
+        v: Any,
+    ):
         if self.report_f:
             try:
-                self.report_f(resource, v)
+                self.report_f(resource, memory_context, v)
             except:
                 print("Error reporting data", self, self.report_f, resource, v)
                 raise
 
     def write(
-        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
+        self,
+        resource: "CDataResource",
+        memory_context: "MemoryContext",
+        v: Any,
+        f: io.TextIOBase,
+        line_prefix: str,
     ) -> bool:
         """
         Returns True if something has been written
         (typically, False will be returned if this data is struct padding)
         """
         if self.write_f:
-            ret = self.write_f(resource, v, f, line_prefix)
+            ret = self.write_f(resource, memory_context, v, f, line_prefix)
             # This assert is meant to ensure the function returns a value at all,
             # since it's easy to forget to return a value (typically True)
             assert isinstance(ret, bool), ("must return a bool", self.write_f)
         else:
-            ret = self.write_default(resource, v, f, line_prefix)
+            ret = self.write_default(resource, memory_context, v, f, line_prefix)
             assert isinstance(ret, bool), self
         return ret
 
@@ -79,7 +112,11 @@ class CDataExt_Value(CData_Value, CDataExt):
         """Utility wrapper for set_write, writes the value as stringified by str_v."""
 
         def write_f(
-            resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix: str
+            resource: "CDataResource",
+            memory_context: "MemoryContext",
+            v: Any,
+            f: io.TextIOBase,
+            line_prefix: str,
         ):
             f.write(line_prefix)
             f.write(str_v(v))
@@ -88,15 +125,13 @@ class CDataExt_Value(CData_Value, CDataExt):
         self.set_write(write_f)
         return self
 
-    def report(self, resource: "CDataResource", v: Any):
-        super().report(resource, v)
+    def report(self, resource, memory_context, v):
+        super().report(resource, memory_context, v)
         if self.is_padding:
             if v != 0:
                 raise Exception("non-0 padding")
 
-    def write_default(
-        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
-    ):
+    def write_default(self, resource, memory_context, v, f, line_prefix):
         if not self.is_padding:
             f.write(line_prefix)
             f.write(str(v))
@@ -128,20 +163,20 @@ class CDataExt_Array(CData_Array, CDataExt):
         super().__init__(element_cdata_ext, length)
         self.element_cdata_ext = element_cdata_ext
 
-    def report(self, resource: "CDataResource", v: Any):
+    def report(self, resource, memory_context, v):
         assert isinstance(v, list)
-        super().report(resource, v)
+        super().report(resource, memory_context, v)
         for elem in v:
-            self.element_cdata_ext.report(resource, elem)
+            self.element_cdata_ext.report(resource, memory_context, elem)
 
-    def write_default(
-        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
-    ):
+    def write_default(self, resource, memory_context, v, f, line_prefix):
         assert isinstance(v, list)
         f.write(line_prefix)
         f.write("{\n")
         for i, elem in enumerate(v):
-            ret = self.element_cdata_ext.write(resource, elem, f, line_prefix + INDENT)
+            ret = self.element_cdata_ext.write(
+                resource, memory_context, elem, f, line_prefix + INDENT
+            )
             assert ret
             f.write(f", // {i}\n")
         f.write(line_prefix)
@@ -154,21 +189,19 @@ class CDataExt_Struct(CData_Struct, CDataExt):
         super().__init__(members)
         self.members_ext = members
 
-    def report(self, resource: "CDataResource", v: Any):
+    def report(self, resource, memory_context, v):
         assert isinstance(v, dict)
-        super().report(resource, v)
+        super().report(resource, memory_context, v)
         for member_name, member_cdata_ext in self.members_ext:
-            member_cdata_ext.report(resource, v[member_name])
+            member_cdata_ext.report(resource, memory_context, v[member_name])
 
-    def write_default(
-        self, resource: "CDataResource", v: Any, f: io.TextIOBase, line_prefix
-    ):
+    def write_default(self, resource, memory_context, v, f, line_prefix):
         assert isinstance(v, dict)
         f.write(line_prefix)
         f.write("{\n")
         for member_name, member_cdata_ext in self.members_ext:
             if member_cdata_ext.write(
-                resource, v[member_name], f, line_prefix + INDENT
+                resource, memory_context, v[member_name], f, line_prefix + INDENT
             ):
                 f.write(f", // {member_name}\n")
         f.write(line_prefix)
@@ -196,7 +229,7 @@ class CDataResource(Resource):
         super().__init__(file, range_start, range_end, name)
         self._is_cdata_processed = False
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         if self.can_size_be_unknown:
             assert hasattr(self, "cdata_ext") and self.cdata_ext is not None, (
                 "Subclasses with can_size_be_unknown=True should redefine try_parse_data"
@@ -219,13 +252,13 @@ class CDataResource(Resource):
                 self.file.data, self.range_start
             )
 
-            self.cdata_ext.report(self, self.cdata_unpacked)
+            self.cdata_ext.report(self, memory_context, self.cdata_unpacked)
 
             self._is_cdata_processed = True
 
-    def write_extracted(self):
+    def write_extracted(self, memory_context):
         with self.extract_to_path.open("w") as f:
-            self.cdata_ext.write(self, self.cdata_unpacked, f, "")
+            self.cdata_ext.write(self, memory_context, self.cdata_unpacked, f, "")
             f.write("\n")
 
 
@@ -258,13 +291,13 @@ class CDataArrayResource(CDataResource):
         assert length > 0
         self._length = length
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         if self._length is None:
             raise ResourceParseWaiting(waiting_for=["self._length"])
         assert isinstance(self.elem_cdata_ext, CDataExt), (self.__class__, self)
         self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self._length)
         self.range_end = self.range_start + self.cdata_ext.size
-        super().try_parse_data()
+        super().try_parse_data(memory_context)
 
     def get_c_reference(self, resource_offset: int):
         return self.symbol_name

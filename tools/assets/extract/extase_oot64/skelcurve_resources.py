@@ -1,6 +1,13 @@
 import io
+from typing import TYPE_CHECKING
 
-from ..extase import File, SegmentedAddressResolution, GetResourceAtResult
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
+
+from ..extase import (
+    File,
+    GetResourceAtResult,
+)
 from ..extase.cdata_resources import (
     CDataResource,
     CDataExt_Struct,
@@ -18,11 +25,11 @@ class KnotCountsArrayResource(CDataResource, can_size_be_unknown=True):
         super().__init__(file, range_start, name)
         self.length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data()
+            super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"u8 {self.symbol_name}[]"
@@ -49,11 +56,11 @@ class CurveInterpKnotArrayResource(CDataResource, can_size_be_unknown=True):
         super().__init__(file, range_start, name)
         self.length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data()
+            super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"CurveInterpKnot {self.symbol_name}[]"
@@ -72,11 +79,11 @@ class ConstantDataArrayResource(CDataResource, can_size_be_unknown=True):
         super().__init__(file, range_start, name)
         self.length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data()
+            super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"s16 {self.symbol_name}[]"
@@ -89,55 +96,67 @@ class ConstantDataArrayResource(CDataResource, can_size_be_unknown=True):
 
 
 class CurveAnimationHeaderResource(CDataResource):
-    def report_knotCounts(resource, v):
+    def report_knotCounts(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            KnotCountsArrayResource,
             lambda file, offset: KnotCountsArrayResource(
                 file, offset, f"{resource.name}_{address:08X}_KnotCounts"
             ),
         )
 
-    def write_knotCounts(resource, v, f: io.TextIOBase, line_prefix):
+    def write_knotCounts(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def report_interpolationData(resource, v):
+    def report_interpolationData(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            CurveInterpKnotArrayResource,
             lambda file, offset: CurveInterpKnotArrayResource(
                 file, offset, f"{resource.name}_{address:08X}_InterpolationData"
             ),
         )
 
-    def write_interpolationData(resource, v, f: io.TextIOBase, line_prefix):
+    def write_interpolationData(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def report_constantData(resource, v):
+    def report_constantData(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            ConstantDataArrayResource,
             lambda file, offset: ConstantDataArrayResource(
                 file, offset, f"{resource.name}_{address:08X}_ConstantData"
             ),
         )
 
-    def write_constantData(resource, v, f: io.TextIOBase, line_prefix):
+    def write_constantData(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     cdata_ext = CDataExt_Struct(
@@ -165,100 +184,46 @@ class CurveAnimationHeaderResource(CDataResource):
         )
     )
 
-    def try_parse_data(self):
-        super().try_parse_data()
+    def try_parse_data(self, memory_context):
+        super().try_parse_data(memory_context)
         knotCounts = self.cdata_unpacked["knotCounts"]
         interpolationData = self.cdata_unpacked["interpolationData"]
         constantData = self.cdata_unpacked["constantData"]
-        (
-            knotCounts_resolution,
-            knotCounts_resolution_info,
-        ) = self.file.memory_context.resolve_segmented(knotCounts)
-        (
-            interpolationData_resolution,
-            interpolationData_resolution_info,
-        ) = self.file.memory_context.resolve_segmented(interpolationData)
-        (
-            constantData_resolution,
-            constantData_resolution_info,
-        ) = self.file.memory_context.resolve_segmented(constantData)
+        resource_knotCounts = memory_context.resolve_segmented(knotCounts).get_resource(
+            KnotCountsArrayResource
+        )
+        resource_interpolationData = memory_context.resolve_segmented(
+            interpolationData
+        ).get_resource(CurveInterpKnotArrayResource)
+        resource_constantData = memory_context.resolve_segmented(
+            constantData
+        ).get_resource(ConstantDataArrayResource)
         if (
-            knotCounts_resolution
-            == interpolationData_resolution
-            == constantData_resolution
-            == SegmentedAddressResolution.FILE
+            resource_knotCounts.file
+            == resource_interpolationData.file
+            == resource_constantData.file
+            == self.file
         ):
-            (
-                knotCounts_file,
-                knotCounts_offset,
-            ) = knotCounts_resolution_info
-            (
-                interpolationData_file,
-                interpolationData_offset,
-            ) = interpolationData_resolution_info
-            (
-                constantData_file,
-                constantData_offset,
-            ) = constantData_resolution_info
-            if (
-                knotCounts_file
-                == interpolationData_file
-                == constantData_file
-                == self.file
-            ):
-                (
-                    knotCounts_resource_get_result,
-                    knotCounts_resource,
-                ) = self.file.get_resource_at(knotCounts_offset)
-                assert (
-                    knotCounts_resource_get_result == GetResourceAtResult.DEFINITIVE
-                ), knotCounts_resource_get_result
-                assert isinstance(
-                    knotCounts_resource, KnotCountsArrayResource
-                ), knotCounts_resource
+            knotCounts_offset = resource_knotCounts.range_start
+            constantData_offset = resource_constantData.range_start
+            interpolationData_offset = resource_interpolationData.range_start
+            animHeader_offset = self.range_start
+            assert (
+                knotCounts_offset
+                < constantData_offset
+                < interpolationData_offset
+                < animHeader_offset
+            )
+            resource_knotCounts.length = (
+                constantData_offset - knotCounts_offset
+            ) // resource_knotCounts.elem_cdata_ext.size
+            resource_constantData.length = (
+                interpolationData_offset - constantData_offset
+            ) // resource_constantData.elem_cdata_ext.size
+            resource_interpolationData.length = (
+                animHeader_offset - interpolationData_offset
+            ) // resource_interpolationData.elem_cdata_ext.size
 
-                (
-                    interpolationData_resource_get_result,
-                    interpolationData_resource,
-                ) = self.file.get_resource_at(interpolationData_offset)
-                assert (
-                    interpolationData_resource_get_result
-                    == GetResourceAtResult.DEFINITIVE
-                ), interpolationData_resource_get_result
-                assert isinstance(
-                    interpolationData_resource, CurveInterpKnotArrayResource
-                ), interpolationData_resource
-
-                (
-                    constantData_resource_get_result,
-                    constantData_resource,
-                ) = self.file.get_resource_at(constantData_offset)
-                assert (
-                    constantData_resource_get_result == GetResourceAtResult.DEFINITIVE
-                ), constantData_resource_get_result
-                assert isinstance(
-                    constantData_resource, ConstantDataArrayResource
-                ), constantData_resource
-
-                animHeader_offset = self.range_start
-                assert (
-                    knotCounts_offset
-                    < constantData_offset
-                    < interpolationData_offset
-                    < animHeader_offset
-                )
-                knotCounts_resource.length = (
-                    constantData_offset - knotCounts_offset
-                ) // knotCounts_resource.elem_cdata_ext.size
-                constantData_resource.length = (
-                    interpolationData_offset - constantData_offset
-                ) // constantData_resource.elem_cdata_ext.size
-                interpolationData_resource.length = (
-                    animHeader_offset - interpolationData_offset
-                ) // interpolationData_resource.elem_cdata_ext.size
-
-            else:
-                raise NotImplementedError
         else:
             raise NotImplementedError
 
@@ -296,21 +261,25 @@ class SkelCurveLimbResource(CDataResource):
 
 
 class SkelCurveLimbArrayResource(CDataResource):
-    def report_limb_element(resource, v):
+    def report_limb_element(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            SkelCurveLimbResource,
             lambda file, offset: SkelCurveLimbResource(
                 file, offset, f"{resource.name}_{address:08X}"
             ),
         )
 
-    def write_limb_element(resource, v, f: io.TextIOBase, line_prefix):
+    def write_limb_element(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     elem_cdata_ext = (
@@ -334,11 +303,13 @@ class SkelCurveLimbArrayResource(CDataResource):
 
 
 class CurveSkeletonHeaderResource(CDataResource):
-    def report_limbs(resource, v):
+    def report_limbs(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            SkelCurveLimbArrayResource,
             lambda file, offset: SkelCurveLimbArrayResource(
                 file,
                 offset,
@@ -347,11 +318,13 @@ class CurveSkeletonHeaderResource(CDataResource):
             ),
         )
 
-    def write_limbs(resource, v, f: io.TextIOBase, line_prefix):
+    def write_limbs(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     cdata_ext = CDataExt_Struct(

@@ -1,9 +1,12 @@
 import enum
 import struct
 import io
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
 
 from ..extase import (
-    SegmentedAddressResolution,
     File,
     Resource,
     ResourceParseInProgress,
@@ -65,14 +68,6 @@ class SceneCmdId(enum.Enum):
     SCENE_CMD_ID_MISC_SETTINGS = enum.auto()
 
 
-class Data1Handler:
-    ...
-
-
-class Data1Handlers:
-    RAW = Data1Handler()
-
-
 scene_cmd_macro_name_by_cmd_id = {
     SceneCmdId.SCENE_CMD_ID_SPAWN_LIST: "SCENE_CMD_SPAWN_LIST",
     SceneCmdId.SCENE_CMD_ID_ACTOR_LIST: "SCENE_CMD_ACTOR_LIST",
@@ -111,7 +106,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
         self.room_list_length = None
         self.exit_list_length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         data = self.file.data[self.range_start :]
 
         new_progress_done = []
@@ -149,60 +144,62 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 continue
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ACTOR_LIST:
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.ActorEntryListResource,
                     lambda file, offset: scene_rooms_resources.ActorEntryListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_ActorEntryList"
                     ),
-                )
-                assert isinstance(
-                    resource, scene_rooms_resources.ActorEntryListResource
                 )
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
                 new_progress_done.append(("reported ActorEntryListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_OBJECT_LIST:
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.ObjectListResource,
                     lambda file, offset: scene_rooms_resources.ObjectListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_ObjectList"
                     ),
                 )
-                assert isinstance(resource, scene_rooms_resources.ObjectListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
                 new_progress_done.append(("reported ObjectListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_SHAPE:
                 room_shape_resources.report_room_shape_at_segmented(
-                    self.file.memory_context, data2_I, self.name
+                    self, memory_context, data2_I, self.name
                 )
                 self.parsed_commands.add(cmd_id)
                 new_progress_done.append(("reported room shape resource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_LIST:
                 self.room_list_length = data1
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.RoomListResource,
                     lambda file, offset: scene_rooms_resources.RoomListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_RoomList"
                     ),
                 )
-                assert isinstance(resource, scene_rooms_resources.RoomListResource)
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
                 new_progress_done.append(("reported RoomListResource", cmd_id))
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_COLLISION_HEADER:
                 assert data1 == 0
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    collision_resources.CollisionResource,
                     lambda file, offset: collision_resources.CollisionResource(
                         file, offset, f"{self.name}_{data2_I:08X}_Col"
                     ),
                 )
-                assert isinstance(resource, collision_resources.CollisionResource)
                 new_progress_done.append(("reported CollisionResource", cmd_id))
                 if resource.is_data_parsed_v2tmp:
                     self.exit_list_length = resource.length_exitList
@@ -221,13 +218,14 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ENTRANCE_LIST:
                 assert data1 == 0
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.SpawnListResource,
                     lambda file, offset: scene_rooms_resources.SpawnListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_SpawnList"
                     ),
                 )
-                assert isinstance(resource, scene_rooms_resources.SpawnListResource)
                 new_progress_done.append(("reported SpawnListResource", cmd_id))
                 if (
                     self.player_entry_list_length is not None
@@ -250,14 +248,13 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_SPAWN_LIST:
                 self.player_entry_list_length = data1
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.ActorEntryListResource,
                     lambda file, offset: scene_rooms_resources.ActorEntryListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_PlayerEntryList"
                     ),
-                )
-                assert isinstance(
-                    resource, scene_rooms_resources.ActorEntryListResource
                 )
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
@@ -266,13 +263,14 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
             if cmd_id == SceneCmdId.SCENE_CMD_ID_EXIT_LIST:
                 # TODO length from collision
                 assert data1 == 0
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.ExitListResource,
                     lambda file, offset: scene_rooms_resources.ExitListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_ExitList"
                     ),
                 )
-                assert isinstance(resource, scene_rooms_resources.ExitListResource)
                 new_progress_done.append(("reported ExitListResource", cmd_id))
                 if self.exit_list_length is not None:
                     # TODO this doesnt work very well, eg need to trim to avoid overlaps
@@ -304,14 +302,13 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     )
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_LIGHT_SETTINGS_LIST:
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.EnvLightSettingsListResource,
                     lambda file, offset: scene_rooms_resources.EnvLightSettingsListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_EnvLightSettingsList"
                     ),
-                )
-                assert isinstance(
-                    resource, scene_rooms_resources.EnvLightSettingsListResource
                 )
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
@@ -320,16 +317,15 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 )
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_TRANSITION_ACTOR_LIST:
-                resource, _ = self.file.memory_context.report_resource_at_segmented(
+                resource = memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.TransitionActorEntryListResource,
                     lambda file, offset: scene_rooms_resources.TransitionActorEntryListResource(
                         file,
                         offset,
                         f"{self.name}_{data2_I:08X}_TransitionActorEntryList",
                     ),
-                )
-                assert isinstance(
-                    resource, scene_rooms_resources.TransitionActorEntryListResource
                 )
                 resource.set_length(data1)
                 self.parsed_commands.add(cmd_id)
@@ -340,8 +336,10 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
             if cmd_id == SceneCmdId.SCENE_CMD_ID_PATH_LIST:
                 # TODO guess length, no other way I think
                 assert data1 == 0
-                self.file.memory_context.report_resource_at_segmented(
+                memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    scene_rooms_resources.PathListResource,
                     lambda file, offset: scene_rooms_resources.PathListResource(
                         file, offset, f"{self.name}_{data2_I:08X}_PathList"
                     ),
@@ -352,8 +350,10 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
             if cmd_id == SceneCmdId.SCENE_CMD_ID_ALTERNATE_HEADER_LIST:
                 # TODO guess length, no other way I think
                 assert data1 == 0
-                self.file.memory_context.report_resource_at_segmented(
+                memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    AltHeadersResource,
                     lambda file, offset: AltHeadersResource(
                         file, offset, f"{self.name}_{data2_I:08X}_AltHeaders"
                     ),
@@ -363,8 +363,10 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
 
             if cmd_id == SceneCmdId.SCENE_CMD_ID_CUTSCENE_DATA:
                 assert data1 == 0
-                self.file.memory_context.report_resource_at_segmented(
+                memory_context.report_resource_at_segmented(
+                    self,
                     data2_I,
+                    misc_resources.CutsceneResource,
                     lambda file, offset: misc_resources.CutsceneResource(
                         file, offset, f"{self.name}_{data2_I:08X}_Cs"
                     ),
@@ -416,7 +418,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
     def get_c_declaration_base(self):
         return f"SceneCmd {self.symbol_name}[]"
 
-    def write_extracted(self):
+    def write_extracted(self, memory_context):
         data = self.file.data[self.range_start : self.range_end]
         with self.extract_to_path.open("w") as f:
             f.write("{\n")
@@ -435,44 +437,30 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_SPAWN_LIST:
                     address = data2_I
                     f.write(
-                        self.file.memory_context.get_c_expression_length_at_segmented(
-                            address
-                        )
+                        memory_context.get_c_expression_length_at_segmented(address)
                     )
                     f.write(", ")
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ACTOR_LIST:
                     address = data2_I
                     f.write(
-                        self.file.memory_context.get_c_expression_length_at_segmented(
-                            address
-                        )
+                        memory_context.get_c_expression_length_at_segmented(address)
                     )
                     f.write(", ")
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_UNUSED_2:
                     raise NotImplementedError(cmd_id)
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_COLLISION_HEADER:
                     assert data1 == 0
                     address = data2_I
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_LIST:
                     address = data2_I
                     f.write(
-                        self.file.memory_context.get_c_expression_length_at_segmented(
-                            address
-                        )
+                        memory_context.get_c_expression_length_at_segmented(address)
                     )
                     f.write(", ")
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_WIND_SETTINGS:
                     assert data1 == 0
                     # TODO cast x,y,z to s8
@@ -484,9 +472,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ENTRANCE_LIST:
                     assert data1 == 0
                     address = data2_I
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_SPECIAL_FILES:
                     naviQuestHintFileId = data1
                     keepObjectId = data2_I
@@ -519,50 +505,34 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ROOM_SHAPE:
                     assert data1 == 0  # TODO these asserts should be done on parse?
                     address = data2_I
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_OBJECT_LIST:
                     address = data2_I
                     f.write(
-                        self.file.memory_context.get_c_expression_length_at_segmented(
-                            address
-                        )
+                        memory_context.get_c_expression_length_at_segmented(address)
                     )
                     f.write(", ")
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_LIGHT_LIST:
                     raise NotImplementedError(cmd_id)
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_PATH_LIST:
                     assert data1 == 0
                     address = data2_I
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_TRANSITION_ACTOR_LIST:
                     address = data2_I
                     f.write(
-                        self.file.memory_context.get_c_expression_length_at_segmented(
-                            address
-                        )
+                        memory_context.get_c_expression_length_at_segmented(address)
                     )
                     f.write(", ")
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_LIGHT_SETTINGS_LIST:
                     address = data2_I
                     f.write(
-                        self.file.memory_context.get_c_expression_length_at_segmented(
-                            address
-                        )
+                        memory_context.get_c_expression_length_at_segmented(address)
                     )
                     f.write(", ")
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_TIME_SETTINGS:
                     assert data1 == 0
                     hour = data2_B0
@@ -605,9 +575,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_EXIT_LIST:
                     assert data1 == 0
                     address = data2_I
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_END:
                     assert data1 == 0
                     assert data2_I == 0
@@ -630,15 +598,11 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_CUTSCENE_DATA:
                     assert data1 == 0
                     address = data2_I
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_ALTERNATE_HEADER_LIST:
                     assert data1 == 0
                     address = data2_I
-                    f.write(
-                        self.file.memory_context.get_c_reference_at_segmented(address)
-                    )
+                    f.write(memory_context.get_c_reference_at_segmented(address))
                 if cmd_id == SceneCmdId.SCENE_CMD_ID_MISC_SETTINGS:
                     sceneCamType = data1
                     worldMapLocation = data2_I
@@ -656,32 +620,34 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
 
 
 class AltHeadersResource(CDataArrayResource):
-    def report_elem(resource, v):
+    def report_elem(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
         if address != 0:
-            resource.file.memory_context.report_resource_at_segmented(
+            memory_context.report_resource_at_segmented(
+                resource,
                 address,
+                SceneCommandsResource,
                 lambda file, offset: SceneCommandsResource(
                     file, offset, f"{resource.name}_{address:08X}_Cmds"
                 ),
             )
 
-    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_elem(resource,memory_context:"MemoryContext", v, f: io.TextIOBase, line_prefix: str):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
         if address == 0:
             f.write("NULL")
         else:
-            f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+            f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     elem_cdata_ext = (
         CDataExt_Value("I").set_report(report_elem).set_write(write_elem)
     )  # SceneCmd*
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         length = 0
         for i, (v,) in enumerate(
             struct.iter_unpack(">I", self.file.data[self.range_start :])
@@ -694,18 +660,14 @@ class AltHeadersResource(CDataArrayResource):
                     break
 
             try:
-                (
-                    resolution,
-                    resolution_info,
-                ) = self.file.memory_context.resolve_segmented(v)
+                resolve_result = memory_context.resolve_segmented(v)
             except:
                 break
-            if resolution != SegmentedAddressResolution.FILE:
-                break
-            file, offset = resolution_info
             data_may_be_scenecmds = False
-            for j in range(offset, len(file.data), 8):
-                cmd_id_int = file.data[j]
+            for j in range(
+                resolve_result.file_offset, len(resolve_result.file.data), 8
+            ):
+                cmd_id_int = resolve_result.file.data[j]
                 try:
                     cmd_id = SceneCmdId(cmd_id_int)
                 except ValueError:
@@ -718,7 +680,7 @@ class AltHeadersResource(CDataArrayResource):
             length = i + 1
         assert length > 0
         self.set_length(length)
-        super().try_parse_data()
+        super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"SceneCmd* {self.symbol_name}[]"

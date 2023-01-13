@@ -1,9 +1,9 @@
-import struct
 import io
+from typing import TYPE_CHECKING
 
-from ..extase import (
-    SegmentedAddressResolution,
-)
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
+
 from ..extase.cdata_resources import (
     CDataArrayResource,
     CDataArrayNamedLengthResource,
@@ -55,7 +55,7 @@ def fmt_hex_u(v: int, nibbles: int = 0):
 
 
 class ActorEntryListResource(CDataArrayNamedLengthResource):
-    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_elem(resource, memory_context, v, f: io.TextIOBase, line_prefix: str):
         assert isinstance(v, dict)
         f.write(line_prefix)
         f.write("{\n")
@@ -109,7 +109,7 @@ class ObjectListResource(CDataArrayNamedLengthResource):
         return f"s16 {self.symbol_name}[{self.length_name}]"
 
 
-def write_RomFile(resource, v, f: io.TextIOBase, line_prefix: str):
+def write_RomFile(resource, memory_context, v, f: io.TextIOBase, line_prefix: str):
     assert isinstance(v, dict)
     vromStart = v["vromStart"]
     vromEnd = v["vromEnd"]
@@ -148,7 +148,7 @@ class SpawnListResource(CDataArrayResource):
     player_entry_list_length = None
     room_list_length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         if self.player_entry_list_length is None or self.room_list_length is None:
             return
 
@@ -194,7 +194,7 @@ class SpawnListResource(CDataArrayResource):
 
         # Handle the case where there may be an unused spawn, in the place of
         # what would otherwise be padding.
-        if self.file.memory_context.I_D_OMEGALUL:
+        if oot64_data.I_D_OMEGALUL:
             assert self.elem_cdata_ext.size == 2
             if num_spawns % 2 == 1:
                 data_to_next_4align = self.file.data[
@@ -235,7 +235,7 @@ class SpawnListResource(CDataArrayResource):
             assert num_spawns > 0
 
         self.set_length(num_spawns)
-        super().try_parse_data()
+        super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"Spawn {self.symbol_name}[]"
@@ -272,7 +272,7 @@ class EnvLightSettingsListResource(CDataArrayNamedLengthResource):
 
 
 class TransitionActorEntryListResource(CDataArrayNamedLengthResource):
-    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_elem(resource, memory_context, v, f: io.TextIOBase, line_prefix: str):
         assert isinstance(v, dict)
         f.write(line_prefix)
         f.write("{\n")
@@ -344,20 +344,24 @@ class TransitionActorEntryListResource(CDataArrayNamedLengthResource):
 
 
 class PathListResource(CDataArrayResource):
-    def report_elem(resource, v):
+    def report_elem(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, dict)
         count = v["count"]
         assert isinstance(count, int)
         points = v["points"]
         assert isinstance(points, int)
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             points,
+            Vec3sArrayResource,
             lambda file, offset: Vec3sArrayResource(
                 file, offset, f"{resource.name}_{points:08X}_Points", count
             ),
         )
 
-    def write_elem(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_elem(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         assert isinstance(v, dict)
         count = v["count"]
         assert isinstance(count, int)
@@ -365,11 +369,9 @@ class PathListResource(CDataArrayResource):
         assert isinstance(points, int)
         f.write(line_prefix)
         f.write("{ ")
-        f.write(
-            resource.file.memory_context.get_c_expression_length_at_segmented(points)
-        )
+        f.write(memory_context.get_c_expression_length_at_segmented(points))
         f.write(", ")
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(points))
+        f.write(memory_context.get_c_reference_at_segmented(points))
         f.write(" }")
         return True
 
@@ -386,12 +388,11 @@ class PathListResource(CDataArrayResource):
         .set_write(write_elem)
     )
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         if self._length is None:
             # TODO guess
             self.set_length(1)
-        super().try_parse_data()
+        super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"Path {self.symbol_name}[]"
-

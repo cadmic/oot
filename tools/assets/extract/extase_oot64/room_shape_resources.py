@@ -1,12 +1,20 @@
 import enum
 import io
 
-from ..extase import MemoryContext, File, BinaryBlobResource
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
+
+from ..extase import (
+    Resource,
+    File,
+    BinaryBlobResource,
+)
 from ..extase.cdata_resources import (
     CDataResource,
     CDataArrayNamedLengthResource,
     CDataExt_Struct,
-    CDataExt_Array,
     CDataExt_Value,
     cdata_ext_Vec3s,
 )
@@ -26,7 +34,7 @@ class RoomShapeImageAmountType(enum.Enum):
 
 
 def report_room_shape_at_segmented(
-    memory_context: MemoryContext, address: int, name_base: str
+    reporter: Resource, memory_context: "MemoryContext", address: int, name_base: str
 ):
     def new_resource_pointed_to(file: File, offset: int):
         resource_type = get_room_shape_resource_type(file, offset)
@@ -37,7 +45,9 @@ def report_room_shape_at_segmented(
             f"{name_base}_{address:08X}_{name_suffix}",
         )
 
-    memory_context.report_resource_at_segmented(address, new_resource_pointed_to)
+    memory_context.report_resource_at_segmented(
+        reporter, address, Resource, new_resource_pointed_to
+    )
 
 
 def get_room_shape_resource_type(file: File, offset: int):
@@ -91,20 +101,22 @@ class RoomShapeNormalEntryArrayResource(CDataArrayNamedLengthResource):
 
 
 class RoomShapeNormalResource(CDataResource):
-    def write_numEntries(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_numEntries(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         address = resource.cdata_unpacked["entries"]
         assert isinstance(address, int)
         f.write(line_prefix)
-        f.write(
-            resource.file.memory_context.get_c_expression_length_at_segmented(address)
-        )
+        f.write(memory_context.get_c_expression_length_at_segmented(address))
         return True
 
-    def report_entries(resource, v):
+    def report_entries(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        entries_resource, _ = resource.file.memory_context.report_resource_at_segmented(
+        entries_resource = memory_context.report_resource_at_segmented(
+            resource,
             address,
+            RoomShapeNormalEntryArrayResource,
             lambda file, offset: RoomShapeNormalEntryArrayResource(
                 file, offset, f"{resource.name}_{address:08X}_DListsEntries"
             ),
@@ -114,28 +126,34 @@ class RoomShapeNormalResource(CDataResource):
         assert isinstance(numEntries, int)
         entries_resource.set_length(numEntries)
 
-    def write_entries(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_entries(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def report_unk_8(resource, v):
+    def report_unk_8(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            BinaryBlobResource,
             lambda file, offset: BinaryBlobResource(
                 file, offset, offset + 1, f"{resource.name}_{address:08X}_Unk8"
             ),
         )
 
-    def write_unk_8(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_unk_8(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     cdata_ext = CDataExt_Struct(
@@ -238,20 +256,22 @@ class RoomShapeCullableEntryArrayResource(CDataArrayNamedLengthResource):
 
 
 class RoomShapeCullableResource(CDataResource):
-    def write_numEntries(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_numEntries(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         address = resource.cdata_unpacked["entries"]
         assert isinstance(address, int)
         f.write(line_prefix)
-        f.write(
-            resource.file.memory_context.get_c_expression_length_at_segmented(address)
-        )
+        f.write(memory_context.get_c_expression_length_at_segmented(address))
         return True
 
-    def report_entries(resource, v):
+    def report_entries(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        entries_resource, _ = resource.file.memory_context.report_resource_at_segmented(
+        entries_resource = memory_context.report_resource_at_segmented(
+            resource,
             address,
+            RoomShapeCullableEntryArrayResource,
             lambda file, offset: RoomShapeCullableEntryArrayResource(
                 file, offset, f"{resource.name}_{address:08X}_CullableEntries"
             ),
@@ -261,28 +281,34 @@ class RoomShapeCullableResource(CDataResource):
         assert isinstance(numEntries, int)
         entries_resource.set_length(numEntries)
 
-    def write_entries(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_entries(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def report_unk_8(resource, v):
+    def report_unk_8(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            BinaryBlobResource,
             lambda file, offset: BinaryBlobResource(
                 file, offset, offset + 1, f"{resource.name}_{address:08X}_Unk8"
             ),
         )
 
-    def write_unk_8(resource, v, f: io.TextIOBase, line_prefix: str):
+    def write_unk_8(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     cdata_ext = CDataExt_Struct(

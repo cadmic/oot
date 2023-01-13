@@ -1,7 +1,12 @@
 import io
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
 
 from ..extase import (
     File,
+    ResourceParseWaiting,
 )
 from ..extase.cdata_resources import (
     CDataResource,
@@ -35,21 +40,25 @@ class StandardLimbResource(CDataResource):
 
 
 class LimbsArrayResource(CDataResource, can_size_be_unknown=True):
-    def report_limb_element(resource, v):
+    def report_limb_element(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            StandardLimbResource,
             lambda file, offset: StandardLimbResource(
                 file, offset, f"{resource.name}_{address:08X}"
             ),
         )
 
-    def write_limb_element(resource, v, f: io.TextIOBase, line_prefix):
+    def write_limb_element(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     elem_cdata_ext = (
@@ -62,11 +71,13 @@ class LimbsArrayResource(CDataResource, can_size_be_unknown=True):
         super().__init__(file, range_start, name)
         self.length = None
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data()
+            super().try_parse_data(memory_context)
+        else:
+            raise ResourceParseWaiting(waiting_for=["self.length"])
 
     def get_c_declaration_base(self):
         return f"void* {self.symbol_name}[]"
@@ -85,37 +96,38 @@ class LimbsArrayResource(CDataResource, can_size_be_unknown=True):
 
 
 class SkeletonNormalResource(CDataResource):
-    def report_segment(resource, v):
+    def report_segment(resource, memory_context: "MemoryContext", v):
         assert isinstance(v, int)
         address = v
-        (
-            limbs_resource,
-            limbs_offset,
-        ) = resource.file.memory_context.report_resource_at_segmented(
+        resource_limbs = memory_context.report_resource_at_segmented(
+            resource,
             address,
+            LimbsArrayResource,
             lambda file, offset: LimbsArrayResource(
                 file,
                 offset,
                 f"{resource.name}_{address:08X}_Limbs",
             ),
         )
-        assert isinstance(limbs_resource, LimbsArrayResource)
-        assert limbs_resource.range_start == limbs_offset
-        limbs_resource.length = resource.get_skeleton_header_cdata_unpacked()[
+        resource_limbs.length = resource.get_skeleton_header_cdata_unpacked()[
             "limbCount"
         ]
 
-    def write_segment(resource, v, f: io.TextIOBase, line_prefix):
+    def write_segment(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
-    def write_limbCount(resource, v, f: io.TextIOBase, line_prefix):
+    def write_limbCount(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix
+    ):
         f.write(line_prefix)
         f.write(
-            resource.file.memory_context.get_c_expression_length_at_segmented(
+            memory_context.get_c_expression_length_at_segmented(
                 resource.get_skeleton_header_cdata_unpacked()["segment"]
             )
         )

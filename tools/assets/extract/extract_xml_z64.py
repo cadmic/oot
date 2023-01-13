@@ -3,7 +3,10 @@ from xml.etree import ElementTree
 import functools
 from pprint import pprint
 
-from .extase import MemoryContext, File
+from typing import Callable, TypeVar
+
+from .extase import File
+from .extase.memorymap import MemoryContext
 
 from . import xml_errors
 from . import z64_resource_handlers
@@ -13,7 +16,6 @@ from . import z64_resource_handlers
 #
 
 VERBOSE1 = False
-VERBOSE_DUMMY_SEGMENT = False
 
 # "options"
 RM_SOURCE = True
@@ -64,8 +66,22 @@ def xml_process_file(
     xml_errors.xml_check_attributes(
         file_elem,
         {"Name"},
-        {"OutName", "RangeStart", "RangeEnd", "Segment", "BaseAddress"},
+        {
+            "OutName",
+            "RangeStart",
+            "RangeEnd",
+            "Segment",
+            "BaseAddress",
+            # extase oot64 extension:
+            "Extract",
+        },
     )
+
+    extract_str = file_elem.attrib.get("Extract")
+    if extract_str is None:
+        extract = True
+    else:
+        extract = {"True": True, "False": False}[extract_str]
 
     baserom_file_name = file_elem.attrib["Name"]
 
@@ -73,7 +89,8 @@ def xml_process_file(
     if file_name is None:
         file_name = baserom_file_name
 
-    file_bytes_all = get_baserom_file_data(baserom_file_name)
+    if extract:
+        baserom_file_data = get_baserom_file_data(baserom_file_name)
 
     # Handle range start/end, if any,
     # or default to start/end of the full data.
@@ -87,17 +104,28 @@ def xml_process_file(
     if file_range_end_str is not None:
         file_range_end = int(file_range_end_str, 16)
     else:
-        file_range_end = len(file_bytes_all)
+        if extract:
+            file_range_end = len(baserom_file_data)
+        else:
+            file_range_end = 0x0100_0000
 
-    assert 0 <= file_range_start < file_range_end <= len(file_bytes_all), (
+    assert 0 <= file_range_start < file_range_end, (
         hex(file_range_start),
         hex(file_range_end),
-        hex(len(file_bytes_all)),
     )
-    file_bytes_ranged = file_bytes_all[file_range_start:file_range_end]
+    if extract:
+        assert file_range_end <= len(baserom_file_data), (
+            hex(file_range_end),
+            hex(len(baserom_file_data)),
+        )
 
     # Create the File object
-    file = File(memory_context, file_name, file_bytes_ranged)
+    if extract:
+        file_data = baserom_file_data[file_range_start:file_range_end]
+        file = File(file_name, data=file_data)
+    else:
+        file_size = file_range_end - file_range_start
+        file = File(file_name, size=file_size)
 
     # Handle where in memory is this file (nowhere, segment or vram)
 
@@ -120,7 +148,8 @@ def xml_process_file(
     if file_base_ram_start_str is not None:
         file_base_ram_start = int(file_base_ram_start_str, 16)
         file_ram_start = file_base_ram_start + file_range_start
-        memory_context.set_vram(file_ram_start, file)
+        # TODO don't set this here
+        memory_context.set_direct_file(file_ram_start, file)
 
     if segment_str is not None and file_base_ram_start_str is not None:
         # It doesn't entirely not make sense,
@@ -131,53 +160,6 @@ def xml_process_file(
         )
 
     return file, file_range_start
-
-
-# TODO hack
-def HACK_handle_symbol_fakeresource(
-    file_elem: ElementTree.Element, file: File, resource_elem: ElementTree.Element
-):
-    assert file_elem.tag == "File", file_elem.tag  # Already checked
-    assert (
-        "BaseAddress" in file_elem.attrib
-    )  # TODO if not in vram idk what <Symbol> means
-
-    assert resource_elem.tag == "Symbol", resource_elem.tag  # Already checked
-    xml_errors.xml_check_attributes(
-        resource_elem, {"Name", "Type", "TypeSize", "Offset"}, {"Count"}
-    )
-
-    name = resource_elem.attrib["Name"]
-    type_name = resource_elem.attrib["Type"]
-    type_size_str = resource_elem.attrib["TypeSize"]
-    type_size = int(type_size_str)
-    count_str = resource_elem.attrib.get("Count")
-    if count_str is not None:
-        count = int(count_str, 16)
-    else:
-        count = None
-    offset_str = resource_elem.attrib["Offset"]
-    offset = int(offset_str, 16)
-    from .extase import Symbol
-
-    range_start = int(file_elem.attrib["BaseAddress"], 16) + offset
-    if count is None:
-        range_end = range_start + type_size
-    else:
-        range_end = range_start + type_size * count
-    sym = Symbol(name, range_start, range_end)
-    if count is not None:
-
-        def get_c_reference(offset: int):
-            if offset == 0:
-                return name
-            if (offset % type_size) != 0:
-                raise ValueError()
-            index = offset // type_size
-            return f"&{name}[{index}]"
-
-        sym.get_c_reference = get_c_reference
-    file.memory_context.vram_symbols.append(sym)
 
 
 def xml_process_resources_of_file(
@@ -196,14 +178,6 @@ def xml_process_resources_of_file(
     prev_resource = None
 
     for resource_elem in file_elem:
-
-        # TODO this is hacky but for now I don't see a non-hacky way to handle this hacky not-a-resource
-        if resource_elem.tag == "Symbol":
-            HACK_handle_symbol_fakeresource(file_elem, file, resource_elem)
-
-            # Clear the prev resource I guess?
-            prev_resource = None
-            continue
 
         # A resource element is allowed to not set Offset,
         # then its start offset defaults to the end offset of the element before it.
@@ -258,192 +232,23 @@ def extract_xml(sub_path: Path):
     top_source_path = Path("assets/") / sub_path
     top_extract_path = Path("assets/_extracted/") / sub_path
 
-    memory_context = MemoryContext(I_D_OMEGALUL=I_D_OMEGALUL)  # TODO
+    """
+    TODO
 
-    # TODO dummy segments config
-    class DummyData:
-        def __init__(self, size: int):
-            self.size = size
+    don't have one memoryctx but one per file
+    ideally, finer grained than perfile even
+    for example have a sub-memctx for dlists of a flex skeleton, to handle the 0xD segment specifically
 
-        def __len__(self):
-            return self.size
+    should there be several instances of memctx
+    (one instance per file would solve an issue with buffer markers)
+    should there be parenting, like create a memctx that when cant resolve something defaults to resolution from parent
+    (sounds appropriate for the flexskeleton example)
 
-    class DummyResource:
-        def __init__(self, segment_num: int, range_start: int):
-            self.segment_num = segment_num
-            self.range_start = range_start
+    is the flexskeleton example worth generalizing or would a dlist-resource-specific hack be enough
 
-        def get_c_reference(self, resource_offset: int):
-            addr = (self.segment_num << 24) | (self.range_start + resource_offset)
-            return f"0x{addr:08X}"
-
-    # "parse" as long as data is being parsed, so the dummy file receives "real" reported resources,
-    # then set to "write" which 'locks' the DummyFile instances and makes them return DummyResource for non-definitive offsets
-    DUMMY_MODE = "parse"
-
-    class DummyFile(File):
-        def __init__(
-            self, memory_context: MemoryContext, name: str, size: int, segment_num: int
-        ):
-            super().__init__(memory_context, name, DummyData(size))
-            self.segment_num = segment_num
-
-        def get_resource_at(self, offset: int):
-            result, resource = super().get_resource_at(offset)
-            from .extase import GetResourceAtResult
-
-            if result == GetResourceAtResult.DEFINITIVE or DUMMY_MODE == "parse":
-                if DUMMY_MODE == "write":
-                    resource.segment_num = self.segment_num
-
-                    def get_c_reference(resource_offset):
-                        return DummyResource.get_c_reference(resource, resource_offset)
-
-                    resource.get_c_reference = get_c_reference
-                    from .extase_oot64 import dlist_resources
-
-                    if isinstance(resource, dlist_resources.TextureResource):
-                        resource.width_name = f"{resource.width}"
-                        resource.height_name = f"{resource.height}"
-                return result, resource
-            else:
-                return GetResourceAtResult.DEFINITIVE, DummyResource(
-                    self.segment_num, offset
-                )
-
-    def set_dummy_segment(memory_context: MemoryContext, segment_num: int):
-        if VERBOSE_DUMMY_SEGMENT:
-            print("Setting dummy segment", segment_num)
-        memory_context.set_segment(
-            segment_num,
-            DummyFile(
-                memory_context,
-                f"dummy_segment_{segment_num}",
-                1024 * 1024,
-                segment_num,
-            ),
-        )
-
-    if sub_path.is_relative_to("objects") or sub_path.is_relative_to("overlays"):
-        # billboardMtx, typically (but not always) TODO
-        set_dummy_segment(memory_context, 1)
-
-    if sub_path.is_relative_to("scenes"):
-        # TODO this may be more refined, cf scene configs
-        for segment_num in (0x6, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD):
-            set_dummy_segment(memory_context, segment_num)
-
-    if sub_path.is_relative_to("objects") or sub_path.is_relative_to("overlays"):
-        if str(sub_path) in {
-            "objects/object_mori_objects",
-            "objects/object_mori_hineri2",
-            "objects/object_mori_tex",
-            "objects/object_mori_hineri1a",
-            "objects/object_mori_hineri1",
-            "objects/object_mori_hineri2a",
-        }:
-            set_dummy_segment(memory_context, 9)
-        else:
-            # TODO this can be more refined, but it's a lot of work
-            for segment_num in (0x8, 0x9):
-                set_dummy_segment(memory_context, segment_num)
-
-    for segment_num, set_dummy_for_sub_paths in (
-        (
-            0x7,
-            (
-                "objects/object_ny",
-                "objects/object_zf",
-            ),
-        ),
-        (
-            0xA,
-            (
-                "objects/object_warp1",
-                "objects/object_ik",
-                "objects/object_tw",
-                "objects/object_efc_erupc",
-                "objects/object_cne",
-                "objects/object_po_composer",
-                "objects/object_spot07_object",
-                "objects/object_demo_kekkai",
-                "objects/object_bv",
-                "objects/object_po_field",
-                "objects/object_gt",
-                "objects/object_mizu_objects",
-                "objects/object_mu",
-                "overlays/ovl_Boss_Ganon",
-            ),
-        ),
-        (
-            0xB,
-            (
-                "objects/object_link_child",
-                "objects/object_tw",
-                "objects/object_po_composer",
-                "objects/object_zl2",
-                "objects/object_mu",
-            ),
-        ),
-        (
-            0xC,
-            (
-                "overlays/ovl_En_Ganon_Mant",
-                "overlays/ovl_En_Jsjutan",
-                "objects/object_bxa",
-                "objects/object_rr",
-                "objects/object_mo",
-                "objects/object_zl2",
-                "objects/object_ru2",
-                "objects/object_skj",
-                "objects/object_tw",
-                "objects/object_rl",
-                "objects/object_sa",
-                "objects/object_nb",
-                "objects/object_link_child",
-                "objects/object_po_composer",
-                "objects/object_kw1",
-                "objects/object_im",
-                "objects/object_bigokuta",
-                "objects/object_link_boy",
-                "objects/object_po_field",
-                "objects/object_zo",
-                "objects/object_du",
-                "objects/object_torch2",
-                "objects/object_km1",
-                "objects/object_md",
-                "objects/object_oE1s",
-                "objects/object_fa",
-                "objects/object_oE4s",
-                "objects/object_mizu_objects",
-                "objects/object_ru1",
-            ),
-        ),
-        (
-            0xD,
-            (
-                "objects/object_link_child",
-                "objects/object_link_boy",
-                "overlays/ovl_Boss_Ganon",
-                "objects/object_oE12",
-                "objects/object_oE4",
-                "objects/object_oE5",
-                "objects/object_oE7",
-                "objects/object_oE9",
-                "objects/object_oE3",
-                "objects/object_oE10",
-                "objects/object_oE11",
-                "objects/object_oE1",
-                "objects/object_blkobj",
-                "objects/object_oE6",
-                "objects/object_mo",
-                "objects/object_oE8",
-                "objects/object_oE2",
-            ),
-        ),
-    ):
-        if str(sub_path) in set_dummy_for_sub_paths:
-            set_dummy_segment(memory_context, segment_num)
+    
+    """
+    base_memory_context = MemoryContext()
 
     if RM_SOURCE:
         import shutil
@@ -497,22 +302,26 @@ def extract_xml(sub_path: Path):
             if file_elem.tag == "File":
                 assert file_elem.tag == "File"
 
+                # TODO reconsider passing base_memory_context here
                 file, file_range_start = xml_process_file(
-                    memory_context, file_elem, own_files_by_segment
+                    base_memory_context, file_elem, own_files_by_segment
                 )
 
                 xml_process_resources_of_file(file_elem, file, file_range_start)
 
-                # Call these for every file before writing anything,
-                # since the paths may be used by some files to reference others.
-                # For example for `#include`s.
-                # It is fine to call this before the resources in the file are parsed,
-                # since that has no bearing on the source path.
-                # (also note the resources in the file may not even be parsed if this file
-                #  isn't from the top xml, but from an external one instead)
-                file.set_source_path(source_path)
+                if file.data is not None:  # TODO this is vaguely jank,
+                    # should find a better way to know if a file should be extracted (Extract in the xml)
 
-                own_files.append(file)
+                    # Call these for every file before writing anything,
+                    # since the paths may be used by some files to reference others.
+                    # For example for `#include`s.
+                    # It is fine to call this before the resources in the file are parsed,
+                    # since that has no bearing on the source path.
+                    # (also note the resources in the file may not even be parsed if this file
+                    #  isn't from the top xml, but from an external one instead)
+                    file.set_source_path(source_path)
+
+                    own_files.append(file)
 
             elif file_elem.tag == "ExternalFile":
                 xml_errors.xml_check_attributes(
@@ -590,7 +399,7 @@ def extract_xml(sub_path: Path):
     for segment_num, files in top_files_by_segment.items():
         if len(files) == 1:
             file = files[0]
-            memory_context.set_segment(segment_num, file)
+            base_memory_context.set_segment_file(segment_num, file)
         else:
             for file in files:
                 if file not in top_own_files:
@@ -616,28 +425,24 @@ def extract_xml(sub_path: Path):
         # TODO this may actually be fine but idk
         raise NotImplementedError(disputed_segments)
 
-    def for_each_file_with_adequate_memory_context(callback):
-        results = []
+    T = TypeVar("T")
+
+    def for_each_file_with_adequate_memory_context(
+        callback: Callable[[File, MemoryContext], T]
+    ):
+        results: list[T] = []
 
         for file in top_own_files:
 
-            # Save the current segment map, before setting disputed segments,
-            # and to be restored before moving on from this file
-            saved_segment_map = memory_context.save_segment_map()
+            # Setting disputed segments is file-specific,
+            # use a copy of the memory context for the file
+            file_memory_context = base_memory_context.copy()
 
             for segment_num in disputed_segments:
                 if file in top_files_by_segment[segment_num]:
-                    memory_context.set_segment(segment_num, file)
+                    file_memory_context.set_segment_file(segment_num, file)
 
-            # TODO along with dummy segments cleanup: clean this hack
-            # set 0xD dummy segment for flex skeletons
-            from .extase_oot64.skeleton_resources import SkeletonFlexResource
-
-            if any(isinstance(r, SkeletonFlexResource) for r in file._resources):
-                set_dummy_segment(memory_context, 0xD)
-            # end flex seg hack
-
-            res = callback(file)
+            res = callback(file, file_memory_context)
             results.append(res)
 
             # At this point the file is completely mapped with resources
@@ -648,21 +453,13 @@ def extract_xml(sub_path: Path):
             if VERBOSE1:
                 print(file.str_report())
 
-            memory_context.restore_segment_map(saved_segment_map)
-
         return results
 
     # 2) parse: iteratively discover and parse data
     # (discover = add resources, parse = make friendlier than binary)
 
-    def file_try_parse_resources_data(file: File):
-        any_progress = file.try_parse_resources_data()
-
-        # TODO rework resource buffers
-        # FIXME this may be a bad place to put this but idk. Ideally would call this after a single file is fully parsed,
-        # but since the memctx may switch segment base for the resource buffers we also can't keep the markers alive across
-        # iterations in for_each_file_with_adequate_memory_context
-        file.memory_context.report_resource_buffers()
+    def file_try_parse_resources_data(file: File, file_memory_context: MemoryContext):
+        any_progress = file.try_parse_resources_data(file_memory_context)
 
         return any_progress
 
@@ -681,13 +478,18 @@ def extract_xml(sub_path: Path):
     parse_all_files()
 
     for file in top_own_files:
+        file.report_resource_buffers()
+
+    parse_all_files()  # parse new resources (resource buffers)
+
+    for file in top_own_files:
         file.sort_resources()
         file.check_overlapping_resources()
 
     # 3) add dummy (binary) resources for the unaccounted gaps
 
-    def file_add_unaccounted_resources(file: File):
-        file.add_unaccounted_resources()
+    def file_add_unaccounted_resources(file: File, file_memory_context: MemoryContext):
+        file.add_unaccounted_resources(I_D_OMEGALUL=I_D_OMEGALUL)
 
     for_each_file_with_adequate_memory_context(file_add_unaccounted_resources)
 
@@ -699,14 +501,12 @@ def extract_xml(sub_path: Path):
 
     # 4)
 
-    DUMMY_MODE = "write"
-
-    def file_do_write(file: File):
+    def file_do_write(file: File, file_memory_context: MemoryContext):
         # write to assets/_extracted/
         if WRITE_EXTRACT:
             top_extract_path.mkdir(parents=True, exist_ok=True)
 
-            file.write_resources_extracted()
+            file.write_resources_extracted(file_memory_context)
 
         # "source" refers to the main .c and .h `#include`ing all the extracted resources
         if WRITE_SOURCE:
@@ -732,17 +532,23 @@ def main():
     def extract_all_xmls(subpath: Path, slice_start=None):
         path = XMLS_PATH / subpath
         xmls = list(path.glob("**/*.xml"))
-        if slice_start:
-            xmls = xmls[slice_start:]
+        xmls.sort()
         for i, xml in enumerate(xmls):
+            if slice_start is not None and i < slice_start:
+                continue
+
             sub_path = xml.relative_to(XMLS_PATH).with_suffix("")
-            print(f"{i+1:4} / {len(xmls)}", int(i / len(xmls) * 100), sub_path)
-            extract_xml(sub_path)
+            print(f"{i+1:4} / {len(xmls)} {int(i / len(xmls) * 100):3}%  {sub_path}")
+            try:
+                extract_xml(sub_path)
+            except:
+                print("Error extracting", i + 1, sub_path)
+                raise
 
     # extract_xml(Path("objects/object_am"))
     # extract_xml(Path("scenes/indoors/hylia_labo"))
     # extract_xml(Path("objects/gameplay_keep"))
-    # extract_xml(Path("overlays/ovl_En_Jsjutan"))  # The only xml with <Symbol>
+    # extract_xml(Path("overlays/ovl_En_Jsjutan"))  # The only xml with ~~<Symbol>~~ a <File Extract="False"
     # extract_xml(Path("overlays/ovl_Magic_Wind"))  # SkelCurve
     # extract_xml(Path("objects/object_link_child"))  # The only xml with <Mtx>
     # extract_xml(Path("scenes/dungeons/ddan")) # cutscene test

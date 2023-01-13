@@ -1,6 +1,9 @@
 from typing import Sequence
 
 
+I_D_OMEGALUL = True
+
+
 from . import actor_ids
 
 

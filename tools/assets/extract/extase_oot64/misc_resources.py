@@ -12,7 +12,7 @@ class CutsceneResource(Resource, can_size_be_unknown=True):
     def __init__(self, file: File, range_start: int, name: str):
         super().__init__(file, range_start, None, name)
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         assert self.range_start % 4 == 0
         data = self.file.data[self.range_start :]
         num_bytes = len(data)
@@ -34,7 +34,7 @@ class CutsceneResource(Resource, can_size_be_unknown=True):
     def get_filename_stem(self):
         return f"{self.name}.csdata"
 
-    def write_extracted(self):
+    def write_extracted(self, memory_context):
         with self.extract_to_path.open("w") as f:
             f.write('#include "z64cutscene_commands.h"\n')
             f.write("{\n")

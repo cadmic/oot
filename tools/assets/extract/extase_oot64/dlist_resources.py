@@ -3,12 +3,12 @@ import enum
 
 import io
 
-from typing import Union, Optional, Callable
+from typing import TYPE_CHECKING, Union, Optional, Callable
+
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
 
 from ..extase import (
-    SegmentedAddressResolution,
-    GetResourceAtResult,
-    NoSegmentBaseError,
     Resource,
     File,
 )
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 class MtxResource(CDataResource):
-    def write_mtx(resource, v, f: io.TextIOBase, line_prefix):
+    def write_mtx(resource, memory_context, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, dict)
         assert v.keys() == {"intPart", "fracPart"}
         intPart = v["intPart"]
@@ -93,7 +93,7 @@ class MtxResource(CDataResource):
 
 
 class VtxArrayResource(CDataResource):
-    def write_elem(resource, v, f: io.TextIOBase, line_prefix):
+    def write_elem(resource, memory_context, v, f: io.TextIOBase, line_prefix):
         assert isinstance(v, dict)
         f.write(line_prefix)
         f.write(
@@ -236,11 +236,11 @@ class TextureResource(Resource):
         else:
             raise ValueError(self, hex(resource_offset))
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         # Nothing to do
         pass
 
-    def write_extracted(self) -> None:
+    def write_extracted(self, memory_context):
         data = self.file.data[self.range_start : self.range_end]
         assert len(data) == self.range_end - self.range_start
         if self.fmt == G_IM_FMT.CI:
@@ -581,7 +581,7 @@ class DListResource(Resource, can_size_be_unknown=True):
         super().__init__(file, range_start, None, name)
         self.target_ucode = target_ucode
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         offset = self.range_start
 
         if VERBOSE2:
@@ -591,7 +591,8 @@ class DListResource(Resource, can_size_be_unknown=True):
             # TODO be smarter about buffer merging
             # (don't merge buffers from two different DLs, if they can be split cleanly)
             # if that even happens
-            self.file.memory_context.mark_resource_buffer_at_segmented(
+            memory_context.mark_resource_buffer_at_segmented(
+                self,
                 VtxArrayResource,
                 f"{self.name}_{vtx:08X}_Vtx",
                 vtx,
@@ -600,26 +601,27 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 0
 
         def timg_cb(timg, fmt, siz, width, height, pal):
-            try:
-                self.file.memory_context.report_resource_at_segmented(
-                    timg,
-                    lambda file, offset: TextureResource(
-                        file,
-                        offset,
-                        f"{self.name}_{offset:08X}_Tex",
-                        G_IM_FMT.by_i[fmt],
-                        G_IM_SIZ.by_i[siz],
-                        width,
-                        height,
-                    ),
-                )
-            except NoSegmentBaseError:
-                pass
+            memory_context.report_resource_at_segmented(
+                self,
+                timg,
+                TextureResource,
+                lambda file, offset: TextureResource(
+                    file,
+                    offset,
+                    f"{self.name}_{offset:08X}_Tex",
+                    G_IM_FMT.by_i[fmt],
+                    G_IM_SIZ.by_i[siz],
+                    width,
+                    height,
+                ),
+            )
             return 0
 
         def mtx_cb(mtx):
-            self.file.memory_context.report_resource_at_segmented(
+            memory_context.report_resource_at_segmented(
+                self,
                 mtx,
+                MtxResource,
                 lambda file, offset: MtxResource(
                     file, offset, f"{self.name}_{mtx:08X}_Mtx"
                 ),
@@ -627,8 +629,10 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 0
 
         def dl_cb(dl):
-            self.file.memory_context.report_resource_at_segmented(
+            memory_context.report_resource_at_segmented(
+                self,
                 dl,
+                DListResource,
                 lambda file, offset: DListResource(
                     file,
                     offset,
@@ -665,7 +669,7 @@ class DListResource(Resource, can_size_be_unknown=True):
         else:
             raise ValueError()
 
-    def write_extracted(self):
+    def write_extracted(self, memory_context):
         def macro_fn():
             ret = pygfxd.gfxd_macro_dflt()
             pygfxd.gfxd_puts(",\n")
@@ -673,6 +677,7 @@ class DListResource(Resource, can_size_be_unknown=True):
 
         def arg_fn_handle_Dim(arg_num: int):
             timg = pygfxd.gfxd_value_by_type(pygfxd.GfxdArgType.Timg, 0)
+            """ # TODO port to memctx changes
             if timg is not None:
                 _, timg_segmented, _ = timg
                 dim_args_i = []
@@ -754,6 +759,7 @@ class DListResource(Resource, can_size_be_unknown=True):
                     # end resolved to file
                 # end 2 dim args
             # end timg check
+            """
             return False
 
         arg_fn_handlers = {
@@ -773,14 +779,14 @@ class DListResource(Resource, can_size_be_unknown=True):
                 pygfxd.gfxd_arg_dflt(arg_num)
 
         def vtx_cb(vtx, num):
-            pygfxd.gfxd_puts(self.file.memory_context.get_c_reference_at_segmented(vtx))
+            pygfxd.gfxd_puts(memory_context.get_c_reference_at_segmented(vtx))
             return 1
 
         def timg_cb(timg, fmt, siz, width, height, pal):
             try:
-                timg_c_ref = self.file.memory_context.get_c_reference_at_segmented(timg)
-            except NoSegmentBaseError:
-                timg_c_ref = None
+                timg_c_ref = memory_context.get_c_reference_at_segmented(timg)
+            # except NoSegmentBaseError: # TODO
+            #    timg_c_ref = None
             except ValueError:
                 # TODO handle better once I know why this even happens
                 import traceback
@@ -794,17 +800,17 @@ class DListResource(Resource, can_size_be_unknown=True):
             return 0
 
         def tlut_cb(tlut, idx, count):
-            tlut_c_ref = self.file.memory_context.get_c_reference_at_segmented(tlut)
+            tlut_c_ref = memory_context.get_c_reference_at_segmented(tlut)
             pygfxd.gfxd_puts(tlut_c_ref)
             return 1
 
         def mtx_cb(mtx):
-            mtx_c_ref = self.file.memory_context.get_c_reference_at_segmented(mtx)
+            mtx_c_ref = memory_context.get_c_reference_at_segmented(mtx)
             pygfxd.gfxd_puts(mtx_c_ref)
             return 1
 
         def dl_cb(dl):
-            dl_c_ref = self.file.memory_context.get_c_reference_at_segmented(dl)
+            dl_c_ref = memory_context.get_c_reference_at_segmented(dl)
             pygfxd.gfxd_puts(dl_c_ref)
             return 1
 
@@ -835,12 +841,14 @@ class DListResource(Resource, can_size_be_unknown=True):
             f.write(b"}\n")
 
 
-def report_gfx_segmented(resource: Resource, v):
+def report_gfx_segmented(resource: Resource, memory_context: "MemoryContext", v):
     assert isinstance(v, int)
     address = v
     if address != 0:
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            DListResource,
             lambda file, offset: DListResource(
                 file,
                 offset,
@@ -849,14 +857,20 @@ def report_gfx_segmented(resource: Resource, v):
         )
 
 
-def write_gfx_segmented(resource: Resource, v, f: io.TextIOBase, line_prefix: str):
+def write_gfx_segmented(
+    resource: Resource,
+    memory_context: "MemoryContext",
+    v,
+    f: io.TextIOBase,
+    line_prefix: str,
+):
     assert isinstance(v, int)
     address = v
     f.write(line_prefix)
     if address == 0:
         f.write("NULL")
     else:
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
     return True
 
 

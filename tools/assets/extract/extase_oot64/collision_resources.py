@@ -1,8 +1,11 @@
 import io
 
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from ..extase.memorymap import MemoryContext
+
 from ..extase import (
-    SegmentedAddressResolution,
-    GetResourceAtResult,
     File,
     ResourceParseInProgress,
     ResourceParseWaiting,
@@ -52,7 +55,11 @@ class CollisionVtxListResource(CDataResource):
 
 class CollisionPolyListResource(CDataResource):
     def write_vtxData(
-        resource: "CollisionPolyListResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionPolyListResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         assert isinstance(v, list)
         assert len(v) == 3
@@ -92,7 +99,11 @@ class CollisionPolyListResource(CDataResource):
         return True
 
     def write_normal_component(
-        resource: "CollisionPolyListResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionPolyListResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         assert isinstance(v, int)
         nf = v / 0x7FFF
@@ -124,8 +135,8 @@ class CollisionPolyListResource(CDataResource):
         self.cdata_ext = CDataExt_Array(self.cdata_ext_elem, length)
         super().__init__(file, range_start, name)
 
-    def try_parse_data(self):
-        super().try_parse_data()
+    def try_parse_data(self, memory_context):
+        super().try_parse_data(memory_context)
         self.max_surface_type_index = max(elem["type"] for elem in self.cdata_unpacked)
         assert isinstance(self.max_surface_type_index, int)
 
@@ -149,7 +160,11 @@ class CollisionPolyListResource(CDataResource):
 
 class CollisionSurfaceTypeListResource(CDataResource):
     def write_data(
-        resource: "CollisionSurfaceTypeListResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionSurfaceTypeListResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         assert isinstance(v, list)
         assert len(v) == 2
@@ -224,8 +239,8 @@ class CollisionSurfaceTypeListResource(CDataResource):
         self.cdata_ext = CDataExt_Array(self.cdata_ext_elem, length)
         super().__init__(file, range_start, name)
 
-    def try_parse_data(self):
-        super().try_parse_data()
+    def try_parse_data(self, memory_context):
+        super().try_parse_data(memory_context)
         self.max_bgCamIndex = max(
             elem["data"][0] & 0xFF for elem in self.cdata_unpacked
         )
@@ -272,13 +287,17 @@ class BgCamFuncDataResource(CDataResource):
 
 class CollisionBgCamListResource(CDataResource):
     def write_bgCamFuncData(
-        resource: "CollisionSurfaceTypeListResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionSurfaceTypeListResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
         if address != 0:
-            f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+            f.write(memory_context.get_c_reference_at_segmented(address))
         else:
             f.write("NULL")
         return True
@@ -303,8 +322,8 @@ class CollisionBgCamListResource(CDataResource):
         self.cdata_ext = CDataExt_Array(self.cdata_ext_elem, length)
         super().__init__(file, range_start, name)
 
-    def try_parse_data(self):
-        super().try_parse_data()
+    def try_parse_data(self, memory_context):
+        super().try_parse_data(memory_context)
         # Note: operating directly on the segmented addresses here,
         # so assuming from the start all bgCamFuncData use the same segment
         bgCamFuncData_buffer_start = None
@@ -336,8 +355,10 @@ class CollisionBgCamListResource(CDataResource):
             )
         if bgCamFuncData_buffer_start is not None:
             assert bgCamFuncData_buffer_end is not None
-            self.file.memory_context.report_resource_at_segmented(
+            memory_context.report_resource_at_segmented(
+                self,
                 bgCamFuncData_buffer_start,
+                BgCamFuncDataResource,
                 lambda file, offset: BgCamFuncDataResource(
                     file,
                     offset,
@@ -399,21 +420,29 @@ def transfer_HACK_IS_STATIC_ON(source, dest):
 
 class CollisionResource(CDataResource):
     def write_numVertices(
-        resource: "CollisionResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         f.write(line_prefix)
         f.write(
-            resource.file.memory_context.get_c_expression_length_at_segmented(
+            memory_context.get_c_expression_length_at_segmented(
                 resource.cdata_unpacked["vtxList"]
             )
         )
         return True
 
-    def report_vtxList(resource: "CollisionResource", v):
+    def report_vtxList(
+        resource: "CollisionResource", memory_context: "MemoryContext", v
+    ):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        memory_context.report_resource_at_segmented(
+            resource,
             address,
+            CollisionVtxListResource,
             lambda file, offset: transfer_HACK_IS_STATIC_ON(
                 resource,
                 CollisionVtxListResource(
@@ -425,28 +454,42 @@ class CollisionResource(CDataResource):
             ),
         )
 
-    def write_vtxList(resource: "CollisionResource", v, f: io.TextIOBase, line_prefix):
+    def write_vtxList(
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
+    ):
         assert isinstance(v, int)
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(v))
+        f.write(memory_context.get_c_reference_at_segmented(v))
         return True
 
     def write_numPolygons(
-        resource: "CollisionResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         f.write(line_prefix)
         f.write(
-            resource.file.memory_context.get_c_expression_length_at_segmented(
+            memory_context.get_c_expression_length_at_segmented(
                 resource.cdata_unpacked["polyList"]
             )
         )
         return True
 
-    def report_polyList(resource: "CollisionResource", v):
+    def report_polyList(
+        resource: "CollisionResource", memory_context: "MemoryContext", v
+    ):
         assert isinstance(v, int)
         address = v
-        resource.file.memory_context.report_resource_at_segmented(
+        resource.resource_polyList = memory_context.report_resource_at_segmented(
+            resource,
             address,
+            CollisionPolyListResource,
             lambda file, offset: transfer_HACK_IS_STATIC_ON(
                 resource,
                 CollisionPolyListResource(
@@ -458,21 +501,31 @@ class CollisionResource(CDataResource):
             ),
         )
 
-    def write_polyList(resource: "CollisionResource", v, f: io.TextIOBase, line_prefix):
+    def write_polyList(
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(address))
+        f.write(memory_context.get_c_reference_at_segmented(address))
         return True
 
     def write_numWaterBoxes(
-        resource: "CollisionResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         f.write(line_prefix)
         length = resource.cdata_unpacked["numWaterBoxes"]
         if length != 0:
             f.write(
-                resource.file.memory_context.get_c_expression_length_at_segmented(
+                memory_context.get_c_expression_length_at_segmented(
                     resource.cdata_unpacked["waterBoxes"]
                 )
             )
@@ -480,14 +533,18 @@ class CollisionResource(CDataResource):
             f.write("0")
         return True
 
-    def report_waterBoxes(resource: "CollisionResource", v):
+    def report_waterBoxes(
+        resource: "CollisionResource", memory_context: "MemoryContext", v
+    ):
         assert isinstance(v, int)
         address = v
         length = resource.cdata_unpacked["numWaterBoxes"]
         if length != 0:
             assert address != 0, address  # should not be NULL
-            resource.file.memory_context.report_resource_at_segmented(
+            memory_context.report_resource_at_segmented(
+                resource,
                 address,
+                CollisionWaterBoxesResource,
                 lambda file, offset: transfer_HACK_IS_STATIC_ON(
                     resource,
                     CollisionWaterBoxesResource(
@@ -500,29 +557,41 @@ class CollisionResource(CDataResource):
             )
 
     def write_surfaceTypeList(
-        resource: "CollisionResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         assert isinstance(v, int)
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(v))
+        f.write(memory_context.get_c_reference_at_segmented(v))
         return True
 
     def write_bgCamList(
-        resource: "CollisionResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         assert isinstance(v, int)
         f.write(line_prefix)
-        f.write(resource.file.memory_context.get_c_reference_at_segmented(v))
+        f.write(memory_context.get_c_reference_at_segmented(v))
         return True
 
     def write_waterBoxes(
-        resource: "CollisionResource", v, f: io.TextIOBase, line_prefix
+        resource: "CollisionResource",
+        memory_context: "MemoryContext",
+        v,
+        f: io.TextIOBase,
+        line_prefix,
     ):
         assert isinstance(v, int)
         length = resource.cdata_unpacked["numWaterBoxes"]
         f.write(line_prefix)
         if length != 0:
-            f.write(resource.file.memory_context.get_c_reference_at_segmented(v))
+            f.write(memory_context.get_c_reference_at_segmented(v))
         else:
             if v == 0:
                 f.write("NULL")
@@ -566,120 +635,88 @@ class CollisionResource(CDataResource):
 
     def __init__(self, file: File, range_start: int, name: str):
         super().__init__(file, range_start, name)
-        self.is_reported_surfaceTypeList = False
-        self.is_reported_bgCamList = False
-        self.length_exitList = None
 
-    def try_parse_data(self):
-        super().try_parse_data()
+        self.length_exitList: Optional[int] = None
+
+        self.resource_polyList: Optional[CollisionPolyListResource] = None
+        self.resource_surfaceTypeList: Optional[CollisionSurfaceTypeListResource] = None
+        self.resource_bgCamList: Optional[CollisionBgCamListResource] = None
+
+    def try_parse_data(self, memory_context):
+        super().try_parse_data(memory_context)
+
+        assert self.resource_polyList is not None
 
         new_progress_done = []
         waiting_for = []
 
-        #  report surfaceTypeList based on its length guessed from polyList data
+        # If the CollisionPolyListResource is parsed
+        if self.resource_polyList.is_data_parsed_v2tmp:
+            # report surfaceTypeList based on its length guessed from polyList data
+            length_surfaceTypeList = self.resource_polyList.max_surface_type_index + 1
+            surfaceTypeList_address = self.cdata_unpacked["surfaceTypeList"]
+            assert isinstance(surfaceTypeList_address, int)
+            self.resource_surfaceTypeList = memory_context.report_resource_at_segmented(
+                self,
+                surfaceTypeList_address,
+                CollisionSurfaceTypeListResource,
+                lambda file, offset: transfer_HACK_IS_STATIC_ON(
+                    self,
+                    CollisionSurfaceTypeListResource(
+                        file,
+                        offset,
+                        f"{self.name}_{surfaceTypeList_address:08X}_SurfaceTypes",
+                        length_surfaceTypeList,  # TODO change CollisionSurfaceTypeListResource to a CDataArrayResource (same with more resources)
+                    ),
+                ),
+            )
 
-        resolution, resolution_info = self.file.memory_context.resolve_segmented(
-            self.cdata_unpacked["polyList"]
-        )
-        if resolution == SegmentedAddressResolution.SYMBOL:
-            raise NotImplementedError()
-        elif resolution == SegmentedAddressResolution.FILE:
-            assert isinstance(resolution_info, tuple)
-            file, offset = resolution_info
-            assert isinstance(file, File)
-            assert isinstance(offset, int)
+            new_progress_done.append("reported CollisionSurfaceTypeListResource")
+        else:
+            waiting_for.append(
+                (
+                    "waiting for CollisionPolyListResource"
+                    " to be parsed to report CollisionSurfaceTypeListResource",
+                    self.resource_polyList,
+                )
+            )
 
-            result, resource = file.get_resource_at(offset)
-            assert result == GetResourceAtResult.DEFINITIVE
-            assert resource is not None
-            assert isinstance(resource, CollisionPolyListResource)
-
-            # If the CollisionPolyListResource is parsed
-            if resource.is_data_parsed_v2tmp:
-                length_surfaceTypeList = resource.max_surface_type_index + 1
-                surfaceTypeList_address = self.cdata_unpacked["surfaceTypeList"]
-                assert isinstance(surfaceTypeList_address, int)
-                self.file.memory_context.report_resource_at_segmented(
-                    surfaceTypeList_address,
+        if self.resource_surfaceTypeList is not None:
+            # If the CollisionSurfaceTypeListResource is parsed
+            if self.resource_surfaceTypeList.is_data_parsed_v2tmp:
+                # report bgCamList based on its length guessed from surfaceTypeList data
+                length_bgCamList = self.resource_surfaceTypeList.max_bgCamIndex + 1
+                bgCamList_address = self.cdata_unpacked["bgCamList"]
+                assert isinstance(bgCamList_address, int)
+                self.resource_bgCamList = memory_context.report_resource_at_segmented(
+                    self,
+                    bgCamList_address,
+                    CollisionBgCamListResource,
                     lambda file, offset: transfer_HACK_IS_STATIC_ON(
                         self,
-                        CollisionSurfaceTypeListResource(
+                        CollisionBgCamListResource(
                             file,
                             offset,
-                            f"{self.name}_{surfaceTypeList_address:08X}_SurfaceTypes",
-                            length_surfaceTypeList,  # TODO change CollisionSurfaceTypeListResource to a CDataArrayResource (same with more resources)
+                            f"{self.name}_{bgCamList_address:08X}_BgCamList",
+                            length_bgCamList,
                         ),
                     ),
                 )
-                self.is_reported_surfaceTypeList = True
 
-                new_progress_done.append("reported CollisionSurfaceTypeListResource")
+                # exitIndex is 1-indexed, so e.g. if the max is 1 the list is of length 1.
+                self.length_exitList = self.resource_surfaceTypeList.max_exitIndex
+
+                new_progress_done.append("reported CollisionBgCamListResource")
             else:
                 waiting_for.append(
                     (
-                        "waiting for CollisionPolyListResource"
-                        " to be parsed to report CollisionSurfaceTypeListResource",
-                        resource,
+                        "waiting for CollisionSurfaceTypeListResource"
+                        " to be parsed to report CollisionBgCamListResource",
+                        self.resource_surfaceTypeList,
                     )
                 )
         else:
-            raise NotImplementedError(resolution)
-
-        if self.is_reported_surfaceTypeList:
-
-            #  report bgCamList based on its length guessed from surfaceTypeList data
-
-            resolution, resolution_info = self.file.memory_context.resolve_segmented(
-                self.cdata_unpacked["surfaceTypeList"]
-            )
-            if resolution == SegmentedAddressResolution.SYMBOL:
-                raise NotImplementedError()
-            elif resolution == SegmentedAddressResolution.FILE:
-                assert isinstance(resolution_info, tuple)
-                file, offset = resolution_info
-                assert isinstance(file, File)
-                assert isinstance(offset, int)
-
-                result, resource = file.get_resource_at(offset)
-                assert result == GetResourceAtResult.DEFINITIVE
-                assert resource is not None
-                assert isinstance(resource, CollisionSurfaceTypeListResource)
-
-                # If the CollisionSurfaceTypeListResource is parsed
-                if resource.is_data_parsed_v2tmp:
-                    length_bgCamList = resource.max_bgCamIndex + 1
-                    bgCamList_address = self.cdata_unpacked["bgCamList"]
-                    assert isinstance(bgCamList_address, int)
-                    self.file.memory_context.report_resource_at_segmented(
-                        bgCamList_address,
-                        lambda file, offset: transfer_HACK_IS_STATIC_ON(
-                            self,
-                            CollisionBgCamListResource(
-                                file,
-                                offset,
-                                f"{self.name}_{bgCamList_address:08X}_BgCamList",
-                                length_bgCamList,
-                            ),
-                        ),
-                    )
-                    self.is_reported_bgCamList = True
-
-                    # exitIndex is 1-indexed, so e.g. if the max is 1 the list is of length 1.
-                    self.length_exitList = resource.max_exitIndex
-
-                    new_progress_done.append("reported CollisionBgCamListResource")
-                else:
-                    waiting_for.append(
-                        (
-                            "waiting for CollisionSurfaceTypeListResource"
-                            " to be parsed to report CollisionBgCamListResource",
-                            resource,
-                        )
-                    )
-            else:
-                raise NotImplementedError(resolution)
-        else:
-            waiting_for.append("self.is_reported_surfaceTypeList")
+            waiting_for.append("self.resource_surfaceTypeList")
 
         if waiting_for:
             if new_progress_done:
@@ -690,8 +727,8 @@ class CollisionResource(CDataResource):
                 raise ResourceParseWaiting(waiting_for=waiting_for)
 
         assert (
-            self.is_reported_surfaceTypeList
-            and self.is_reported_bgCamList
+            self.resource_surfaceTypeList is not None
+            and self.resource_bgCamList is not None
             and self.length_exitList is not None
         )
 

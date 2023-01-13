@@ -5,520 +5,17 @@ import enum
 import reprlib
 
 import io
-from typing import Sequence, Optional, Callable, Union, Any
+from typing import TYPE_CHECKING, Sequence, Optional, Union, Any
 
 from pprint import pprint
 
+if TYPE_CHECKING:
+    from .memorymap import MemoryContext
 
-VERBOSE_SPLIT_PERHAPS = False
+
+# 0: nothing, 1: in progress & waiting, 2: all
+VERBOSE_FILE_TRY_PARSE_DATA = 0
 VERBOSE_REPORT_RESBUF = False
-VERBOSE_FILE_TRY_PARSE_DATA = 1
-
-
-#
-# memory context
-#
-
-
-# TODO rename to just AddressResolution
-class SegmentedAddressResolution(enum.Enum):
-    SYMBOL = enum.auto()
-    FILE = enum.auto()
-
-
-@dataclass
-class Symbol:
-    name: str
-    range_start: int  # physical
-    range_end: int
-
-    def get_c_reference(self, offset):
-        if offset != 0:
-            raise NotImplementedError("todo")
-        # TODO if array, just name
-        return f"&{self.name}"
-
-    def get_c_expression_length(self, offset):
-        raise NotImplementedError("todo x2")
-
-
-@dataclass
-class ResourceBufferMarker:
-    name: str
-    start: int  # segmented
-    end: int  # segmented
-
-
-class NoSegmentBaseError(Exception):
-    """Indicates a segmented address could not be resolved because a base / data wasn't set for the corresponding segment."""
-
-    pass
-
-
-class NoPhysicalMappingError(Exception):
-    """Indicates a physical address could not be resolved because nothing was found for the address."""
-
-    pass
-
-
-class NoVRAMMappingError(Exception):
-    """Indicates a vram address could not be resolved because nothing was found for the address."""
-
-    pass
-
-
-class MemoryContext:
-    """
-    handles segmented addresses, pointers, external symbols (eg gMtxClear)
-
-    maps offsets to data
-    """
-
-    def __init__(self, *, I_D_OMEGALUL=False):
-        self.segments: dict[int, Optional["File"]] = {i: None for i in range(1, 16)}
-        self.symbols: Sequence[Symbol] = (
-            # TODO config for this
-            # TODO I had 0x12DB80 but now map (and jabu) says 0x12DB20, what did I do
-            Symbol("gMtxClear", 0x12DB20, 0x12DB20 + 0x40),
-        )
-        self.vram_symbols: list[Symbol] = []  # TODO
-        self.files_by_physical: dict[
-            int, File
-        ] = dict()  # range_start (physical) : file
-        self.files_by_vram: dict[int, File] = dict()  # range_start (vram) : file
-        self.resource_buffer_markers_by_resource_type: dict[
-            type[Resource], list[ResourceBufferMarker]
-        ] = dict()
-
-        self.I_D_OMEGALUL = I_D_OMEGALUL  # accomodate for IDO stuff (TODO rework)
-
-    def save_segment_map(self):
-        saved_segment_map = self.segments.copy()
-        return saved_segment_map
-
-    def restore_segment_map(self, saved_segment_map):
-        self.segments = saved_segment_map
-
-    def set_segment(self, segment_num: int, target: "File"):
-        if not (1 <= segment_num < 16):
-            raise ValueError(
-                "Segment number must be between 1 and 15 (inclusive)", segment_num
-            )
-
-        if self.segments[segment_num] is not None:
-            raise Exception("Segment is already set", segment_num)
-
-        self.segments[segment_num] = target
-
-    def set_vram(self, address: int, target: "File"):
-        # TODO this function is copypasted from set_physical, find a way to refactor
-        # note I want to keep vram/physical mapping separate as finding an umbrella term is uneasy
-        # vram refers to the linker's knowledge of the rom,
-        # and physical to the addresses at run time
-        try:
-            resolved_result = self.resolve_vram(address)
-        except NoVRAMMappingError:
-            # The address isn't taken, we can use it.
-            self.files_by_vram[address] = target
-        else:
-            # Successfuly resolved the address.
-            # The address is taken, we cannot use it.
-            raise ValueError(
-                "Address is already mapped to something", hex(address), resolved_result
-            )
-
-    def resolve_vram(self, address: int):
-        # TODO this function is copypasted from resolve_physical, find a way to refactor (but, see set_vram)
-        for symbol in self.vram_symbols:
-            if symbol.range_start <= address < symbol.range_end:
-                offset = address - symbol.range_start
-                return SegmentedAddressResolution.SYMBOL, (symbol, offset)
-
-        if __debug__:
-            for range_start_vram_a, file_a in self.files_by_vram.items():
-                range_end_vram_a = range_start_vram_a + len(file_a.data)
-                assert range_start_vram_a < range_end_vram_a
-                for range_start_vram_b, file_b in self.files_by_vram.items():
-                    range_end_vram_b = range_start_vram_b + len(file_b.data)
-                    assert range_start_vram_b < range_end_vram_b
-                    if file_a != file_b:
-                        if range_end_vram_a <= range_start_vram_b:
-                            assert (
-                                range_start_vram_a
-                                < range_end_vram_a
-                                <= range_start_vram_b
-                                < range_end_vram_b
-                            )
-                        else:
-                            assert (
-                                range_start_vram_b
-                                < range_end_vram_b
-                                <= range_start_vram_a
-                                < range_end_vram_a
-                            )
-
-        for range_start_vram, file in self.files_by_vram.items():
-            range_end_vram = range_start_vram + len(file.data)
-            if range_start_vram <= address < range_end_vram:
-                offset = address - range_start_vram
-                assert 0 <= offset < len(file.data)
-                return SegmentedAddressResolution.FILE, (file, offset)
-
-        raise NoVRAMMappingError("vram address doesn't map to anything", hex(address))
-
-    def set_virtual(self, address: int, target: "File"):
-        if (address & 0xF000_0000) != 0x8000_0000:
-            raise ValueError(
-                "address high bits are not 0x8000_0000 (KSEG0, typically for ram addresses),"
-                " something is probably wrong.",
-                hex(address),
-            )
-
-        return self.set_physical(address & 0x0FFF_FFFF, target)
-
-    def set_physical(self, address: int, target: "File"):
-        assert address < 8 * 1024 * 1024, (
-            "addressing physical memory beyond 8MB of ram: this is probably wrong",
-            hex(address),
-        )
-        try:
-            resolved_result = self.resolve_physical(address)
-        except NoPhysicalMappingError:
-            # The address isn't taken, we can use it.
-            self.files_by_physical[address] = target
-        else:
-            # Successfuly resolved the address.
-            # The address is taken, we cannot use it.
-            raise ValueError(
-                "Address is already mapped to something", hex(address), resolved_result
-            )
-
-    def resolve_physical(self, address: int):
-        assert address < 8 * 1024 * 1024, (
-            "addressing physical memory beyond 8MB of ram: this is probably wrong",
-            hex(address),
-        )
-
-        for symbol in self.symbols:
-            if symbol.range_start <= address < symbol.range_end:
-                offset = address - symbol.range_start
-                return SegmentedAddressResolution.SYMBOL, (symbol, offset)
-
-        if __debug__:
-            for range_start_physical_a, file_a in self.files_by_physical.items():
-                range_end_physical_a = range_start_physical_a + len(file_a.data)
-                assert range_start_physical_a < range_end_physical_a
-                for range_start_physical_b, file_b in self.files_by_physical.items():
-                    range_end_physical_b = range_start_physical_b + len(file_b.data)
-                    assert range_start_physical_b < range_end_physical_b
-                    if file_a != file_b:
-                        if range_end_physical_a <= range_start_physical_b:
-                            assert (
-                                range_start_physical_a
-                                < range_end_physical_a
-                                <= range_start_physical_b
-                                < range_end_physical_b
-                            )
-                        else:
-                            assert (
-                                range_start_physical_b
-                                < range_end_physical_b
-                                <= range_start_physical_a
-                                < range_end_physical_a
-                            )
-
-        for range_start_physical, file in self.files_by_physical.items():
-            range_end_physical = range_start_physical + len(file.data)
-            if range_start_physical <= address < range_end_physical:
-                offset = address - range_start_physical
-                assert 0 <= offset < len(file.data)
-                return SegmentedAddressResolution.FILE, (file, offset)
-
-        raise NoPhysicalMappingError(
-            "physical address doesn't map to anything", hex(address)
-        )
-
-    def resolve_segmented(self, address: int):
-        address_high_bits = address & 0xF000_0000
-        # global TODO that is relevant in a lot of places: clean up asserts (ie replace with errors)
-        assert address_high_bits in {0, 0x8000_0000}, (
-            "Address high bits are not 0 (typically for segmented addresses)"
-            " nor 0x8000_0000 (KSEG0, typically for ram addresses),"
-            " something is probably wrong.",
-            hex(address),
-        )
-        segment_num = (address & 0x0F00_0000) >> 24
-        offset = address & 0x00FF_FFFF
-
-        if segment_num == 0:
-            """
-            # TODO idk. also there's nothing checking for overlap between physical and vram
-            # so this implementation allows the vram mapping to overshadow the physical ones
-            # Start with trying vram, because physical checks 8 MB bounds so it fails on pure vram addresses
-            try:
-                return self.resolve_vram(offset)
-            except NoVRAMMappingError:
-                return self.resolve_physical(offset)
-            """
-            # the above doesn't work for figuring out stuff since it hides if a vram check non-legitimately / unintendedly fails
-            # TODO idk how to pick physical/vram
-            # for now assume <8MB=physical
-            if offset < 8 * 1024 * 1024:
-                return self.resolve_physical(offset)
-            else:
-                # note: using the address here, ie offset with the "high bits" (eg 0x8000_0000)
-                # indeed vram is mapped from the linker's pov which includes the virtual memory segment (eg kseg0)
-                return self.resolve_vram(address)
-        else:
-            file = self.segments.get(segment_num)
-            if file is None:
-                raise NoSegmentBaseError(
-                    "no file set on this segment", hex(address), segment_num
-                )
-            if offset >= len(file.data):
-                raise Exception(
-                    "offset is past the bounds of file",
-                    hex(address),
-                    hex(offset),
-                    hex(len(file.data)),
-                )
-            return SegmentedAddressResolution.FILE, (file, offset)
-
-    def report_resource_at_segmented(
-        self,
-        address,
-        new_resource_pointed_to: Callable[["File", int], "Resource"],
-    ):
-        resolution, resolution_info = self.resolve_segmented(address)
-
-        if resolution == SegmentedAddressResolution.FILE:
-            assert isinstance(resolution_info, tuple)
-            file, offset = resolution_info
-            assert isinstance(file, File)
-            assert isinstance(offset, int)
-
-            try:
-                result, existing_resource = file.get_resource_at(offset)
-            except:
-                print(
-                    "Couldn't get resource in file at offset",
-                    hex(address),
-                    file,
-                    hex(offset),
-                )
-                raise
-
-            if result == GetResourceAtResult.PERHAPS:
-                if VERBOSE_SPLIT_PERHAPS:
-                    # TODO figure out what to do with perhaps resources
-                    # for now just add resources, but this may dupe stuff if the resource is supposed to be the same
-                    # (eg vertex arrays, currently handled with the buffer reporting mark_resource_buffer_at_segmented )
-                    print(
-                        "!!! GetResourceAtResult.PERHAPS report_resource_at_segmented , may duplicate stuff idk !!!",
-                        hex(address),
-                        hex(offset),
-                        existing_resource,
-                        existing_resource.name,
-                    )
-            """
-            assert (
-                result != GetResourceAtResult.PERHAPS
-            ), "Not sure how to handle this yet"
-            """
-
-            if result == GetResourceAtResult.DEFINITIVE:
-                assert existing_resource is not None
-                return existing_resource, offset
-            else:
-                new_resource = new_resource_pointed_to(file, offset)
-                file.add_resource(new_resource)
-
-                if result == GetResourceAtResult.PERHAPS:
-                    if VERBOSE_SPLIT_PERHAPS:
-                        # TODO (see above)
-                        print(
-                            "     >>> ",
-                            result,
-                            "followup",
-                            "added:",
-                            new_resource.name,
-                            new_resource.__class__,
-                            new_resource,
-                        )
-
-                return new_resource, offset
-
-        elif resolution == SegmentedAddressResolution.SYMBOL:
-            assert isinstance(resolution_info, tuple)
-            symbol, offset = resolution_info
-            assert isinstance(symbol, Symbol)
-            assert isinstance(offset, int)
-
-            # TODO
-            print(
-                "!!!",
-                resolution,
-                symbol,
-                hex(offset),
-                "resource found at symbol, ignoring",
-            )
-
-            # TODO return what? check up on callers what they expect
-            # (symbol, offset) would make sense maybe
-            return None
-
-        else:
-            raise NotImplementedError(
-                "unhandled SegmentedAddressResolution", resolution
-            )
-
-    def mark_resource_buffer_at_segmented(
-        self, resource_type: type["Resource"], name: str, start: int, end: int
-    ):
-        resource_buffer_markers = (
-            self.resource_buffer_markers_by_resource_type.setdefault(resource_type, [])
-        )
-        resource_buffer_markers.append(ResourceBufferMarker(name, start, end))
-
-        resource_buffer_markers.sort(key=lambda rbm: rbm.start)
-
-        def do_fuse(i_start, i_end):
-            assert i_start < i_end
-            if i_start + 1 == i_end:
-                return False
-            fused = resource_buffer_markers[i_start:i_end]
-            resource_buffer_markers[i_start:i_end] = [
-                ResourceBufferMarker(
-                    fused[0].name.removesuffix("_fused_") + "_fused_",  # TODO
-                    fused[0].start,
-                    fused[-1].end,
-                )
-            ]
-            return True
-
-        def fuse_more():
-            stride_first_i = None
-            for i, rbm in enumerate(resource_buffer_markers):
-                if stride_first_i is None:
-                    stride_first_i = i
-                else:
-                    assert i > 0
-                    prev = resource_buffer_markers[i - 1]
-                    if prev.end < rbm.start:
-                        # disjointed
-                        if do_fuse(stride_first_i, i):
-                            return True
-                        stride_first_i = i
-            if stride_first_i is not None:
-                return do_fuse(stride_first_i, len(resource_buffer_markers))
-            else:
-                return False
-
-        while fuse_more():
-            pass
-
-    def report_resource_buffers(self):
-        # TODO rework resource buffers handling
-        # this won't play well with manually defined vtx arrays
-        # probably can't merge the vbuf refs so quick
-        for (
-            resource_type,
-            resource_buffer_markers,
-        ) in self.resource_buffer_markers_by_resource_type.items():
-            if VERBOSE_REPORT_RESBUF:
-                print(resource_type, resource_buffer_markers)
-            for rbm in resource_buffer_markers:
-                self.report_resource_at_segmented(
-                    rbm.start,
-                    lambda file, offset: resource_type(
-                        file, offset, offset + rbm.end - rbm.start, rbm.name
-                    ),
-                )
-        self.resource_buffer_markers_by_resource_type = dict()
-
-    def get_c_reference_at_segmented(self, address):
-        resolution, resolution_info = self.resolve_segmented(address)
-
-        if resolution == SegmentedAddressResolution.FILE:
-            assert isinstance(resolution_info, tuple)
-            file, offset = resolution_info
-            assert isinstance(file, File)
-            assert isinstance(offset, int)
-
-            result, resource = file.get_resource_at(offset)
-
-            if result != GetResourceAtResult.DEFINITIVE:
-                raise Exception("No definitive resource", result, hex(address))
-            assert resource is not None
-
-            resource_offset = offset - resource.range_start
-            try:
-                c_ref = resource.get_c_reference(resource_offset)
-            except:
-                print(
-                    f"Couldn't call resource.get_c_reference(0x{resource_offset:X}) on",
-                    resource,
-                )
-                raise
-            assert isinstance(c_ref, str), (
-                c_ref,
-                resource.__class__,
-                resource.get_c_reference,
-            )
-            return c_ref
-
-        elif resolution == SegmentedAddressResolution.SYMBOL:
-            assert isinstance(resolution_info, tuple)
-            symbol, offset = resolution_info
-            assert isinstance(symbol, Symbol)
-            assert isinstance(offset, int)
-
-            return symbol.get_c_reference(offset)
-
-        else:
-            raise NotImplementedError(
-                "unhandled SegmentedAddressResolution", resolution
-            )
-
-    def get_c_expression_length_at_segmented(self, address):
-        resolution, resolution_info = self.resolve_segmented(address)
-
-        if resolution == SegmentedAddressResolution.FILE:
-            assert isinstance(resolution_info, tuple)
-            file, offset = resolution_info
-            assert isinstance(file, File)
-            assert isinstance(offset, int)
-
-            result, resource = file.get_resource_at(offset)
-
-            if result != GetResourceAtResult.DEFINITIVE:
-                raise Exception("No definitive resource", result, hex(address))
-            assert resource is not None
-
-            resource_offset = offset - resource.range_start
-            try:
-                return resource.get_c_expression_length(resource_offset)
-            except:
-                print(
-                    "Couldn't get C expression for length of resource at some offset",
-                    resource,
-                    resource_offset,
-                )
-                raise
-
-        elif resolution == SegmentedAddressResolution.SYMBOL:
-            assert isinstance(resolution_info, tuple)
-            symbol, offset = resolution_info
-            assert isinstance(symbol, Symbol)
-            assert isinstance(offset, int)
-
-            return symbol.get_c_expression_length(offset)
-
-        else:
-            raise NotImplementedError(
-                "unhandled SegmentedAddressResolution", resolution
-            )
-
 
 #
 # file
@@ -585,23 +82,53 @@ class GetResourceAtResult(enum.Enum):
     NONE_YET = enum.auto()
 
 
+@dataclass
+class ResourceBufferMarker:
+    name: str
+    file_start: int
+    file_end: int
+    users: set["Resource"]
+
+
 class File:
     """A file is a collection of resources
 
     It typically corresponds to a rom file (segment) but doesn't have to
     It doesn't even need to correspond to the entirety of one or more .c files,
     it can be only a fraction
+
+    It can also correspond to how some memory is laid out,
+    for example what a segment "contains" in the context of a file or resource.
     """
 
-    def __init__(self, memory_context: MemoryContext, name: str, data: memoryview):
-        self.memory_context = memory_context
+    def __init__(
+        self,
+        name: str,
+        *,
+        data: Optional[memoryview] = None,
+        size: Optional[int] = None,
+    ):
         self.name = name
-        self.data = data
+        if data is None != size is None:
+            raise Exception(
+                "Exactly one of either data or size must be provided", data, size
+            )
+        if data is not None:
+            self.data = data
+            self.size = len(data)
+        else:
+            assert size is not None
+            self.data = None
+            self.size = size
         self._resources: list[Resource] = []
         self._is_resources_sorted = True
         self.referenced_files: set[File] = set()
+        self.resource_buffer_markers_by_resource_type: dict[
+            type[Resource], list[ResourceBufferMarker]
+        ] = dict()
 
     def add_resource(self, resource: "Resource"):
+        assert resource not in self._resources
         self._resources.append(resource)
         self._is_resources_sorted = False
 
@@ -614,7 +141,7 @@ class File:
         self._is_resources_sorted = True
 
     def get_resource_at(self, offset: int):
-        assert offset < len(self.data)
+        assert offset < self.size
 
         # Resources may use a defined range with both start and end defined,
         # or a range that only has its start defined.
@@ -722,7 +249,7 @@ class File:
             print(self.str_report())
             raise
 
-    def try_parse_resources_data(self):
+    def try_parse_resources_data(self, file_memory_context: "MemoryContext"):
         """Returns true if any progress was made between the method being called and the method returning."""
         any_progress = False
 
@@ -737,8 +264,9 @@ class File:
                 if resource.is_data_parsed_v2tmp:
                     pass
                 else:
+                    resource_memory_context = file_memory_context  # TODO
                     try:
-                        resource.try_parse_data()
+                        resource.try_parse_data(resource_memory_context)
 
                         # assert resource implementation follows new exception-based system
                         # TODO remove eventually
@@ -796,13 +324,120 @@ class File:
 
         return any_progress
 
-    def add_unaccounted_resources(self):
+    def mark_resource_buffer(
+        self,
+        user: "Resource",  # TODO the resource marking this resource buffer
+        # (-> reporter, and rename the function and existing report_ func)
+        resource_type: type["Resource"],
+        name: str,
+        file_start: int,
+        file_end: int,
+    ):
+        # Ignore markers falling within existing resources
+        result, resource = self.get_resource_at(file_start)
+        if result == GetResourceAtResult.DEFINITIVE:
+            if resource.range_start <= file_start < file_end <= resource.range_end:
+                assert isinstance(resource, resource_type)
+                # TODO user vs reporter, same as todo below in report_resource_buffers
+                resource.reporters.add(user)
+                return
+
+        resource_buffer_markers = (
+            self.resource_buffer_markers_by_resource_type.setdefault(resource_type, [])
+        )
+        resource_buffer_markers.append(
+            ResourceBufferMarker(name, file_start, file_end, {user})
+        )
+
+        resource_buffer_markers.sort(key=lambda rbm: rbm.file_start)
+
+        def do_fuse(i_start, i_end):
+            assert i_start < i_end
+            if i_start + 1 == i_end:
+                return False
+            fused = resource_buffer_markers[i_start:i_end]
+            users = set()
+            for rbm in fused:
+                users.update(rbm.users)
+            resource_buffer_markers[i_start:i_end] = [
+                ResourceBufferMarker(
+                    fused[0].name.removesuffix("_fused_") + "_fused_",  # TODO
+                    fused[0].file_start,
+                    fused[-1].file_end,
+                    users,
+                )
+            ]
+            return True
+
+        def fuse_more():
+            stride_first_i = None
+            for i, rbm in enumerate(resource_buffer_markers):
+                if stride_first_i is None:
+                    stride_first_i = i
+                else:
+                    assert i > 0
+                    prev = resource_buffer_markers[i - 1]
+                    if prev.file_end < rbm.file_start:
+                        # disjointed
+                        if do_fuse(stride_first_i, i):
+                            return True
+                        stride_first_i = i
+            if stride_first_i is not None:
+                return do_fuse(stride_first_i, len(resource_buffer_markers))
+            else:
+                return False
+
+        while fuse_more():
+            pass
+
+    def report_resource_buffers(self):
+        # TODO rework resource buffers handling
+        # this won't play well with manually defined vtx arrays
+        # probably can't merge the vbuf refs so quick
+        for (
+            resource_type,
+            resource_buffer_markers,
+        ) in self.resource_buffer_markers_by_resource_type.items():
+            if VERBOSE_REPORT_RESBUF:
+                print(resource_type, resource_buffer_markers)
+            for rbm in resource_buffer_markers:
+                result, resource = self.get_resource_at(rbm.file_start)
+                assert (
+                    result != GetResourceAtResult.PERHAPS
+                ), "report_resource_buffers should be called at a point where all resources have a definitive range"
+                if result == GetResourceAtResult.NONE_YET:
+                    resource = resource_type(
+                        self, rbm.file_start, rbm.file_end, rbm.name
+                    )
+                    resource.reporters.update(rbm.users)
+                    self.add_resource(resource)
+                else:
+                    assert result == GetResourceAtResult.DEFINITIVE
+                    assert (
+                        resource.range_start
+                        <= rbm.file_start
+                        < rbm.file_end
+                        <= resource.range_end
+                    ), (
+                        "marked resource buffer overlaps with existing resource but also extends out of that resource",
+                        hex(rbm.file_start),
+                        hex(rbm.file_end),
+                        rbm,
+                        resource,
+                    )
+
+                    # TODO ? not really reporters but at least users, figure out reporters/users
+                    resource.reporters.update(rbm.users)
+        self.resource_buffer_markers_by_resource_type = dict()
+
+    def add_unaccounted_resources(self, *, I_D_OMEGALUL: bool):
         assert self._is_resources_sorted
+        assert self.data is not None
 
         unaccounted_resources: list[Resource] = []
 
         def add_unaccounted(range_start, range_end):
-            if self.memory_context.I_D_OMEGALUL:
+            if I_D_OMEGALUL:
                 # IDO aligns every declaration to 4, so declaring zeros
                 # that is actually padding for that purpose throws off matching.
                 # This block strips such zeros from the unaccounted range.
@@ -899,11 +534,12 @@ class File:
         for resource in self._resources:
             resource.set_paths(extracted_path, build_path)
 
-    def write_resources_extracted(self):
+    def write_resources_extracted(self, file_memory_context: "MemoryContext"):
         for resource in self._resources:
             assert resource.is_data_parsed_v2tmp, resource
+            resource_memory_context = file_memory_context  # TODO
             try:
-                resource.write_extracted()
+                resource.write_extracted(resource_memory_context)
             except:
                 print("Couldn't write extracted resource", resource)
                 raise
@@ -1014,7 +650,7 @@ class File:
     def __repr__(self):
         return (
             self.__class__.__qualname__
-            + f"({self.name!r}, {self.data!r}, {self._resources!r})"
+            + f"({self.name!r}, data is None={self.data is None}, size={self.size}, {self._resources!r})"
         )
 
 
@@ -1044,11 +680,11 @@ class Resource(abc.ABC):
         range_end: Optional[int],
         name: str,
     ):
-        assert 0 <= range_start < len(file.data)
+        assert 0 <= range_start < file.size
         if range_end is None:
             assert self.can_size_be_unknown
         else:
-            assert range_start < range_end <= len(file.data)
+            assert range_start < range_end <= file.size
 
         self.file = file
 
@@ -1086,8 +722,12 @@ class Resource(abc.ABC):
         self.is_data_parsed_v2tmp = False
         """Set to true when the resource is successfully parsed (after a successful try_parse_data call)"""
 
+        self.reporters: set[Resource] = set()
+        """Collection of all the resources having reported this resource
+        TODO figure out what to do with this, for now thinking debugging"""
+
     @abc.abstractmethod
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context: "MemoryContext"):
         """Parse this resource's data bytes
 
         This can typically result in finding more resources,
@@ -1205,7 +845,7 @@ class Resource(abc.ABC):
         self.inc_c_path = inc_c_path
 
     @abc.abstractmethod
-    def write_extracted(self) -> None:
+    def write_extracted(self, memory_context: "MemoryContext") -> None:
         """Write the extracted resource data to self.extract_to_path"""
         ...
 
@@ -1281,14 +921,14 @@ class ZeroPaddingResource(Resource):
         super().__init__(file, range_start, range_end, name)
         self.include_in_source = include_in_source
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         # Nothing specific to do
         pass
 
     def get_c_reference(self, resource_offset):
         raise ValueError("Referencing zero padding should not happen")
 
-    def write_extracted(self):
+    def write_extracted(self, memory_context):
         # No need to extract zeros
         pass
 
@@ -1314,7 +954,7 @@ class BinaryBlobResource(Resource):
     needs_build = True
     extracted_path_suffix = ".bin"
 
-    def try_parse_data(self):
+    def try_parse_data(self, memory_context):
         # Nothing specific to do
         pass
 
@@ -1324,7 +964,7 @@ class BinaryBlobResource(Resource):
     def get_filename_stem(self):
         return super().get_filename_stem() + ".u8"
 
-    def write_extracted(self):
+    def write_extracted(self, memory_context):
         data = self.file.data[self.range_start : self.range_end]
         assert len(data) == self.range_end - self.range_start
         self.extract_to_path.write_bytes(data)
