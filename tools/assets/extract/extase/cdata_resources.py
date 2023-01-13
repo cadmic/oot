@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from .memorymap import MemoryContext
 
 from . import (
+    RESOURCE_PARSE_SUCCESS,
     Resource,
     File,
     ResourceParseWaiting,
@@ -256,6 +257,8 @@ class CDataResource(Resource):
 
             self._is_cdata_processed = True
 
+        return RESOURCE_PARSE_SUCCESS
+
     def write_extracted(self, memory_context):
         with self.extract_to_path.open("w") as f:
             self.cdata_ext.write(self, memory_context, self.cdata_unpacked, f, "")
@@ -297,7 +300,7 @@ class CDataArrayResource(CDataResource):
         assert isinstance(self.elem_cdata_ext, CDataExt), (self.__class__, self)
         self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self._length)
         self.range_end = self.range_start + self.cdata_ext.size
-        super().try_parse_data(memory_context)
+        return super().try_parse_data(memory_context)
 
     def get_c_reference(self, resource_offset: int):
         return self.symbol_name

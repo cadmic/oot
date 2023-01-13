@@ -232,22 +232,6 @@ def extract_xml(sub_path: Path):
     top_source_path = Path("assets/") / sub_path
     top_extract_path = Path("assets/_extracted/") / sub_path
 
-    """
-    TODO
-
-    don't have one memoryctx but one per file
-    ideally, finer grained than perfile even
-    for example have a sub-memctx for dlists of a flex skeleton, to handle the 0xD segment specifically
-
-    should there be several instances of memctx
-    (one instance per file would solve an issue with buffer markers)
-    should there be parenting, like create a memctx that when cant resolve something defaults to resolution from parent
-    (sounds appropriate for the flexskeleton example)
-
-    is the flexskeleton example worth generalizing or would a dlist-resource-specific hack be enough
-
-    
-    """
     base_memory_context = MemoryContext()
 
     if RM_SOURCE:

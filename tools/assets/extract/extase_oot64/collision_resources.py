@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 from ..extase import (
     File,
+    RESOURCE_PARSE_SUCCESS,
     ResourceParseInProgress,
     ResourceParseWaiting,
 )
@@ -139,6 +140,7 @@ class CollisionPolyListResource(CDataResource):
         super().try_parse_data(memory_context)
         self.max_surface_type_index = max(elem["type"] for elem in self.cdata_unpacked)
         assert isinstance(self.max_surface_type_index, int)
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):
@@ -247,6 +249,7 @@ class CollisionSurfaceTypeListResource(CDataResource):
         self.max_exitIndex = max(
             (elem["data"][0] & 0x00001F00) >> 8 for elem in self.cdata_unpacked
         )
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):
@@ -366,6 +369,7 @@ class CollisionBgCamListResource(CDataResource):
                     f"{self.name}_{bgCamFuncData_buffer_start:08X}_BgCamFuncData",
                 ),
             )
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):
@@ -651,7 +655,7 @@ class CollisionResource(CDataResource):
         waiting_for = []
 
         # If the CollisionPolyListResource is parsed
-        if self.resource_polyList.is_data_parsed_v2tmp:
+        if self.resource_polyList.is_data_parsed:
             # report surfaceTypeList based on its length guessed from polyList data
             length_surfaceTypeList = self.resource_polyList.max_surface_type_index + 1
             surfaceTypeList_address = self.cdata_unpacked["surfaceTypeList"]
@@ -683,7 +687,7 @@ class CollisionResource(CDataResource):
 
         if self.resource_surfaceTypeList is not None:
             # If the CollisionSurfaceTypeListResource is parsed
-            if self.resource_surfaceTypeList.is_data_parsed_v2tmp:
+            if self.resource_surfaceTypeList.is_data_parsed:
                 # report bgCamList based on its length guessed from surfaceTypeList data
                 length_bgCamList = self.resource_surfaceTypeList.max_bgCamIndex + 1
                 bgCamList_address = self.cdata_unpacked["bgCamList"]
@@ -731,6 +735,7 @@ class CollisionResource(CDataResource):
             and self.resource_bgCamList is not None
             and self.length_exitList is not None
         )
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_declaration_base(self):
         return f"CollisionHeader {self.symbol_name}"

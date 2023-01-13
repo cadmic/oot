@@ -4,6 +4,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..extase.memorymap import MemoryContext
 
+from ..extase import (
+    RESOURCE_PARSE_SUCCESS,
+    ResourceParseWaiting,
+    ResourceParseInProgress,
+)
+
 from ..extase.cdata_resources import (
     CDataArrayResource,
     CDataArrayNamedLengthResource,
@@ -16,6 +22,9 @@ from ..extase.cdata_resources import (
 )
 
 from .. import oot64_data
+
+
+VERBOSE_SPAWN_LIST_LENGTH_GUESSING = False
 
 
 def fmt_hex_s(v: int, nibbles: int = 0):
@@ -150,7 +159,22 @@ class SpawnListResource(CDataArrayResource):
 
     def try_parse_data(self, memory_context):
         if self.player_entry_list_length is None or self.room_list_length is None:
-            return
+            raise ResourceParseWaiting(
+                waiting_for=[
+                    msg
+                    for is_waiting, msg in (
+                        (
+                            self.player_entry_list_length is None,
+                            "self.player_entry_list_length",
+                        ),
+                        (
+                            self.room_list_length is None,
+                            "self.room_list_length",
+                        ),
+                    )
+                    if is_waiting
+                ]
+            )
 
         # File.name comes from the Name attribute on a <File> element,
         # which is also used to make the path to the baserom file to read from.
@@ -181,14 +205,15 @@ class SpawnListResource(CDataArrayResource):
                 and last_spawn_unpacked["room"] < self.room_list_length
             ):
                 break
-            print(
-                self,
-                "Removing one spawn because the last spawn of the list has bad indices",
-                last_spawn_unpacked,
-                num_spawns,
-                "->",
-                num_spawns - 1,
-            )
+            if VERBOSE_SPAWN_LIST_LENGTH_GUESSING:
+                print(
+                    self,
+                    "Removing one spawn because the last spawn of the list has bad indices",
+                    last_spawn_unpacked,
+                    num_spawns,
+                    "->",
+                    num_spawns - 1,
+                )
             num_spawns -= 1
             assert num_spawns > 0
 
@@ -201,15 +226,16 @@ class SpawnListResource(CDataArrayResource):
                     self.range_start + num_spawns * 2 :
                 ][:2]
                 if data_to_next_4align != b"\x00\x00":
-                    print(
-                        self,
-                        "Adding one spawn because the next supposedly-padding"
-                        " two bytes are not padding (not zero)",
-                        bytes(data_to_next_4align),
-                        num_spawns,
-                        "->",
-                        num_spawns + 1,
-                    )
+                    if VERBOSE_SPAWN_LIST_LENGTH_GUESSING:
+                        print(
+                            self,
+                            "Adding one spawn because the next supposedly-padding"
+                            " two bytes are not padding (not zero)",
+                            bytes(data_to_next_4align),
+                            num_spawns,
+                            "->",
+                            num_spawns + 1,
+                        )
                     num_spawns += 1
 
         # Trim the list to avoid overlaps
@@ -223,19 +249,20 @@ class SpawnListResource(CDataArrayResource):
             result, resource = self.file.get_resource_at(range_end - 1)
             if resource is self:
                 break
-            print(
-                self,
-                "Removing one spawn because the last spawn of the list overlaps with another resource",
-                resource,
-                num_spawns,
-                "->",
-                num_spawns - 1,
-            )
+            if VERBOSE_SPAWN_LIST_LENGTH_GUESSING:
+                print(
+                    self,
+                    "Removing one spawn because the last spawn of the list overlaps with another resource",
+                    resource,
+                    num_spawns,
+                    "->",
+                    num_spawns - 1,
+                )
             num_spawns -= 1
             assert num_spawns > 0
 
         self.set_length(num_spawns)
-        super().try_parse_data(memory_context)
+        return super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"Spawn {self.symbol_name}[]"
@@ -392,7 +419,7 @@ class PathListResource(CDataArrayResource):
         if self._length is None:
             # TODO guess
             self.set_length(1)
-        super().try_parse_data(memory_context)
+        return super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"Path {self.symbol_name}[]"

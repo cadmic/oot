@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 from ..extase import (
     File,
     Resource,
+    RESOURCE_PARSE_SUCCESS,
     ResourceParseInProgress,
     ResourceParseWaiting,
 )
@@ -201,7 +202,7 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     ),
                 )
                 new_progress_done.append(("reported CollisionResource", cmd_id))
-                if resource.is_data_parsed_v2tmp:
+                if resource.is_data_parsed:
                     self.exit_list_length = resource.length_exitList
                     self.parsed_commands.add(cmd_id)
                     new_progress_done.append(
@@ -393,15 +394,6 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
         self.range_end = self.range_start + end_offset
         assert self.parsed_commands.issubset(found_commands)
 
-        if waiting_for:
-            if new_progress_done:
-                raise ResourceParseInProgress(
-                    new_progress_done=new_progress_done, waiting_for=waiting_for
-                )
-            else:
-                raise ResourceParseWaiting(waiting_for=waiting_for)
-
-        assert self.parsed_commands == found_commands
         if found_commands - self.parsed_commands:
             if VERBOSE_NOT_FULLY_PARSED_SCENECMD:
                 print(
@@ -414,6 +406,17 @@ class SceneCommandsResource(Resource, can_size_be_unknown=True):
                     "FOUND BUT NOT PARSED:",
                     found_commands - self.parsed_commands,
                 )
+
+        if waiting_for:
+            if new_progress_done:
+                raise ResourceParseInProgress(
+                    new_progress_done=new_progress_done, waiting_for=waiting_for
+                )
+            else:
+                raise ResourceParseWaiting(waiting_for=waiting_for)
+
+        assert self.parsed_commands == found_commands
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_declaration_base(self):
         return f"SceneCmd {self.symbol_name}[]"
@@ -633,7 +636,9 @@ class AltHeadersResource(CDataArrayResource):
                 ),
             )
 
-    def write_elem(resource,memory_context:"MemoryContext", v, f: io.TextIOBase, line_prefix: str):
+    def write_elem(
+        resource, memory_context: "MemoryContext", v, f: io.TextIOBase, line_prefix: str
+    ):
         assert isinstance(v, int)
         address = v
         f.write(line_prefix)
@@ -680,7 +685,7 @@ class AltHeadersResource(CDataArrayResource):
             length = i + 1
         assert length > 0
         self.set_length(length)
-        super().try_parse_data(memory_context)
+        return super().try_parse_data(memory_context)
 
     def get_c_declaration_base(self):
         return f"SceneCmd* {self.symbol_name}[]"

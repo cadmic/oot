@@ -6,7 +6,8 @@ if TYPE_CHECKING:
 
 from ..extase import (
     File,
-    GetResourceAtResult,
+    RESOURCE_PARSE_SUCCESS,
+    ResourceParseWaiting,
 )
 from ..extase.cdata_resources import (
     CDataResource,
@@ -29,7 +30,9 @@ class KnotCountsArrayResource(CDataResource, can_size_be_unknown=True):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data(memory_context)
+            return super().try_parse_data(memory_context)
+        else:
+            raise ResourceParseWaiting(waiting_for=["self.length"])
 
     def get_c_declaration_base(self):
         return f"u8 {self.symbol_name}[]"
@@ -60,7 +63,9 @@ class CurveInterpKnotArrayResource(CDataResource, can_size_be_unknown=True):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data(memory_context)
+            return super().try_parse_data(memory_context)
+        else:
+            raise ResourceParseWaiting(waiting_for=["self.length"])
 
     def get_c_declaration_base(self):
         return f"CurveInterpKnot {self.symbol_name}[]"
@@ -83,7 +88,9 @@ class ConstantDataArrayResource(CDataResource, can_size_be_unknown=True):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data(memory_context)
+            return super().try_parse_data(memory_context)
+        else:
+            raise ResourceParseWaiting(waiting_for=["self.length"])
 
     def get_c_declaration_base(self):
         return f"s16 {self.symbol_name}[]"
@@ -224,6 +231,7 @@ class CurveAnimationHeaderResource(CDataResource):
                 animHeader_offset - interpolationData_offset
             ) // resource_interpolationData.elem_cdata_ext.size
 
+            return RESOURCE_PARSE_SUCCESS
         else:
             raise NotImplementedError
 

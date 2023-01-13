@@ -1,7 +1,10 @@
 import struct
-import io
 
-from ..extase import File, Resource
+from ..extase import (
+    RESOURCE_PARSE_SUCCESS,
+    File,
+    Resource,
+)
 
 from tools import csdis
 
@@ -22,6 +25,7 @@ class CutsceneResource(Resource, can_size_be_unknown=True):
         size_words, cs_source = csdis.disassemble_cutscene(data_words)
         self.range_end = self.range_start + 4 * size_words
         self.cs_source = cs_source
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_reference(self, resource_offset: int):
         if resource_offset == 0:

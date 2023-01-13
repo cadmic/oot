@@ -5,6 +5,8 @@ if TYPE_CHECKING:
     from ..extase.memorymap import MemoryContext
 
 from ..extase import (
+    RESOURCE_PARSE_SUCCESS,
+    ResourceParseWaiting,
     File,
 )
 from ..extase.cdata_resources import (
@@ -31,7 +33,9 @@ class AnimationFrameDataResource(CDataResource, can_size_be_unknown=True):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data(memory_context)
+            return super().try_parse_data(memory_context)
+        else:
+            raise ResourceParseWaiting(waiting_for=["self.length"])
 
     def get_c_declaration_base(self):
         return f"s16 {self.symbol_name}[]"
@@ -60,7 +64,9 @@ class AnimationJointIndicesResource(CDataResource, can_size_be_unknown=True):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data(memory_context)
+            return super().try_parse_data(memory_context)
+        else:
+            raise ResourceParseWaiting(waiting_for=["self.length"])
 
     def get_c_declaration_base(self):
         return f"JointIndex {self.symbol_name}[]"
@@ -174,6 +180,8 @@ class AnimationResource(CDataResource):
                 hex(resource_jointIndices.range_start),
                 hex(self.range_start),
             )
+
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_reference(self, resource_offset: int):
         if resource_offset == 0:

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..extase.memorymap import MemoryContext
 
 from ..extase import (
+    RESOURCE_PARSE_SUCCESS,
     Resource,
     File,
 )
@@ -238,7 +239,7 @@ class TextureResource(Resource):
 
     def try_parse_data(self, memory_context):
         # Nothing to do
-        pass
+        return RESOURCE_PARSE_SUCCESS
 
     def write_extracted(self, memory_context):
         data = self.file.data[self.range_start : self.range_end]
@@ -657,6 +658,8 @@ class DListResource(Resource, can_size_be_unknown=True):
         if VERBOSE2:
             print(self.name, hex(offset), hex(self.range_end))
 
+        return RESOURCE_PARSE_SUCCESS
+
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):
             length = (self.range_end - self.range_start) // 8
@@ -788,9 +791,11 @@ class DListResource(Resource, can_size_be_unknown=True):
             # except NoSegmentBaseError: # TODO
             #    timg_c_ref = None
             except ValueError:
-                # TODO handle better once I know why this even happens
+                # TODO BEST_EFFORT ify this
+                # (turns out I needed this because of a mistake in a xml so it can be useful)
                 import traceback
 
+                print("vvv /* BAD TIMG REF */ vvv")
                 traceback.print_exc()
                 pygfxd.gfxd_puts("/* BAD TIMG REF */")
                 return 0

@@ -21,6 +21,9 @@ VERBOSE_REPORT_RESBUF = False
 # file
 #
 
+# sentinel value
+RESOURCE_PARSE_SUCCESS = object()
+
 
 class ResourceParseException(Exception):
     pass
@@ -229,11 +232,7 @@ class File:
             raise
 
     def get_non_parsed_resources(self):
-        return [
-            resource
-            for resource in self._resources
-            if not resource.is_data_parsed_v2tmp
-        ]
+        return [resource for resource in self._resources if not resource.is_data_parsed]
 
     def check_non_parsed_resources(self):
         try:
@@ -261,18 +260,13 @@ class File:
             resources_copy = self._resources.copy()
 
             for resource in resources_copy:
-                if resource.is_data_parsed_v2tmp:
+                if resource.is_data_parsed:
                     pass
                 else:
                     resource_memory_context = file_memory_context  # TODO
                     try:
-                        resource.try_parse_data(resource_memory_context)
-
-                        # assert resource implementation follows new exception-based system
-                        # TODO remove eventually
-                        assert not hasattr(resource, "is_data_parsed"), (
-                            resource,
-                            resource.__class__,
+                        ret_try_parse_data = resource.try_parse_data(
+                            resource_memory_context
                         )
                     except ResourceParseInProgress as e:
                         any_progress = True
@@ -306,6 +300,15 @@ class File:
                         print("Error while attempting to parse data", resource)
                         raise
                     else:
+                        # Catch try_parse_data mistakenly returning successfully
+                        # (instead of raising) by enforcing having it return a sentinel value
+                        assert ret_try_parse_data is RESOURCE_PARSE_SUCCESS, (
+                            "Resources should return RESOURCE_PARSE_SUCCESS when parsing is successful, "
+                            "or raise ResourceParseInProgress/ResourceParseWaiting if parsing is unsuccessful",
+                            resource,
+                            resource.try_parse_data,
+                        )
+
                         # resource parsed successfully
                         if VERBOSE_FILE_TRY_PARSE_DATA >= 2:
                             pprint(("(success) Done parsing", resource))
@@ -314,7 +317,7 @@ class File:
                             resource,
                             resource.__class__,
                         )
-                        resource.is_data_parsed_v2tmp = True
+                        resource.is_data_parsed = True
                         any_data_parsed = True
 
             any_resource_added = len(self._resources) != len(resources_copy)
@@ -536,7 +539,7 @@ class File:
 
     def write_resources_extracted(self, file_memory_context: "MemoryContext"):
         for resource in self._resources:
-            assert resource.is_data_parsed_v2tmp, resource
+            assert resource.is_data_parsed, resource
             resource_memory_context = file_memory_context  # TODO
             try:
                 resource.write_extracted(resource_memory_context)
@@ -719,8 +722,10 @@ class Resource(abc.ABC):
         self.symbol_name = name
         """Name of the symbol to use to reference this resource"""
 
-        self.is_data_parsed_v2tmp = False
-        """Set to true when the resource is successfully parsed (after a successful try_parse_data call)"""
+        self.is_data_parsed = False
+        """Will be set to true when the resource is successfully parsed
+        (after a successful try_parse_data call)
+        """
 
         self.reporters: set[Resource] = set()
         """Collection of all the resources having reported this resource
@@ -741,6 +746,10 @@ class Resource(abc.ABC):
 
         Note this can both add found resources to the file,
         and wait before further parsing its own data (by raising ResourceParseInProgress).
+
+        If data is successfully parsed, the method should return normally
+        and RESOURCE_PARSE_SUCCESS should be returned.
+        Then this will not be called again.
         """
         ...
 
@@ -923,7 +932,7 @@ class ZeroPaddingResource(Resource):
 
     def try_parse_data(self, memory_context):
         # Nothing specific to do
-        pass
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_reference(self, resource_offset):
         raise ValueError("Referencing zero padding should not happen")
@@ -956,7 +965,7 @@ class BinaryBlobResource(Resource):
 
     def try_parse_data(self, memory_context):
         # Nothing specific to do
-        pass
+        return RESOURCE_PARSE_SUCCESS
 
     def get_c_reference(self, resource_offset):
         return f"&{self.symbol_name}[{resource_offset}]"

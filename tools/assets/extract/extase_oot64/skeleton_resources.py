@@ -75,7 +75,7 @@ class LimbsArrayResource(CDataResource, can_size_be_unknown=True):
         if self.length is not None:
             self.cdata_ext = CDataExt_Array(self.elem_cdata_ext, self.length)
             self.range_end = self.range_start + self.cdata_ext.size
-            super().try_parse_data(memory_context)
+            return super().try_parse_data(memory_context)
         else:
             raise ResourceParseWaiting(waiting_for=["self.length"])
 
