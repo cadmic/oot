@@ -57,6 +57,8 @@ def xml_process_file(
      to file_range_start.
      Note that typically file_range_start is 0 when a whole baserom file
      corresponds to a single <File> / File object.
+     TODO : move file_range_start usage to inside this function, instead of returning the value.
+            it'd make sense since it's used only for children of the <File>
 
     This does not process the resources inside the <File>
     (for that, see xml_process_resources_of_file)
@@ -177,12 +179,24 @@ def xml_process_resources_of_file(
 
     prev_resource = None
 
+    list_ResourceNeedsPostProcessException: list[
+        z64_resource_handlers.ResourceNeedsPostProcessException
+    ] = []
+    list_ResourceNeedsPostProcessWithFileRangeStartException: list[
+        z64_resource_handlers.ResourceNeedsPostProcessWithFileRangeStartException
+    ] = []
+    list_ResourceNeedsPostProcessWithFilesException: list[
+        z64_resource_handlers.ResourceNeedsPostProcessWithFilesException
+    ] = []
+
     for resource_elem in file_elem:
 
         # A resource element is allowed to not set Offset,
         # then its start offset defaults to the end offset of the element before it.
         if prev_resource is not None:
-            # Note this may be None
+            # Note this default_offset may still be None,
+            # for example if prev_resource is a dlist.
+            # TODO this may differ from the desired behavior
             default_offset = prev_resource.range_end
         else:
             default_offset = None
@@ -201,18 +215,34 @@ def xml_process_resources_of_file(
             # Typically a File is the full base file and file_range_start is 0.
             file_offset = base_file_offset - file_range_start
 
-        resource = z64_resource_handlers.get_resource_from_xml(
-            file, resource_elem, file_offset
-        )
+        try:
+            resource = z64_resource_handlers.get_resource_from_xml(
+                file, resource_elem, file_offset
+            )
+        except z64_resource_handlers.ResourceNeedsPostProcessException as e:
+            resource = e.resource
+            list_ResourceNeedsPostProcessException.append(e)
+        except z64_resource_handlers.ResourceNeedsPostProcessWithFileRangeStartException as e:
+            resource = e.resource
+            list_ResourceNeedsPostProcessWithFileRangeStartException.append(e)
+        except z64_resource_handlers.ResourceNeedsPostProcessWithFilesException as e:
+            resource = e.resource
+            list_ResourceNeedsPostProcessWithFilesException.append(e)
 
         file.add_resource(resource)
 
         prev_resource = resource
 
+    for e in list_ResourceNeedsPostProcessException:
+        e.callback()
+    for e in list_ResourceNeedsPostProcessWithFileRangeStartException:
+        e.callback(file_range_start)
+
     # At this point, all xml-declared resources were turned into the
     # appropriate resource objects, with no parsing nor discovering
     # other resources done at all (yet).
     # So the file resources are exactly the ones declared in the xml.
+    # TODO ^ not true anymore when ResourceNeedsPostProcessWithFilesException
 
     if VERBOSE1:
         print(file)
@@ -221,6 +251,26 @@ def xml_process_resources_of_file(
     # Check if xml-declared resources overlap
     file.sort_resources()
     file.check_overlapping_resources()
+
+    if list_ResourceNeedsPostProcessWithFilesException:
+        raise Wrapped_ResourceNeedsPostProcessWithFilesException(
+            list_ResourceNeedsPostProcessWithFilesException
+        )
+
+
+class Wrapped_ResourceNeedsPostProcessWithFilesException(Exception):
+    def __init__(
+        self,
+        list_ResourceNeedsPostProcessWithFilesException: list[
+            z64_resource_handlers.ResourceNeedsPostProcessWithFilesException
+        ],
+    ):
+        self.list_ResourceNeedsPostProcessWithFilesException = (
+            list_ResourceNeedsPostProcessWithFilesException
+        )
+
+    def __repr__(self):
+        return f"Wrapped_ResourceNeedsPostProcessWithFilesException({self.list_ResourceNeedsPostProcessWithFilesException!r})"
 
 
 def extract_xml(sub_path: Path):
@@ -280,6 +330,10 @@ def extract_xml(sub_path: Path):
         own_files_by_segment: dict[int, list[File]] = dict()
         direct_external_files_by_segment: dict[int, list[File]] = dict()
 
+        list_Wrapped_ResourceNeedsPostProcessWithFilesException: list[
+            Wrapped_ResourceNeedsPostProcessWithFilesException
+        ] = []
+
         for file_elem in root_elem:
             xml_errors.xml_check_tag(file_elem, {"File", "ExternalFile"})
 
@@ -291,7 +345,10 @@ def extract_xml(sub_path: Path):
                     base_memory_context, file_elem, own_files_by_segment
                 )
 
-                xml_process_resources_of_file(file_elem, file, file_range_start)
+                try:
+                    xml_process_resources_of_file(file_elem, file, file_range_start)
+                except Wrapped_ResourceNeedsPostProcessWithFilesException as e:
+                    list_Wrapped_ResourceNeedsPostProcessWithFilesException.append(e)
 
                 if file.data is not None:  # TODO this is vaguely jank,
                     # should find a better way to know if a file should be extracted (Extract in the xml)
@@ -345,6 +402,10 @@ def extract_xml(sub_path: Path):
         if __debug__:
             names = [file.name for file in direct_external_files]
             assert len(names) == len(set(names)), direct_external_files
+
+        for we in list_Wrapped_ResourceNeedsPostProcessWithFilesException:
+            for e in we.list_ResourceNeedsPostProcessWithFilesException:
+                e.callback(own_files + direct_external_files)
 
         return (
             own_files,
@@ -429,11 +490,6 @@ def extract_xml(sub_path: Path):
             res = callback(file, file_memory_context)
             results.append(res)
 
-            # At this point the file is completely mapped with resources
-            # (though per the above TODO this will be reworked)
-
-            file.set_resources_paths(top_extract_path, BUILD_PATH)
-
             if VERBOSE1:
                 print(file.str_report())
 
@@ -483,6 +539,10 @@ def extract_xml(sub_path: Path):
         file.sort_resources()
         assert not file.get_overlapping_resources()
 
+    # At this point all files are completely mapped with resources
+    for file in top_own_files:
+        file.set_resources_paths(top_extract_path, BUILD_PATH)
+
     # 4)
 
     def file_do_write(file: File, file_memory_context: MemoryContext):
@@ -529,6 +589,8 @@ def main():
                 print("Error extracting", i + 1, sub_path)
                 raise
 
+    # extract_xml(Path("objects/object_ydan_objects"))
+    # extract_xml(Path("objects/object_fd2")) # TODO xml needs TLUT fixing, see VERBOSE_BEST_EFFORT_TLUT_NO_REAL_USER
     # extract_xml(Path("objects/object_am"))
     # extract_xml(Path("scenes/indoors/hylia_labo"))
     # extract_xml(Path("objects/gameplay_keep"))

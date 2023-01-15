@@ -144,6 +144,14 @@ class File:
         self._is_resources_sorted = True
 
     def get_resource_at(self, offset: int):
+        if __debug__:
+            # FIXME when resources overlap during parse, nothing catches that
+            # (and nothing can really catch it because of the unk-size resources)
+            # probably implement this check properly by finding all resources at the offset below,
+            # hopefully there is at most one and do normal operation,
+            # or if there are >=2 then error (or best_effort: pick the furthest resource?)
+            self.sort_resources()
+            self.check_overlapping_resources()
         assert offset < self.size
 
         # Resources may use a defined range with both start and end defined,
@@ -238,6 +246,38 @@ class File:
         try:
             resources_data_not_parsed = self.get_non_parsed_resources()
             if resources_data_not_parsed:
+                print(len(resources_data_not_parsed), "resource(s) not parsed:")
+                for resource in resources_data_not_parsed:
+                    print(resource)
+                    if hasattr(resource, "last_parse_waiting_e"):
+                        print(
+                            "  last_parse_waiting_e =",
+                            repr(resource.last_parse_waiting_e),
+                        )
+                    else:
+                        print("??? no last_parse_waiting_e ???")
+                        print("then why has", resource.name, "not been parsed?")
+                BEST_EFFORT = True  # TODO move
+                if BEST_EFFORT:
+                    print("BEST_EFFORT: removing non-parsed resources")
+                    for resource in resources_data_not_parsed:
+                        self._resources.remove(resource)
+                        self.add_resource(
+                            BinaryBlobResource(
+                                self,
+                                resource.range_start,
+                                (
+                                    resource.range_end
+                                    if resource.range_end is not None
+                                    else (
+                                        resource.range_start
+                                        + 4  # TODO 4 if I_D_OMEGALUL else 1
+                                    )
+                                ),
+                                f"{resource.name}_bin_placeholder",
+                            )
+                        )
+                    return
                 raise Exception(
                     "resources not parsed",
                     len(resources_data_not_parsed),
@@ -263,6 +303,7 @@ class File:
                 if resource.is_data_parsed:
                     pass
                 else:
+                    resource.last_parse_waiting_e = None
                     resource_memory_context = file_memory_context  # TODO
                     try:
                         ret_try_parse_data = resource.try_parse_data(
@@ -291,6 +332,7 @@ class File:
                                     e.waiting_for,
                                 )
                             )
+                        resource.last_parse_waiting_e = e
                     except ResourceParseException as e:  # TODO ResourceParseImpossible ?
                         # TODO replace resource with binblob or something idk
                         print("Error while attempting to parse data", resource)
@@ -908,7 +950,7 @@ class Resource(abc.ABC):
                             else "..."
                         )
                     ),
-                    f"file.name={self.file.name!r}",
+                    f"file_name={self.file.name!r}",
                 )
             )
             + ")"

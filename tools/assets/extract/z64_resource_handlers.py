@@ -1,7 +1,12 @@
 from xml.etree import ElementTree
 from typing import Callable
 
-from .extase import File, Resource, BinaryBlobResource
+from .extase import (
+    GetResourceAtResult,
+    File,
+    Resource,
+    BinaryBlobResource,
+)
 from .extase.cdata_resources import Vec3sArrayResource
 
 from . import xml_errors
@@ -9,6 +14,72 @@ from . import xml_errors
 #
 # resource handlers
 #
+
+
+class ResourceHandlerException(Exception):
+    ...
+
+
+class ResourceNeedsPostProcessException(ResourceHandlerException):
+    def __init__(
+        self,
+        *args,
+        resource: Resource,
+        callback: Callable[[], None],
+    ):
+        super().__init__(*args)
+        self.resource = resource
+        self.callback = callback
+
+    def __repr__(self) -> str:
+        return (
+            super().__repr__().removesuffix(")")
+            + f", resource={self.resource!r}"
+            + f", callback={self.callback!r})"
+        )
+
+
+class ResourceNeedsPostProcessWithFilesException(ResourceHandlerException):
+    def __init__(
+        self,
+        *args,
+        resource: Resource,
+        callback: Callable[[list[File]], None],
+    ):
+        super().__init__(*args)
+        self.resource = resource
+        self.callback = callback
+
+    def __repr__(self) -> str:
+        return (
+            super().__repr__().removesuffix(")")
+            + f", resource={self.resource!r}"
+            + f", callback={self.callback!r})"
+        )
+
+
+# TODO the "WithFileRangeStart" part is hacky,
+# but it's specifically needed to handle <Texture>'s TlutOffset
+class ResourceNeedsPostProcessWithFileRangeStartException(ResourceHandlerException):
+    def __init__(
+        self,
+        *args,
+        resource: Resource,
+        # Takes file_range_start as argument
+        # (the offset of the File the Resource lives in,
+        #  relative to the baserom file (typically 0))
+        callback: Callable[[int], None],
+    ):
+        super().__init__(*args)
+        self.resource = resource
+        self.callback = callback
+
+    def __repr__(self) -> str:
+        return (
+            super().__repr__().removesuffix(")")
+            + f", resource={self.resource!r}"
+            + f", callback={self.callback!r})"
+        )
 
 
 def resource_handler(
@@ -233,12 +304,16 @@ def register_resource_handlers():
                 "ExternalTlut",
                 "ExternalTlutOffset",
                 "SplitTlut",
+                # extase extension:
+                "Tlut",
             },
         )
-        # TODO use OutName, TlutOffset
+        # TODO use or rework OutName, ExternalTlut, ExternalTlutOffset
         format_str = resource_elem.attrib["Format"]
         width_str = resource_elem.attrib["Width"]
         height_str = resource_elem.attrib["Height"]
+        tlut_offset_str = resource_elem.attrib.get("TlutOffset")
+        tlut_str = resource_elem.attrib.get("Tlut")
 
         try:
             format_fmt, format_siz = texture_formats[format_str.lower()]
@@ -250,7 +325,7 @@ def register_resource_handlers():
         width = int(width_str)
         height = int(height_str)
 
-        return dlist_resources.TextureResource(
+        resource = dlist_resources.TextureResource(
             file,
             offset,
             resource_elem.attrib["Name"],
@@ -259,6 +334,83 @@ def register_resource_handlers():
             width,
             height,
         )
+
+        if format_fmt == dlist_resources.G_IM_FMT.CI:
+            assert not (tlut_offset_str is not None and tlut_str is not None)
+            if tlut_offset_str is not None:
+                # offset relative to the baserom file
+                tlut_offset = int(tlut_offset_str, 16)
+
+                def callback_set_tlut(file_range_start: int):
+                    tlut_file_offset = tlut_offset - file_range_start
+                    result, resource_tlut = file.get_resource_at(tlut_file_offset)
+                    # This assert failing typically means a <Texture> uses a TlutOffset for which
+                    # a resource hasn't been added to the xml, it can be fixed by adding the adequate tlut
+                    # as a resource.
+                    assert result == GetResourceAtResult.DEFINITIVE, (
+                        result,
+                        resource_elem,
+                        resource_elem.attrib,
+                        resource,
+                        hex(tlut_offset),
+                        hex(tlut_file_offset),
+                        resource_tlut,
+                    )
+                    # the TlutOffset used is an offset into the middle of a resource, check the xml,
+                    # maybe a resource is declared larger than it really is and overlaps with the TLUT
+                    assert resource_tlut.range_start == tlut_file_offset
+                    resource.set_tlut(resource_tlut)
+
+                raise ResourceNeedsPostProcessWithFileRangeStartException(
+                    resource=resource, callback=callback_set_tlut
+                )
+            if tlut_str is not None:
+                tlut_str_parts = tlut_str.split(":")
+                assert len(tlut_str_parts) <= 2, (tlut_str, tlut_str_parts)
+
+                def callback_set_tlut_common(file_tlut: File, tlut_resource_name):
+                    resource_tlut_candidates = [
+                        res
+                        for res in file_tlut._resources
+                        if res.name == tlut_resource_name
+                    ]
+                    assert len(resource_tlut_candidates) == 1, resource_tlut_candidates
+                    resource_tlut = resource_tlut_candidates[0]
+                    resource.set_tlut(resource_tlut)
+
+                if len(tlut_str_parts) == 1:
+                    (tlut_resource_name,) = tlut_str_parts
+
+                    def callback_set_tlut():
+                        callback_set_tlut_common(file, tlut_resource_name)
+
+                    raise ResourceNeedsPostProcessException(
+                        resource=resource, callback=callback_set_tlut
+                    )
+                else:
+                    (
+                        tlut_file_name,
+                        tlut_resource_name,
+                    ) = tlut_str_parts
+
+                    def callback_set_tlut(files: list[File]):
+                        file_tlut_candidates = [
+                            f for f in files if f.name == tlut_file_name
+                        ]
+                        assert len(file_tlut_candidates) == 1, file_tlut_candidates
+                        file_tlut = file_tlut_candidates[0]
+                        callback_set_tlut_common(file_tlut, tlut_resource_name)
+
+                    raise ResourceNeedsPostProcessWithFilesException(
+                        resource=resource, callback=callback_set_tlut
+                    )
+
+        else:
+            # TODO XmlProcessError
+            assert tlut_offset_str is None
+            assert tlut_str is None
+
+        return resource
 
     def PlayerAnimationData_handler(
         file: File,
@@ -464,24 +616,31 @@ def get_resource_from_xml(
     if resource_handler is None:
         raise Exception("Unknown resource tag", resource_elem.tag)
 
-    resource = resource_handler(file, resource_elem, offset)
-
     static_str = resource_elem.attrib.get("Static")
     if static_str is not None:
         assert static_str in {"On", "Off"}
         is_static = static_str == "On"
-        if is_static:
-            # TODO nice hack right here.
-            # probably instead rework the "c declaration" system into a more opaque object
-            # not that this is really a required long term feature as it's only relevant for writing the source files (main .c/.h), not extracting
-            if file.name.startswith("ovl_"):
-                resource.HACK_IS_STATIC_ON = ...
-            else:
-                # TODO
-                # object_link_ boy/child has Static="On"
-                # and ofc the static forward declaration means the .h declares bss
-                # not sure what "Static" means... again not really required long term
-                print("Ignoring static on", file.name)
+    else:
+        is_static = False  # TODO see below
+
+    try:
+        resource = resource_handler(file, resource_elem, offset)
+    except ResourceHandlerException as e:
+        assert not is_static, ("cant have", e, "when is_static (not implemented)")
+        raise
+
+    if is_static:
+        # TODO nice hack right here.
+        # probably instead rework the "c declaration" system into a more opaque object
+        # not that this is really a required long term feature as it's only relevant for writing the source files (main .c/.h), not extracting
+        if file.name.startswith("ovl_"):
+            resource.HACK_IS_STATIC_ON = ...
+        else:
+            # TODO
+            # object_link_ boy/child has Static="On"
+            # and ofc the static forward declaration means the .h declares bss
+            # not sure what "Static" means... again not really required long term
+            print("Ignoring static on", file.name)
         """
         see https://github.com/zeldaret/ZAPD/blob/master/docs/zapd_extraction_xml_reference.md#resources-types
         for what's the deal with static

@@ -174,7 +174,7 @@ class AddressResolveResult:
         return (
             "AddressResolveResult("
             f"original_address=0x{self.original_address:08X}, "
-            f"file.name={self.file.name!r}, "
+            f"file_name={self.file.name!r}, "
             f"file_offset=0x{self.file_offset:X})"
         )
 
@@ -326,6 +326,8 @@ class MemoryContext:
                         "and fake_resource=",
                         fake_resource,
                     )
+                fake_file.FAKE_FOR_BEST_EFFORT = True
+                fake_resource.FAKE_FOR_BEST_EFFORT = True
                 return fake_resource
             raise
         try:

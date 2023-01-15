@@ -31,3 +31,20 @@ class G_IM_SIZ(enum.Enum):
 
 
 G_IM_SIZ.by_i = {siz.i: siz for siz in G_IM_SIZ}
+
+
+G_MDSFT_TEXTLUT = 14
+
+
+class G_TT(enum.Enum):
+    NONE = 0b00 << G_MDSFT_TEXTLUT
+    RGBA16 = 0b10 << G_MDSFT_TEXTLUT
+    IA16 = 0b11 << G_MDSFT_TEXTLUT
+
+    def __init__(self, i: int):
+        self.i = i
+
+    by_i: dict[int, "G_TT"]
+
+
+G_TT.by_i = {tt.i: tt for tt in G_TT}

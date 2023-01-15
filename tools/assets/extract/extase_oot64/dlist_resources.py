@@ -1,5 +1,6 @@
 from pathlib import Path
 import enum
+import reprlib
 
 import io
 
@@ -10,6 +11,7 @@ if TYPE_CHECKING:
 
 from ..extase import (
     RESOURCE_PARSE_SUCCESS,
+    ResourceParseWaiting,
     Resource,
     File,
 )
@@ -20,6 +22,12 @@ from ..extase.cdata_resources import (
     CDataExt_Value,
     INDENT,
 )
+
+
+BEST_EFFORT = True
+
+VERBOSE_ColorIndexedTexturesManager = False
+VERBOSE_BEST_EFFORT_TLUT_NO_REAL_USER = True
 
 
 # FIXME ...
@@ -144,7 +152,7 @@ class VtxArrayResource(CDataResource):
         return f"&{self.symbol_name}[{index}]"
 
 
-from ...n64 import G_IM_FMT, G_IM_SIZ
+from ...n64 import G_IM_FMT, G_IM_SIZ, G_TT, G_MDSFT_TEXTLUT
 
 sys.path.insert(0, "/home/dragorn421/Documents/n64texconv/")
 import n64texconv
@@ -160,10 +168,31 @@ def png_from_data(
     assert alpha
     assert bitdepth == 8
 
-    # unimplemented
-    assert palette is None
+    if palette is None:
+        raw2png.write(outpath, width, height, bytearray(image_data))
+    else:
 
-    raw2png.write(outpath, width, height, bytearray(image_data))
+        assert len(palette) == HACK_DEBUG_EXPECTED_PALETTE_LENGTH, (
+            len(palette),
+            palette,
+        )
+
+        # TODO not entirely sure write_paletted takes a `palette`,
+        # for some reason I make use of the buffer protocol (I think) in write_paletted???
+
+        palette_buffer = []
+        for c in palette:
+            palette_buffer.extend(c)
+
+        # TODO figure out passing read only data through ctypes
+        raw2png.write_paletted(
+            outpath,
+            width,
+            height,
+            bytearray(palette_buffer),
+            len(palette),
+            bytearray(image_data),
+        )
 
 
 n64texconv.png_from_data = png_from_data
@@ -174,6 +203,27 @@ def write_n64_image_to_png(
 ):
     tex = n64texconv.Image.from_bin(data, width, height, fmt.i, siz.i, None)
     tex.to_png(path)
+
+
+def write_n64_image_to_png_color_indexed(
+    path: Path,
+    width: int,
+    height: int,
+    fmt: G_IM_FMT,
+    siz: G_IM_SIZ,
+    data: memoryview,
+    tlut_data: memoryview,
+    tlut_count: int,
+    tlut_fmt: G_IM_FMT,
+):
+    tlut = n64texconv.Image.palette_from_bin(
+        bytearray(tlut_data), tlut_count, tlut_fmt.i
+    )
+    tex = n64texconv.Image.from_bin(data, width, height, fmt.i, siz.i, tlut)
+    global HACK_DEBUG_EXPECTED_PALETTE_LENGTH
+    HACK_DEBUG_EXPECTED_PALETTE_LENGTH = tlut_count
+    tex.to_png(path)
+    del HACK_DEBUG_EXPECTED_PALETTE_LENGTH
 
 
 class TextureResource(Resource):
@@ -202,6 +252,12 @@ class TextureResource(Resource):
         self.width = width
         self.height = height
 
+        # For handling color-indexed textures:
+        self.resource_tlut: Optional[TextureResource] = None
+        """For CI textures, the TLUT used"""
+        self.resources_ci_list: list[TextureResource] = []
+        """For TLUT "textures", the CI textures using it"""
+
         if size_bytes % 8 == 0 and range_start % 8 == 0:
             self.alignment = 8
         elif size_bytes % 4 == 0 and range_start % 4 == 0:
@@ -220,14 +276,10 @@ class TextureResource(Resource):
         self.width_name = f"{self.symbol_name}_WIDTH"
         self.height_name = f"{self.symbol_name}_HEIGHT"
 
-    def get_filename_stem(self):
-        return (
-            super().get_filename_stem()
-            + f".{self.fmt.name.lower()}{self.siz.bpp}.{self.elem_type}"
-        )
-
     def get_c_declaration_base(self):
         if hasattr(self, "HACK_IS_STATIC_ON"):
+            if self.is_tlut():
+                raise NotImplementedError
             return f"{self.elem_type} {self.symbol_name}[{self.height_name}*{self.width_name}*{self.siz.bpp}/8/sizeof({self.elem_type})]"
         return f"{self.elem_type} {self.symbol_name}[]"
 
@@ -237,25 +289,278 @@ class TextureResource(Resource):
         else:
             raise ValueError(self, hex(resource_offset))
 
+    def resources_ci_list_append(self, resource_ci: "TextureResource"):
+        if resource_ci not in self.resources_ci_list:
+            self.resources_ci_list.append(resource_ci)
+
+        if __debug__:
+            # if not a TLUTResource, but only a TextureResource,
+            # this TLUT is xml-defined (using <Texture>)
+            if self.__class__ == TextureResource:
+                # check the CI texture doesn't index OOB into this tlut
+
+                if resource_ci.file.data is None:
+                    # TODO see similar in TLUTResource.resources_ci_list_append
+                    return
+
+                # Copypasted from TLUTResource.resources_ci_list_append
+
+                resource_ci_data = resource_ci.file.data[
+                    resource_ci.range_start : resource_ci.range_end
+                ]
+
+                assert resource_ci.siz in {G_IM_SIZ._4b, G_IM_SIZ._8b}
+
+                if resource_ci.siz == G_IM_SIZ._4b:
+                    v_max = max(max((b >> 4) & 0xF, b & 0xF) for b in resource_ci_data)
+                    assert v_max < 16
+
+                if resource_ci.siz == G_IM_SIZ._8b:
+                    v_max = max(resource_ci_data)
+                    assert v_max < 256
+
+                new_min_count = v_max + 1
+
+                # end Copypasted
+
+                cur_count = self.width * self.height
+
+                assert cur_count >= new_min_count, (
+                    cur_count,
+                    new_min_count,
+                    self,
+                    resource_ci,
+                )
+
+    def set_tlut(self, resource_tlut: "TextureResource"):
+        assert self.fmt == G_IM_FMT.CI, (self, resource_tlut)
+        if self.resource_tlut is not None:
+            HACK_NO_FAIL_MULTIPLE_TLUTS = self.name in {
+                "gZelda2Tex_003A08",
+            }
+            if self.resource_tlut != resource_tlut and not HACK_NO_FAIL_MULTIPLE_TLUTS:
+                # Technically not impossible so NotImplementedError
+                raise NotImplementedError(
+                    "Color-indexed texture using two different TLUTs",
+                    self.resource_tlut,
+                    resource_tlut,
+                )
+            return
+
+        # Assert resource_tlut is rgba16.
+        # Note it could be ia16, but that's not implemented
+        assert (
+            resource_tlut.fmt == G_IM_FMT.RGBA and resource_tlut.siz == G_IM_SIZ._16b
+        ), resource_tlut
+
+        self.resource_tlut = resource_tlut
+        assert self not in resource_tlut.resources_ci_list
+        resource_tlut.resources_ci_list_append(self)
+
     def try_parse_data(self, memory_context):
-        # Nothing to do
-        return RESOURCE_PARSE_SUCCESS
+        if self.fmt != G_IM_FMT.CI:
+            # Nothing to do
+            return RESOURCE_PARSE_SUCCESS
+        else:
+            if self.resource_tlut is None:
+                raise ResourceParseWaiting(waiting_for=["self.resource_tlut"])
+            return RESOURCE_PARSE_SUCCESS
+
+    def is_tlut(self):
+        """The result is only meaningful after all resources have been parsed
+
+        (otherwise, for example, the dlists referencing this resource
+        as a tlut may not have been parsed and this would be considered
+        a regular texture)
+        """
+        return len(self.resources_ci_list) != 0
+
+    def is_shared_tlut(self):
+        # Same caveat as is_tlut
+        return len(self.resources_ci_list) >= 2
+
+    def tlut_get_count(self):
+        assert self.is_tlut()
+        return self.width * self.height
+
+    def get_filename_stem(self):
+        format_name = f"{self.fmt.name.lower()}{self.siz.bpp}"
+        if self.fmt == G_IM_FMT.CI:
+            assert self.resource_tlut is not None
+            tlut_info = f"tlut_{self.resource_tlut.name}_{self.resource_tlut.elem_type}"
+            if self.resource_tlut.is_shared_tlut():
+                return f"{self.name}.{format_name}.{tlut_info}.{self.elem_type}"
+            else:
+                # TODO this can't work rn because the tlut resource's path is still based
+                # on its own name, not the name of its only texture user
+                # return f"{self.name}.{format_name}.{self.elem_type}"
+                return f"{self.name}.{format_name}.{tlut_info}.{self.elem_type}"
+        elif self.is_tlut():
+            return f"{self.name}.tlut.{format_name}.{self.elem_type}"
+        else:
+            return f"{self.name}.{format_name}.{self.elem_type}"
 
     def write_extracted(self, memory_context):
+        if self.is_tlut():
+            # TLUTs are extracted as part of the color-indexed textures using them
+
+            def is_all_resources_fake():
+                return all(
+                    hasattr(res, "FAKE_FOR_BEST_EFFORT")
+                    for res in self.resources_ci_list
+                )
+
+            if BEST_EFFORT:
+                if is_all_resources_fake():
+                    assert self.fmt == G_IM_FMT.RGBA
+
+                    if VERBOSE_BEST_EFFORT_TLUT_NO_REAL_USER:
+                        print(
+                            "BEST_EFFORT",
+                            "no real (non-fake for best effort) ci resource uses this tlut\n ",
+                            self,
+                            "\n  extracting the tlut as its own png",
+                            self.extract_to_path.resolve().as_uri(),
+                            "instead of relying on it being generated",
+                            "\n  (note while the result may build and match the tlut probably is",
+                            "the wrong size since there was no ci image to take/guess its length from)",
+                        )
+
+                    # Extract the tlut as png instead of relying on
+                    # it being generated from pngs using it, since
+                    # there are no such pngs.
+                    # (Copypaste of the general case (non-tlut) below):
+                    data = self.file.data[self.range_start : self.range_end]
+                    assert len(data) == self.range_end - self.range_start
+                    write_n64_image_to_png(
+                        self.extract_to_path,
+                        self.width,
+                        self.height,
+                        self.fmt,
+                        self.siz,
+                        data,
+                    )
+            else:
+                # assert this TLUT is used by at least one real resource,
+                # otherwise it won't be generated by anything
+                assert not is_all_resources_fake()
+            return
+
         data = self.file.data[self.range_start : self.range_end]
         assert len(data) == self.range_end - self.range_start
         if self.fmt == G_IM_FMT.CI:
-            # TODO
-            self.extract_to_path.with_suffix(".bin").write_bytes(data)
-            return
-        write_n64_image_to_png(
-            self.extract_to_path, self.width, self.height, self.fmt, self.siz, data
-        )
+            tlut_data = self.resource_tlut.file.data[
+                self.resource_tlut.range_start : self.resource_tlut.range_end
+            ]
+            tlut_count = self.resource_tlut.tlut_get_count()
+            tlut_fmt = self.resource_tlut.fmt
+            write_n64_image_to_png_color_indexed(
+                self.extract_to_path,
+                self.width,
+                self.height,
+                self.fmt,
+                self.siz,
+                data,
+                tlut_data,
+                tlut_count,
+                tlut_fmt,
+            )
+        else:
+            write_n64_image_to_png(
+                self.extract_to_path, self.width, self.height, self.fmt, self.siz, data
+            )
 
     def write_c_declaration(self, h: io.TextIOBase):
-        h.writelines((f"#define {self.width_name} {self.width}\n"))
-        h.writelines((f"#define {self.height_name} {self.height}\n"))
+        if self.is_tlut():
+            # TODO
+            h.writelines(
+                (f"//#define {self.symbol_name}_TLUT_COUNT {self.tlut_get_count()}\n",)
+            )
+        else:
+            h.writelines(
+                (
+                    f"#define {self.width_name} {self.width}\n",
+                    f"#define {self.height_name} {self.height}\n",
+                )
+            )
         super().write_c_declaration(h)
+
+    @reprlib.recursive_repr()
+    def __repr__(self):
+        return super().__repr__().removesuffix(")") + (
+            f", fmt={self.fmt}, siz={self.siz}"
+            f", width={self.width}, height={self.height}"
+            f", elem_type={self.elem_type}"
+            f", resource_tlut={self.resource_tlut}, resources_ci_list={self.resources_ci_list}"
+            ")"
+        )
+
+
+class TLUTResource(TextureResource, can_size_be_unknown=True):
+    """
+    Note this resource is only used for discovered TLUTs, not tluts from xmls
+    (TODO maybe change the xmls eventually)
+    Discovered TLUTs are different because their size is unknown
+    """
+
+    def __init__(self, file: File, range_start: int, name: str, fmt: G_IM_FMT):
+        assert fmt in {G_IM_FMT.RGBA, G_IM_FMT.IA}
+
+        # just to make TextureResource.__init__ happy
+        # Note these values are picked so u64 elem_type is possible
+        fake_width = 4
+        fake_height = 1
+
+        super().__init__(
+            file, range_start, name, fmt, G_IM_SIZ._16b, fake_width, fake_height
+        )
+
+    def tlut_get_count(self):
+        if self.range_end is None:
+            raise Exception("cannot tlut_get_count, unknown count yet")
+        return super().tlut_get_count()
+
+    def resources_ci_list_append(self, resource_ci: "TextureResource"):
+        super().resources_ci_list_append(resource_ci)
+
+        if resource_ci.file.data is None:
+            # Can't expand length, the user CI texture has no data attached
+            # TODO handle better? but idk
+            # maybe just a warning
+            return
+
+        resource_ci_data = resource_ci.file.data[
+            resource_ci.range_start : resource_ci.range_end
+        ]
+
+        assert resource_ci.siz in {G_IM_SIZ._4b, G_IM_SIZ._8b}
+
+        if resource_ci.siz == G_IM_SIZ._4b:
+            v_max = max(max((b >> 4) & 0xF, b & 0xF) for b in resource_ci_data)
+            assert v_max < 16
+
+        if resource_ci.siz == G_IM_SIZ._8b:
+            v_max = max(resource_ci_data)
+            assert v_max < 256
+
+        new_min_count = v_max + 1
+
+        assert self.height == 1
+        if new_min_count > self.width:
+            # round width up to a multiple of 4, for elem_type=u64
+            self.width = (new_min_count + 3) // 4 * 4
+
+            assert self.width <= 256
+
+            # TODO HACK this is hacky because not explicitly permitted,
+            # once set self.range_end is assumed to be fixed
+            # but surely it'll be fine (copium)
+            # In practice nothing should reference inside a tlut,
+            # so the resource has all the time to expand.
+            # A better implementation would be to give a "final warning" kind of signal
+            # to the resource on try_parse_data (add optional tryhard_parse_data ?)
+            assert self.siz == G_IM_SIZ._16b
+            self.range_end = self.range_start + self.width * self.height * 2
 
 
 def gfxdis(
@@ -448,6 +753,9 @@ def gfxdis(
 
             # TODO consider:
             if exceptions:
+                pygfxd.gfxd_input_buffer(
+                    b""
+                )  # interrupt current execution TODO check if this is safe and if it works
                 ret = 1
 
             return ret
@@ -459,6 +767,7 @@ def gfxdis(
 
             # TODO consider:
             if exceptions:
+                pygfxd.gfxd_input_buffer(b"")  # TODO see same line above
                 ret = 1
 
             return ret
@@ -570,6 +879,207 @@ class Ucode(enum.Enum):
         self.gfxd_ucode = gfxd_ucode
 
 
+# TODO probably need to split TLUTResource from TextureResource
+# to achieve cleaner code,
+# tluts behave very differently
+
+# TODO maybe refactor this once it works tm
+class ColorIndexedTexturesManager:
+    from dataclasses import dataclass
+
+    @dataclass
+    class Tex:
+        timg: int
+        fmt: G_IM_FMT
+        siz: G_IM_SIZ
+        width: int
+        height: int
+        pal: int
+
+    @dataclass
+    class Tlut:
+        tlut: int
+        idx: int
+        count: int
+
+    @dataclass
+    class CIState:
+        tlut_mode: G_TT
+        tluts_count: int
+        tluts: dict[int, "ColorIndexedTexturesManager.Tlut"]
+        texs: list["ColorIndexedTexturesManager.Tex"]
+
+    def __init__(self) -> None:
+        self.cur_tlut_mode: G_TT = None
+
+        self.cur_tluts_count: int = None
+        self.cur_tluts: dict[int, ColorIndexedTexturesManager.Tlut] = dict()
+        self.cur_texs: list[ColorIndexedTexturesManager.Tex] = []
+
+        self.ci_states: list[ColorIndexedTexturesManager.CIState] = []
+
+    def ci_timg(self, timg, fmt: G_IM_FMT, siz: G_IM_SIZ, width, height, pal):
+        if VERBOSE_ColorIndexedTexturesManager:
+            print(
+                "ColorIndexedTexturesManager.ci_timg",
+                hex(timg),
+                fmt,
+                siz,
+                width,
+                height,
+                pal,
+            )
+        assert fmt == G_IM_FMT.CI
+        assert self.cur_tlut_mode != G_TT.NONE
+
+        self.cur_texs.append(
+            ColorIndexedTexturesManager.Tex(timg, fmt, siz, width, height, pal)
+        )
+
+    def tlut(self, tlut, idx, count):
+        if VERBOSE_ColorIndexedTexturesManager:
+            print("ColorIndexedTexturesManager.tlut", hex(tlut), idx, count)
+        if idx == -1:
+            # HACK idx==-1 may be a libgfxd bug?
+            assert count == 256
+            idx = 0
+        assert self.cur_tlut_mode != G_TT.NONE
+        if self.cur_tluts_count != count:
+            self.cur_tluts.clear()  # TODO ? idk. (at worst it will cause errors)
+            self.cur_tluts_count = count
+        self.cur_tluts[idx] = ColorIndexedTexturesManager.Tlut(tlut, idx, count)
+
+    def tlut_mode(self, tt: G_TT):
+        if VERBOSE_ColorIndexedTexturesManager:
+            print("ColorIndexedTexturesManager.tlut_mode", tt)
+        if self.cur_tlut_mode != tt:
+            self.cur_tluts.clear()  # TODO ? idk. (at worst it will cause errors)
+            self.cur_tlut_mode = tt
+
+    def commit_state(self):
+        if self.cur_tlut_mode == G_TT.NONE:
+            return
+        if not self.cur_texs:
+            return
+        assert self.cur_tluts
+        assert self.cur_tluts_count is not None
+        if self.cur_tlut_mode is None:
+            if BEST_EFFORT:
+                # Some dlists (eg gMegamiPiece2DL) inherit G_TT_RGBA16
+                # since ia16 is uncommon if not unused, just default to that
+                self.cur_tlut_mode = G_TT.RGBA16
+        assert self.cur_tlut_mode is not None
+        cur_state = ColorIndexedTexturesManager.CIState(
+            self.cur_tlut_mode,
+            self.cur_tluts_count,
+            self.cur_tluts.copy(),
+            self.cur_texs,
+        )
+        self.cur_texs = []
+        self.ci_states.append(cur_state)
+        if VERBOSE_ColorIndexedTexturesManager:
+            print(
+                "ColorIndexedTexturesManager.commit_state",
+                "cur_state =",
+                cur_state,
+            )
+
+    def report_states(self, reporter: Resource, memory_context: "MemoryContext"):
+        if VERBOSE_ColorIndexedTexturesManager:
+            print("ColorIndexedTexturesManager.report_states")
+        for ci_state in self.ci_states:
+            if VERBOSE_ColorIndexedTexturesManager:
+                print("  ci_state =", ci_state)
+            assert ci_state.tlut_mode != G_TT.NONE
+            for tex in ci_state.texs:
+                if VERBOSE_ColorIndexedTexturesManager:
+                    print("    tex =", tex)
+                assert tex.fmt == G_IM_FMT.CI
+
+                # HACK
+                if (
+                    reporter.file.name
+                    in {
+                        "jyasinzou_room_5",
+                        "jyasinzou_room_25",
+                    }
+                    and ci_state.tluts_count == 256
+                    and tex.siz == G_IM_SIZ._4b
+                ):
+                    # For some reason jyasinzou_room_5DL_008EC0 has this:
+                    """
+                    gsDPLoadTextureBlock_4b(jyasinzou_sceneTex_019320, G_IM_FMT_CI, 64, 64, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR
+                                            | G_TX_WRAP, 6, 6, G_TX_NOLOD, G_TX_NOLOD),
+                    gsDPLoadTLUT_pal16(0, jyasinzou_sceneTLUT_018000),
+                    gsDPLoadTextureBlock(jyasinzou_room_5Tex_00DFC8, G_IM_FMT_CI, G_IM_SIZ_8b, 64, 32, 0, G_TX_NOMIRROR | G_TX_WRAP,
+                                            G_TX_NOMIRROR | G_TX_WRAP, 6, 5, G_TX_NOLOD, G_TX_NOLOD),
+                    gsDPLoadTLUT_pal256(jyasinzou_sceneTLUT_017DE0),
+                    """
+                    # (where the first texture & tlut loads are useless, overriden by the latter two)
+
+                    # -> Ignore the first texture (in `tex` at this point)
+
+                    # similar thing in jyasinzou_room_25DL_005050
+
+                    # (note the condition to restrict this to the above cases is very broad,
+                    #  just checking reporter.file.name, so this may happen more in those files
+                    #  and not have been caught and documented here)
+
+                    continue
+
+                # Not a proper hard requirement but if this fails
+                # something is probably wrong, look at details then
+                assert (
+                    ci_state.tluts_count
+                    == {
+                        G_IM_SIZ._4b: 16,
+                        G_IM_SIZ._8b: 256,
+                    }[tex.siz]
+                ), (reporter, ci_state, tex)
+
+                if ci_state.tluts_count > 16:
+                    assert ci_state.tluts.keys() == {0}, ci_state.tluts
+
+                resource = memory_context.report_resource_at_segmented(
+                    self,
+                    tex.timg,
+                    TextureResource,
+                    lambda file, offset: TextureResource(
+                        file,
+                        offset,
+                        f"{reporter.name}_{offset:08X}_CITex",
+                        tex.fmt,
+                        tex.siz,
+                        tex.width,
+                        tex.height,
+                    ),
+                )
+
+                tlut = ci_state.tluts[tex.pal]
+                assert tlut.idx == tex.pal
+                assert tlut.count == ci_state.tluts_count
+
+                resource_tlut = memory_context.report_resource_at_segmented(
+                    self,
+                    tlut.tlut,
+                    # TLUTs declared in xmls use <Texture> so are TextureResource,
+                    # so we can only expects a TextureResource
+                    # (TLUTResource is a subclass of TextureResource)
+                    TextureResource,
+                    lambda file, offset: TLUTResource(
+                        file,
+                        offset,
+                        f"{reporter.name}_{offset:08X}_TLUT",
+                        {
+                            G_TT.RGBA16: G_IM_FMT.RGBA,
+                            G_TT.IA16: G_IM_FMT.IA,
+                        }[ci_state.tlut_mode],
+                    ),
+                )
+
+                resource.set_tlut(resource_tlut)
+
+
 class DListResource(Resource, can_size_be_unknown=True):
     def __init__(
         self,
@@ -601,21 +1111,33 @@ class DListResource(Resource, can_size_be_unknown=True):
             )
             return 0
 
+        ci_tex_manager = ColorIndexedTexturesManager()
+
         def timg_cb(timg, fmt, siz, width, height, pal):
-            memory_context.report_resource_at_segmented(
-                self,
-                timg,
-                TextureResource,
-                lambda file, offset: TextureResource(
-                    file,
-                    offset,
-                    f"{self.name}_{offset:08X}_Tex",
-                    G_IM_FMT.by_i[fmt],
-                    G_IM_SIZ.by_i[siz],
-                    width,
-                    height,
-                ),
-            )
+            g_fmt = G_IM_FMT.by_i[fmt]
+            g_siz = G_IM_SIZ.by_i[siz]
+
+            if g_fmt == G_IM_FMT.CI:
+                ci_tex_manager.ci_timg(timg, g_fmt, g_siz, width, height, pal)
+            else:
+                memory_context.report_resource_at_segmented(
+                    self,
+                    timg,
+                    TextureResource,
+                    lambda file, offset: TextureResource(
+                        file,
+                        offset,
+                        f"{self.name}_{offset:08X}_Tex",
+                        g_fmt,
+                        g_siz,
+                        width,
+                        height,
+                    ),
+                )
+            return 0
+
+        def tlut_cb(tlut, idx, count):
+            ci_tex_manager.tlut(tlut, idx, count)
             return 0
 
         def mtx_cb(mtx):
@@ -643,15 +1165,49 @@ class DListResource(Resource, can_size_be_unknown=True):
             )
             return 0
 
+        def macro_fn():
+            tt = pygfxd.gfxd_value_by_type(pygfxd.GfxdArgType.Tt, 0)
+            if tt is not None:
+                tt = tt[1]
+            else:
+                othermodehi = pygfxd.gfxd_value_by_type(
+                    pygfxd.GfxdArgType.Othermodehi, 0
+                )
+                if othermodehi is not None:
+                    othermodehi = othermodehi[1]
+                    tt = othermodehi & (0b11 << G_MDSFT_TEXTLUT)
+                else:
+                    tt = None
+            if tt is not None:
+                g_tt = G_TT.by_i[tt]
+                ci_tex_manager.tlut_mode(g_tt)
+
+            macro_id = pygfxd.gfxd_macro_id()
+            if macro_id in {
+                pygfxd.GfxdMacroId.SP1Triangle,
+                pygfxd.GfxdMacroId.SP2Triangles,
+            }:
+                ci_tex_manager.commit_state()
+
+            return pygfxd.gfxd_macro_dflt()
+
         size = gfxdis(
             input_buffer=self.file.data[self.range_start :],
             target=self.target_ucode.gfxd_ucode,
             vtx_callback=vtx_cb,
             timg_callback=timg_cb,
-            # tlut_callback=, # TODO
+            tlut_callback=tlut_cb,
             mtx_callback=mtx_cb,
             dl_callback=dl_cb,
+            macro_fn=macro_fn,
         )
+
+        # Also commit state at the end of the display list.
+        # This handles "material" dlists that only load a texture,
+        # without drawing geometry.
+        ci_tex_manager.commit_state()
+
+        ci_tex_manager.report_states(self, memory_context)
 
         self.range_end = self.range_start + size
 
@@ -791,14 +1347,16 @@ class DListResource(Resource, can_size_be_unknown=True):
             # except NoSegmentBaseError: # TODO
             #    timg_c_ref = None
             except ValueError:
-                # TODO BEST_EFFORT ify this
-                # (turns out I needed this because of a mistake in a xml so it can be useful)
-                import traceback
+                if BEST_EFFORT:
+                    # (turns out I needed this because of a mistake in a xml so it can be useful)
+                    import traceback
 
-                print("vvv /* BAD TIMG REF */ vvv")
-                traceback.print_exc()
-                pygfxd.gfxd_puts("/* BAD TIMG REF */")
-                return 0
+                    print("vvv /* BAD TIMG REF */ vvv")
+                    traceback.print_exc()
+                    pygfxd.gfxd_puts("/* BAD TIMG REF */")
+                    return 0
+                else:
+                    raise
             if timg_c_ref:
                 pygfxd.gfxd_puts(timg_c_ref)
                 return 1

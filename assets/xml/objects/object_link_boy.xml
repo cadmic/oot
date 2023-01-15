@@ -241,8 +241,15 @@
         <Texture Name="gLinkAdultNoseTex" OutName="nose" Format="ci8" Width="16" Height="16" Offset="0x5100" TlutOffset="0x5C00"/>
 
         <!-- Tluts -->
+        <Texture Name="gLinkAdultTLUT_5400" OutName="tlut_5400" Format="rgba16" Width="16" Height="16" Offset="0x5400"/>
+        <Texture Name="gLinkAdultTLUT_5800" OutName="tlut_5800" Format="rgba16" Width="16" Height="16" Offset="0x5800"/>
+        <Texture Name="gLinkAdultTLUT_5A00" OutName="tlut_5A00" Format="rgba16" Width="16" Height="16" Offset="0x5A00"/>
         <Texture Name="gLinkAdultHeadTLUT" OutName="head_tlut" Format="rgba16" Width="16" Height="16" Offset="0x5C00"/>
         <Texture Name="gLinkAdultTlut_005E00" OutName="tlut_5E00" Format="rgba16" Width="16" Height="16" Offset="0x5E00"/>
+        <Texture Name="gLinkAdultTLUT_00CB40" OutName="tlut_CB40" Format="rgba16" Width="16" Height="16" Offset="0xCB40"/>
+        <Texture Name="gLinkAdultTLUT_00CD48" OutName="tlut_CD48" Format="rgba16" Width="16" Height="16" Offset="0xCD48"/>
+        <Texture Name="gLinkAdultTLUT_00CF50" OutName="tlut_CF50" Format="rgba16" Width="37" Height="4" Offset="0xCF50"/>
+        <Texture Name="gLinkAdultTLUT_00D078" OutName="tlut_D078" Format="rgba16" Width="8" Height="4" Offset="0xD078"/>
 
         <!-- Unused -->
         <Texture Name="gLinkAdultUnusedHandTex" OutName="unused_hand" Format="ci8" Width="16" Height="16" Offset="0x5300" TlutOffset="0x5C00"/>
