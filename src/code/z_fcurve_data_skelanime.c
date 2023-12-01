@@ -52,7 +52,7 @@ s32 SkelCurve_Init(PlayState* play, SkelCurve* skelCurve, CurveSkeletonHeader* s
     skelCurve->limbCount = skeletonHeader->limbCount;
     skelCurve->skeleton = SEGMENTED_TO_VIRTUAL(skeletonHeader->limbs);
 
-    skelCurve->jointTable = ZeldaArena_MallocDebug(sizeof(*skelCurve->jointTable) * skelCurve->limbCount,
+    skelCurve->jointTable = ZELDAARENA_MALLOC(sizeof(*skelCurve->jointTable) * skelCurve->limbCount,
                                                    "../z_fcurve_data_skelanime.c", 125);
     ASSERT(skelCurve->jointTable != NULL, "this->now_joint != NULL", "../z_fcurve_data_skelanime.c", 127);
     skelCurve->curFrame = 0.0f;
@@ -64,7 +64,7 @@ s32 SkelCurve_Init(PlayState* play, SkelCurve* skelCurve, CurveSkeletonHeader* s
  */
 void SkelCurve_Destroy(PlayState* play, SkelCurve* skelCurve) {
     if (skelCurve->jointTable != NULL) {
-        ZeldaArena_FreeDebug(skelCurve->jointTable, "../z_fcurve_data_skelanime.c", 146);
+        ZELDAARENA_FREE(skelCurve->jointTable, "../z_fcurve_data_skelanime.c", 146);
     }
 }
 

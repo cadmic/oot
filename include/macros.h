@@ -159,6 +159,9 @@ extern struct GraphicsContext* __gfxCtx;
 #define MATRIX_TOMTX(gfxCtx, line, file) Matrix_ToMtx(gfxCtx)
 #define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx)
 #define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSync(ram, vrom, size)
+#define ZELDAARENA_MALLOC(size, file, line) ZeldaArena_Malloc(size)
+#define ZELDAARENA_MALLOCR(size, file, line) ZeldaArena_MallocR(size)
+#define ZELDAARENA_FREE(size, file, line) ZeldaArena_Free(size)
 
 #else
 
@@ -179,6 +182,9 @@ extern struct GraphicsContext* __gfxCtx;
 #define MATRIX_TOMTX(gfxCtx, line, file) Matrix_ToMtx(gfxCtx, line, file)
 #define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx, line, file)
 #define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSyncDebug(ram, vrom, size, file, line)
+#define ZELDAARENA_MALLOC(size, file, line) ZeldaArena_MallocDebug(size, file, line)
+#define ZELDAARENA_MALLOCR(size, file, line) ZeldaArena_MallocRDebug(size, file, line)
+#define ZELDAARENA_FREE(size, file, line) ZeldaArena_FreeDebug(size, file, line)
 
 #endif
 
