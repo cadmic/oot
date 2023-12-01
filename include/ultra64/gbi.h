@@ -8,11 +8,7 @@
 /* Types */
 
 /* Private macro to wrap other macros in do {...} while (0) */
-#ifdef RETAIL
-#define _DW(macro) macro
-#else
 #define _DW(macro) do {macro} while (0)
-#endif
 
 #ifndef F3DEX_GBI
  #define F3DEX_GBI_2

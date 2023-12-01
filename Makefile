@@ -150,7 +150,7 @@ OBJDUMP_FLAGS := -d -r -z -Mreg-names=32
 
 # ROM image
 ifeq ($(NON_MATCHING),1)
-  ROM := zelda_ocarina_mq_retail.z64
+  ROM := zelda_ocarina_mq.z64
 else
   ROM := zelda_ocarina_mq_dbg.z64
 endif
