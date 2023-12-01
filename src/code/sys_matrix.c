@@ -603,12 +603,12 @@ Mtx* Matrix_MtxFToMtx(MtxF* src, Mtx* dest) {
     return dest;
 }
 
-Mtx* Matrix_ToMtx(Mtx* dest, char* file, s32 line) {
-    return Matrix_MtxFToMtx(Matrix_CheckFloats(sCurrentMatrix, file, line), dest);
+Mtx* Matrix_ToMtx(Mtx* dest) {
+    return Matrix_MtxFToMtx(sCurrentMatrix, dest);
 }
 
-Mtx* Matrix_NewMtx(GraphicsContext* gfxCtx, char* file, s32 line) {
-    return Matrix_ToMtx(Graph_Alloc(gfxCtx, sizeof(Mtx)), file, line);
+Mtx* Matrix_NewMtx(GraphicsContext* gfxCtx) {
+    return Matrix_ToMtx(Graph_Alloc(gfxCtx, sizeof(Mtx)));
 }
 
 Mtx* Matrix_MtxFToNewMtx(MtxF* src, GraphicsContext* gfxCtx) {
