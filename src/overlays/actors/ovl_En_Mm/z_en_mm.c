@@ -532,7 +532,7 @@ void EnMm_Draw(Actor* thisx, PlayState* play) {
             Vec3s earRot;
             Mtx* mtx2;
 
-            mtx = Graph_Alloc(play->state.gfxCtx, sizeof(Mtx) * 2);
+            mtx = GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx) * 2);
 
             Matrix_Put(&this->unk_208);
             mtx2 = MATRIX_NEWMTX(play->state.gfxCtx, "../z_en_mm.c", 1111);

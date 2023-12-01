@@ -1819,7 +1819,7 @@ void BossFd_DrawBody(PlayState* play, BossFd* this) {
     s16 segIndex;
     s16 i;
     f32 temp_float;
-    Mtx* tempMat = Graph_Alloc(play->state.gfxCtx, 18 * sizeof(Mtx));
+    Mtx* tempMat = GRAPH_ALLOC(play->state.gfxCtx, 18 * sizeof(Mtx));
 
     OPEN_DISPS(play->state.gfxCtx, "../z_boss_fd.c", 4589);
     if (this->skinSegments != 0) {

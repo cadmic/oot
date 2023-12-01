@@ -592,7 +592,7 @@ s32 func_80B5458C(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f* pos, Vec3s
     Vec3s* torsoRot = &this->interactInfo.torsoRot;
 
     if (limbIndex == 14) {
-        sp78 = Graph_Alloc(play->state.gfxCtx, sizeof(Mtx) * 7);
+        sp78 = GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx) * 7);
         rot->x += headRot->y;
         rot->z += headRot->x;
         gSPSegment((*gfx)++, 0x0C, sp78);
@@ -2438,7 +2438,7 @@ void func_80B593D0(EnZl3* this, PlayState* play) {
 
 s32 func_80B5944C(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f* pos, Vec3s* rot, void* thisx, Gfx** gfx) {
     if (limbIndex == 14) {
-        Mtx* mtx = Graph_Alloc(play->state.gfxCtx, sizeof(Mtx) * 7);
+        Mtx* mtx = GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx) * 7);
         EnZl3* this = (EnZl3*)thisx;
         Vec3s* headRot = &this->interactInfo.headRot;
 

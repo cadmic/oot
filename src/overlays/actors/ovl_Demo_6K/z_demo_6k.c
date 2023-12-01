@@ -770,7 +770,7 @@ void func_80968B70(Actor* thisx, PlayState* play) {
 void func_80968FB0(Actor* thisx, PlayState* play) {
     static u8 D_809693CC[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1 };
     Demo6K* this = (Demo6K*)thisx;
-    Gfx* displayList = Graph_Alloc(play->state.gfxCtx, 4 * sizeof(Gfx));
+    Gfx* displayList = GRAPH_ALLOC(play->state.gfxCtx, 4 * sizeof(Gfx));
     u16 frames = play->gameplayFrames;
     f32 scaleFactor;
     s32 pad;

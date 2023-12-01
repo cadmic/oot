@@ -849,7 +849,7 @@ void EnRr_Draw(Actor* thisx, PlayState* play) {
     Vec3f zeroVec;
     EnRr* this = (EnRr*)thisx;
     s32 i;
-    Mtx* segMtx = Graph_Alloc(play->state.gfxCtx, 4 * sizeof(Mtx));
+    Mtx* segMtx = GRAPH_ALLOC(play->state.gfxCtx, 4 * sizeof(Mtx));
 
     OPEN_DISPS(play->state.gfxCtx, "../z_en_rr.c", 1478);
 

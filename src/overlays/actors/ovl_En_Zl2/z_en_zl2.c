@@ -443,7 +443,7 @@ s32 func_80B4F45C(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f* pos, Vec3s
     s16* unk_1DC = this->unk_1DC;
 
     if (limbIndex == 14) {
-        sp74 = Graph_Alloc(play->state.gfxCtx, sizeof(Mtx) * 7);
+        sp74 = GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx) * 7);
         gSPSegment((*gfx)++, 0x0C, sp74);
 
         Matrix_Push();

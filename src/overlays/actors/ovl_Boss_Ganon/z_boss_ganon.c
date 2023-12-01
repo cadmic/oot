@@ -3779,7 +3779,7 @@ void BossGanon_Draw(Actor* thisx, PlayState* play) {
     BossGanon* this = (BossGanon*)thisx;
     void* shadowTex;
 
-    shadowTex = Graph_Alloc(play->state.gfxCtx, 64 * 64);
+    shadowTex = GRAPH_ALLOC(play->state.gfxCtx, 64 * 64);
 
     OPEN_DISPS(play->state.gfxCtx, "../z_boss_ganon.c", 9138);
 
@@ -4549,7 +4549,7 @@ void func_808E324C(Actor* thisx, PlayState* play) {
     s16 i;
     s32 temp;
 
-    mtx = Graph_Alloc(play->state.gfxCtx, 12 * sizeof(Mtx));
+    mtx = GRAPH_ALLOC(play->state.gfxCtx, 12 * sizeof(Mtx));
 
     OPEN_DISPS(play->state.gfxCtx, "../z_boss_ganon.c", 10489);
 

@@ -115,7 +115,7 @@ void EnSda_Update(Actor* thisx, PlayState* play) {
 void EnSda_Draw(Actor* thisx, PlayState* play) {
     EnSda* this = (EnSda*)thisx;
     Player* player;
-    u8* shadowTexture = Graph_Alloc(play->state.gfxCtx, 0x1000);
+    u8* shadowTexture = GRAPH_ALLOC(play->state.gfxCtx, 0x1000);
 
     osSyncPrintf("SDA DRAW \n");
 

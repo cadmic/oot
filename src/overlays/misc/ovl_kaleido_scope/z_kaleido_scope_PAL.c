@@ -1926,14 +1926,14 @@ void KaleidoScope_InitVertices(PlayState* play, GraphicsContext* gfxCtx) {
         pauseCtx->offsetY = 80;
     }
 
-    pauseCtx->itemPageVtx = Graph_Alloc(gfxCtx, 60 * sizeof(Vtx));
+    pauseCtx->itemPageVtx = GRAPH_ALLOC(gfxCtx, 60 * sizeof(Vtx));
     func_80823A0C(play, pauseCtx->itemPageVtx, 0, 0);
 
-    pauseCtx->equipPageVtx = Graph_Alloc(gfxCtx, 60 * sizeof(Vtx));
+    pauseCtx->equipPageVtx = GRAPH_ALLOC(gfxCtx, 60 * sizeof(Vtx));
     func_80823A0C(play, pauseCtx->equipPageVtx, 1, 0);
 
     if (!sInDungeonScene) {
-        pauseCtx->mapPageVtx = Graph_Alloc(gfxCtx, 248 * sizeof(Vtx));
+        pauseCtx->mapPageVtx = GRAPH_ALLOC(gfxCtx, 248 * sizeof(Vtx));
         phi_t3 = func_80823A0C(play, pauseCtx->mapPageVtx, 4, 32);
 
         for (phi_t2 = 0, phi_t5 = 58; phi_t2 < 15; phi_t2++, phi_t3 += 4, phi_t5 -= 9) {
@@ -1979,14 +1979,14 @@ void KaleidoScope_InitVertices(PlayState* play, GraphicsContext* gfxCtx) {
 
         pauseCtx->mapPageVtx[phi_t3 - 2].v.tc[1] = pauseCtx->mapPageVtx[phi_t3 - 1].v.tc[1] = 0x40;
     } else {
-        pauseCtx->mapPageVtx = Graph_Alloc(gfxCtx, 128 * sizeof(Vtx));
+        pauseCtx->mapPageVtx = GRAPH_ALLOC(gfxCtx, 128 * sizeof(Vtx));
         func_80823A0C(play, pauseCtx->mapPageVtx, 2, 17);
     }
 
-    pauseCtx->questPageVtx = Graph_Alloc(gfxCtx, 60 * sizeof(Vtx));
+    pauseCtx->questPageVtx = GRAPH_ALLOC(gfxCtx, 60 * sizeof(Vtx));
     func_80823A0C(play, pauseCtx->questPageVtx, 3, 0);
 
-    pauseCtx->cursorVtx = Graph_Alloc(gfxCtx, 20 * sizeof(Vtx));
+    pauseCtx->cursorVtx = GRAPH_ALLOC(gfxCtx, 20 * sizeof(Vtx));
 
     for (phi_t2 = 0; phi_t2 < 20; phi_t2++) {
         pauseCtx->cursorVtx[phi_t2].v.ob[0] = pauseCtx->cursorVtx[phi_t2].v.ob[1] =
@@ -2010,7 +2010,7 @@ void KaleidoScope_InitVertices(PlayState* play, GraphicsContext* gfxCtx) {
     pauseCtx->cursorVtx[17].v.tc[0] = pauseCtx->cursorVtx[18].v.tc[1] = pauseCtx->cursorVtx[19].v.tc[0] =
         pauseCtx->cursorVtx[19].v.tc[1] = 0x400;
 
-    pauseCtx->itemVtx = Graph_Alloc(gfxCtx, 164 * sizeof(Vtx));
+    pauseCtx->itemVtx = GRAPH_ALLOC(gfxCtx, 164 * sizeof(Vtx));
 
     for (phi_t4 = 0, phi_t2 = 0, phi_t5 = 58; phi_t4 < 4; phi_t4++, phi_t5 -= 32) {
         for (phi_t1 = -96, phi_t3 = 0; phi_t3 < 6; phi_t3++, phi_t2 += 4, phi_t1 += 32) {
@@ -2151,7 +2151,7 @@ void KaleidoScope_InitVertices(PlayState* play, GraphicsContext* gfxCtx) {
         }
     }
 
-    pauseCtx->equipVtx = Graph_Alloc(gfxCtx, 112 * sizeof(Vtx));
+    pauseCtx->equipVtx = GRAPH_ALLOC(gfxCtx, 112 * sizeof(Vtx));
 
     for (phi_t4 = 0, phi_t2 = 0, phi_t5 = 58; phi_t2 < 4; phi_t2++, phi_t5 -= 32) {
         for (phi_t3 = 0; phi_t3 < 4; phi_t3++, phi_t4 += 4) {
@@ -2279,7 +2279,7 @@ void KaleidoScope_InitVertices(PlayState* play, GraphicsContext* gfxCtx) {
         phi_t4 += 4;
     }
 
-    pauseCtx->questVtx = Graph_Alloc(gfxCtx, 188 * sizeof(Vtx));
+    pauseCtx->questVtx = GRAPH_ALLOC(gfxCtx, 188 * sizeof(Vtx));
 
     for (phi_t4 = 0, phi_t3 = 0; phi_t3 < 47; phi_t3++, phi_t4 += 4) {
         phi_t2_2 = D_8082B1F8[phi_t3];
@@ -2348,9 +2348,9 @@ void KaleidoScope_InitVertices(PlayState* play, GraphicsContext* gfxCtx) {
             pauseCtx->questVtx[phi_t4 + 2].v.cn[3] = pauseCtx->questVtx[phi_t4 + 3].v.cn[3] = pauseCtx->alpha;
     }
 
-    pauseCtx->infoPanelVtx = Graph_Alloc(gfxCtx, 28 * sizeof(Vtx));
+    pauseCtx->infoPanelVtx = GRAPH_ALLOC(gfxCtx, 28 * sizeof(Vtx));
 
-    pauseCtx->saveVtx = Graph_Alloc(gfxCtx, 80 * sizeof(Vtx));
+    pauseCtx->saveVtx = GRAPH_ALLOC(gfxCtx, 80 * sizeof(Vtx));
     func_80823A0C(play, pauseCtx->saveVtx, 5, 5);
 }
 

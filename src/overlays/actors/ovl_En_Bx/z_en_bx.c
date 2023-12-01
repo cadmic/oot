@@ -203,7 +203,7 @@ void EnBx_Draw(Actor* thisx, PlayState* play) {
     };
     EnBx* this = (EnBx*)thisx;
     s32 pad;
-    Mtx* mtx = Graph_Alloc(play->state.gfxCtx, 4 * sizeof(Mtx));
+    Mtx* mtx = GRAPH_ALLOC(play->state.gfxCtx, 4 * sizeof(Mtx));
     s16 i;
 
     OPEN_DISPS(play->state.gfxCtx, "../z_en_bx.c", 464);

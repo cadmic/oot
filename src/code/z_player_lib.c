@@ -1728,8 +1728,8 @@ void Player_DrawPauseImpl(PlayState* play, void* gameplayKeep, void* linkObject,
     Gfx* opaRef;
     Gfx* xluRef;
     u16 perspNorm;
-    Mtx* perspMtx = Graph_Alloc(play->state.gfxCtx, sizeof(Mtx));
-    Mtx* lookAtMtx = Graph_Alloc(play->state.gfxCtx, sizeof(Mtx));
+    Mtx* perspMtx = GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx));
+    Mtx* lookAtMtx = GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx));
 
     OPEN_DISPS(play->state.gfxCtx, "../z_player_lib.c", 3129);
 

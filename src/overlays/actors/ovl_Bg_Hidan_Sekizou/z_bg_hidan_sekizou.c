@@ -319,7 +319,7 @@ Gfx* func_8088D9F4(PlayState* play, BgHidanSekizou* this, s16 arg2, MtxF* arg3, 
     arg3->zw = (temp_f2 * arg5) + this->dyna.actor.world.pos.z;
     gSPMatrix(arg7++,
               Matrix_MtxFToMtx(Matrix_CheckFloats(arg3, "../z_bg_hidan_sekizou.c", 711),
-                               Graph_Alloc(play->state.gfxCtx, sizeof(Mtx))),
+                               GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx))),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
 
     gSPDisplayList(arg7++, gFireTempleFireballDL);

@@ -24,7 +24,7 @@ void Skybox_Draw(SkyboxContext* skyboxCtx, GraphicsContext* gfxCtx, s16 skyboxId
     gSPTexture(POLY_OPA_DISP++, 0x8000, 0x8000, 0, G_TX_RENDERTILE, G_ON);
 
     // Prepare matrix
-    sSkyboxDrawMatrix = Graph_Alloc(gfxCtx, sizeof(Mtx));
+    sSkyboxDrawMatrix = GRAPH_ALLOC(gfxCtx, sizeof(Mtx));
     Matrix_Translate(x, y, z, MTXMODE_NEW);
     Matrix_Scale(1.0f, 1.0f, 1.0f, MTXMODE_APPLY);
     Matrix_RotateX(skyboxCtx->rot.x, MTXMODE_APPLY);

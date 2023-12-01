@@ -2752,7 +2752,7 @@ void func_80905674(BossGanon2* this, PlayState* play) {
 }
 
 void BossGanon2_Draw(Actor* thisx, PlayState* play) {
-    void* shadowTexture = Graph_Alloc(play->state.gfxCtx, 4096);
+    void* shadowTexture = GRAPH_ALLOC(play->state.gfxCtx, 4096);
     BossGanon2* this = (BossGanon2*)thisx;
     s16 i;
 

@@ -1078,7 +1078,7 @@ void Play_Draw(PlayState* this) {
         // This transpose is where the viewing matrix is properly converted into a billboard matrix
         Matrix_Transpose(&this->billboardMtxF);
         this->billboardMtx = Matrix_MtxFToMtx(Matrix_CheckFloats(&this->billboardMtxF, "../z_play.c", 4005),
-                                              Graph_Alloc(gfxCtx, sizeof(Mtx)));
+                                              GRAPH_ALLOC(gfxCtx, sizeof(Mtx)));
 
         gSPSegment(POLY_OPA_DISP++, 0x01, this->billboardMtx);
 

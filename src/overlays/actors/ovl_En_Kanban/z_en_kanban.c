@@ -804,7 +804,7 @@ void EnKanban_Draw(Actor* thisx, PlayState* play) {
     f32 zShift;
     f32 zShift2;
     s16 i;
-    u8* shadowTex = Graph_Alloc(play->state.gfxCtx, 0x400);
+    u8* shadowTex = GRAPH_ALLOC(play->state.gfxCtx, 0x400);
 
     OPEN_DISPS(play->state.gfxCtx, "../z_en_kanban.c", 1659);
     Gfx_SetupDL_25Opa(play->state.gfxCtx);

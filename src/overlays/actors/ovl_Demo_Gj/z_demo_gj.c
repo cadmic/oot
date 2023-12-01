@@ -290,7 +290,7 @@ void DemoGj_DrawRotated(DemoGj* this, PlayState* play, Gfx* displayList) {
     Mtx* matrix;
 
     gfxCtx = play->state.gfxCtx;
-    matrix = Graph_Alloc(gfxCtx, sizeof(Mtx));
+    matrix = GRAPH_ALLOC(gfxCtx, sizeof(Mtx));
 
     OPEN_DISPS(gfxCtx, "../z_demo_gj.c", 1187);
 

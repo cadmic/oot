@@ -469,7 +469,7 @@ Gfx* EnBombf_NewMtxDList(GraphicsContext* gfxCtx, PlayState* play) {
     Gfx* displayList;
     Gfx* displayListHead;
 
-    displayList = Graph_Alloc(gfxCtx, 5 * sizeof(Gfx));
+    displayList = GRAPH_ALLOC(gfxCtx, 5 * sizeof(Gfx));
     displayListHead = displayList;
     Matrix_ReplaceRotation(&play->billboardMtxF);
     gSPMatrix(displayListHead++, MATRIX_NEWMTX(gfxCtx, "../z_en_bombf.c", 1021),

@@ -861,7 +861,7 @@ Gfx* EnIk_SetPrimEnvColors(GraphicsContext* gfxCtx, u8 primR, u8 primG, u8 primB
     Gfx* displayList;
     Gfx* displayListHead;
 
-    displayList = Graph_Alloc(gfxCtx, 4 * sizeof(Gfx));
+    displayList = GRAPH_ALLOC(gfxCtx, 4 * sizeof(Gfx));
     displayListHead = displayList;
 
     gDPPipeSync(displayListHead++);

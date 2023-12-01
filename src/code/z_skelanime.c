@@ -185,7 +185,7 @@ void SkelAnime_DrawFlexLod(PlayState* play, void** skeleton, Vec3s* jointTable, 
     Gfx* limbDList;
     Vec3f pos;
     Vec3s rot;
-    Mtx* mtx = Graph_Alloc(play->state.gfxCtx, dListCount * sizeof(Mtx));
+    Mtx* mtx = GRAPH_ALLOC(play->state.gfxCtx, dListCount * sizeof(Mtx));
 
     if (skeleton == NULL) {
         osSyncPrintf(VT_FGCOL(RED));
@@ -402,7 +402,7 @@ void SkelAnime_DrawFlexOpa(PlayState* play, void** skeleton, Vec3s* jointTable, 
     Gfx* limbDList;
     Vec3f pos;
     Vec3s rot;
-    Mtx* mtx = Graph_Alloc(play->state.gfxCtx, dListCount * sizeof(Mtx));
+    Mtx* mtx = GRAPH_ALLOC(play->state.gfxCtx, dListCount * sizeof(Mtx));
 
     if (skeleton == NULL) {
         osSyncPrintf(VT_FGCOL(RED));
@@ -662,7 +662,7 @@ Gfx* SkelAnime_DrawFlex(PlayState* play, void** skeleton, Vec3s* jointTable, s32
     Gfx* limbDList;
     Vec3f pos;
     Vec3s rot;
-    Mtx* mtx = Graph_Alloc(play->state.gfxCtx, dListCount * sizeof(*mtx));
+    Mtx* mtx = GRAPH_ALLOC(play->state.gfxCtx, dListCount * sizeof(*mtx));
 
     if (skeleton == NULL) {
         osSyncPrintf(VT_FGCOL(RED));

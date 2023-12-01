@@ -475,7 +475,7 @@ void EnBa_Draw(Actor* thisx, PlayState* play) {
     EnBa* this = (EnBa*)thisx;
     s32 pad;
     s16 i;
-    Mtx* mtx = Graph_Alloc(play->state.gfxCtx, sizeof(Mtx) * 14);
+    Mtx* mtx = GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx) * 14);
     Vec3f unused = { 0.0f, 0.0f, 448.0f };
 
     OPEN_DISPS(play->state.gfxCtx, "../z_en_ba.c", 933);

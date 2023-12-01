@@ -608,11 +608,11 @@ Mtx* Matrix_ToMtx(Mtx* dest) {
 }
 
 Mtx* Matrix_NewMtx(GraphicsContext* gfxCtx) {
-    return Matrix_ToMtx(Graph_Alloc(gfxCtx, sizeof(Mtx)));
+    return Matrix_ToMtx(GRAPH_ALLOC(gfxCtx, sizeof(Mtx)));
 }
 
 Mtx* Matrix_MtxFToNewMtx(MtxF* src, GraphicsContext* gfxCtx) {
-    return Matrix_MtxFToMtx(src, Graph_Alloc(gfxCtx, sizeof(Mtx)));
+    return Matrix_MtxFToMtx(src, GRAPH_ALLOC(gfxCtx, sizeof(Mtx)));
 }
 
 void Matrix_MultVec3f(Vec3f* src, Vec3f* dest) {
