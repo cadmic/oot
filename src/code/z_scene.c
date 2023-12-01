@@ -32,7 +32,7 @@ s32 Object_SpawnPersistent(ObjectContext* objectCtx, s16 objectId) {
            "this->num < OBJECT_EXCHANGE_BANK_MAX && (this->status[this->num].Segment + size) < this->endSegment",
            "../z_scene.c", 142);
 
-    DmaMgr_RequestSyncDebug(objectCtx->slots[objectCtx->numEntries].segment, gObjectTable[objectId].vromStart, size,
+    DMAMGR_REQUESTSYNC(objectCtx->slots[objectCtx->numEntries].segment, gObjectTable[objectId].vromStart, size,
                             "../z_scene.c", 145);
 
     if (objectCtx->numEntries < (ARRAY_COUNT(objectCtx->slots) - 1)) {
@@ -145,7 +145,7 @@ void func_800981B8(ObjectContext* objectCtx) {
                      objectCtx->slots[i].segment);
         osSyncPrintf("num=%d adrs=%x end=%x\n", objectCtx->numEntries, (uintptr_t)objectCtx->slots[i].segment + size,
                      objectCtx->spaceEnd);
-        DmaMgr_RequestSyncDebug(objectCtx->slots[i].segment, gObjectTable[id].vromStart, size, "../z_scene.c", 342);
+        DMAMGR_REQUESTSYNC(objectCtx->slots[i].segment, gObjectTable[id].vromStart, size, "../z_scene.c", 342);
     }
 }
 

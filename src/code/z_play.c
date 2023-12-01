@@ -1414,7 +1414,7 @@ void* Play_LoadFile(PlayState* this, RomFile* file) {
 
     size = file->vromEnd - file->vromStart;
     allocp = GameState_Alloc(&this->state, size, "../z_play.c", 4692);
-    DmaMgr_RequestSyncDebug(allocp, file->vromStart, size, "../z_play.c", 4694);
+    DMAMGR_REQUESTSYNC(allocp, file->vromStart, size, "../z_play.c", 4694);
 
     return allocp;
 }

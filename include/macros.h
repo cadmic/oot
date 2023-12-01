@@ -9,6 +9,7 @@
 
 #define MATRIX_TOMTX(gfxCtx, line, file) Matrix_ToMtx(gfxCtx)
 #define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx)
+#define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSync(ram, vrom, size)
 
 #define ARRAY_COUNT(arr) (s32)(sizeof(arr) / sizeof(arr[0]))
 #define ARRAY_COUNTU(arr) (u32)(sizeof(arr) / sizeof(arr[0]))

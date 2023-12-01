@@ -1648,11 +1648,11 @@ u32 Player_InitPauseDrawData(PlayState* play, u8* segment, SkelAnime* skelAnime)
 
     size = gObjectTable[OBJECT_GAMEPLAY_KEEP].vromEnd - gObjectTable[OBJECT_GAMEPLAY_KEEP].vromStart;
     ptr = segment + PAUSE_EQUIP_BUFFER_SIZE;
-    DmaMgr_RequestSyncDebug(ptr, gObjectTable[OBJECT_GAMEPLAY_KEEP].vromStart, size, "../z_player_lib.c", 2982);
+    DMAMGR_REQUESTSYNC(ptr, gObjectTable[OBJECT_GAMEPLAY_KEEP].vromStart, size, "../z_player_lib.c", 2982);
 
     size = gObjectTable[linkObjectId].vromEnd - gObjectTable[linkObjectId].vromStart;
     ptr = segment + PAUSE_EQUIP_BUFFER_SIZE + PAUSE_PLAYER_SEGMENT_GAMEPLAY_KEEP_BUFFER_SIZE;
-    DmaMgr_RequestSyncDebug(ptr, gObjectTable[linkObjectId].vromStart, size, "../z_player_lib.c", 2988);
+    DMAMGR_REQUESTSYNC(ptr, gObjectTable[linkObjectId].vromStart, size, "../z_player_lib.c", 2988);
 
     ptr = (void*)ALIGN16((uintptr_t)ptr + size);
 
