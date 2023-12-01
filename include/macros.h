@@ -7,10 +7,6 @@
 #define BAD_RETURN(type) void
 #endif
 
-#define MATRIX_TOMTX(gfxCtx, line, file) Matrix_ToMtx(gfxCtx)
-#define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx)
-#define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSync(ram, vrom, size)
-
 #define ARRAY_COUNT(arr) (s32)(sizeof(arr) / sizeof(arr[0]))
 #define ARRAY_COUNTU(arr) (u32)(sizeof(arr) / sizeof(arr[0]))
 
@@ -147,6 +143,8 @@ extern struct GraphicsContext* __gfxCtx;
 
 // __gfxCtx shouldn't be used directly.
 // Use the DISP macros defined above when writing to display buffers.
+#ifdef RETAIL
+
 #define OPEN_DISPS(gfxCtx, file, line)      \
     {                                       \
         GraphicsContext* __gfxCtx = gfxCtx; \
@@ -158,6 +156,31 @@ extern struct GraphicsContext* __gfxCtx;
     (void)0
 
 #define GRAPH_ALLOC(gfxCtx, size) ((void*)((gfxCtx)->polyOpa.d = (Gfx*)((u8*)(gfxCtx)->polyOpa.d - ALIGN16(size))))
+#define MATRIX_TOMTX(gfxCtx, line, file) Matrix_ToMtx(gfxCtx)
+#define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx)
+#define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSync(ram, vrom, size)
+
+#else
+
+#define OPEN_DISPS(gfxCtx, file, line) \
+    {                                  \
+        GraphicsContext* __gfxCtx;     \
+        Gfx* dispRefs[4];              \
+        __gfxCtx = gfxCtx;             \
+        (void)__gfxCtx;                \
+        Graph_OpenDisps(dispRefs, gfxCtx, file, line)
+
+#define CLOSE_DISPS(gfxCtx, file, line)                 \
+        Graph_CloseDisps(dispRefs, gfxCtx, file, line); \
+    }                                                   \
+    (void)0
+
+#define GRAPH_ALLOC(gfxCtx, size) Graph_Alloc(gfxCtx, size)
+#define MATRIX_TOMTX(gfxCtx, line, file) Matrix_ToMtx(gfxCtx, line, file)
+#define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx, line, file)
+#define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSyncDebug(ram, vrom, size, file, line)
+
+#endif
 
 /**
  * `x` vertex x

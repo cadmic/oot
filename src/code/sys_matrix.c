@@ -603,6 +603,7 @@ Mtx* Matrix_MtxFToMtx(MtxF* src, Mtx* dest) {
     return dest;
 }
 
+#ifdef RETAIL
 Mtx* Matrix_ToMtx(Mtx* dest) {
     return Matrix_MtxFToMtx(sCurrentMatrix, dest);
 }
@@ -610,6 +611,16 @@ Mtx* Matrix_ToMtx(Mtx* dest) {
 Mtx* Matrix_NewMtx(GraphicsContext* gfxCtx) {
     return Matrix_ToMtx(GRAPH_ALLOC(gfxCtx, sizeof(Mtx)));
 }
+#else
+Mtx* Matrix_ToMtx(Mtx* dest, char* file, s32 line) {
+    return Matrix_MtxFToMtx(Matrix_CheckFloats(sCurrentMatrix, file, line), dest);
+}
+
+Mtx* Matrix_NewMtx(GraphicsContext* gfxCtx, char* file, s32 line) {
+    return Matrix_ToMtx(GRAPH_ALLOC(gfxCtx, sizeof(Mtx)), file, line);
+}
+#endif
+
 
 Mtx* Matrix_MtxFToNewMtx(MtxF* src, GraphicsContext* gfxCtx) {
     return Matrix_MtxFToMtx(src, GRAPH_ALLOC(gfxCtx, sizeof(Mtx)));

@@ -7,7 +7,7 @@ SHELL = /bin/bash
 # Build options can either be changed by modifying the makefile, or by building with 'make SETTING=value'
 
 # If COMPARE is 1, check the output md5sum after building
-COMPARE ?= 0
+COMPARE ?= 1
 # If NON_MATCHING is 1, define the NON_MATCHING C flag when building
 NON_MATCHING ?= 1
 # If ORIG_COMPILER is 1, compile with QEMU_IRIX and the original compiler
@@ -36,8 +36,8 @@ endif
 MIPS_BINUTILS_PREFIX ?= mips-linux-gnu-
 
 ifeq ($(NON_MATCHING),1)
-  CFLAGS += -DNON_MATCHING -DNDEBUG
-  CPPFLAGS += -DNON_MATCHING -DNDEBUG
+  CFLAGS += -DNON_MATCHING -DNDEBUG -DRETAIL
+  CPPFLAGS += -DNON_MATCHING -DNDEBUG -DRETAIL
   COMPARE := 0
 endif
 
@@ -112,8 +112,10 @@ FADO       := tools/fado/fado.elf
 
 ifeq ($(COMPILER),gcc)
   OPTFLAGS := -Os -ffast-math -fno-unsafe-math-optimizations
-else
+else ifeq ($(NON_MATCHING),1)
   OPTFLAGS := -O2 -g3
+else
+  OPTFLAGS := -O2
 endif
 
 ASFLAGS := -march=vr4300 -32 -no-pad-sections -Iinclude
@@ -147,7 +149,11 @@ OBJDUMP_FLAGS := -d -r -z -Mreg-names=32
 #### Files ####
 
 # ROM image
-ROM := zelda_ocarina_mq_retail.z64
+ifeq ($(NON_MATCHING),1)
+  ROM := zelda_ocarina_mq_retail.z64
+else
+  ROM := zelda_ocarina_mq_dbg.z64
+endif
 ELF := $(ROM:.z64=.elf)
 # description of ROM segments
 SPEC := spec
