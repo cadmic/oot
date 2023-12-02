@@ -100,12 +100,15 @@
 
 #define CHECK_FLAG_ALL(flags, mask) (((flags) & (mask)) == (mask))
 
-
+#ifdef RETAIL
+#define LOG(exp, value, format, file, line) (void)0
+#else
 #define LOG(exp, value, format, file, line)         \
     do {                                            \
         LogUtils_LogThreadId(file, line);           \
         osSyncPrintf(exp " = " format "\n", value); \
     } while (0)
+#endif
 
 #define LOG_STRING(string, file, line) LOG(#string, string, "%s", file, line)
 #define LOG_ADDRESS(exp, value, file, line) LOG(exp, value, "%08x", file, line)
@@ -160,6 +163,7 @@ extern struct GraphicsContext* __gfxCtx;
 #define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx)
 #define MATRIX_CHECKFLOATS(mtx, file, line) (mtx)
 #define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSync(ram, vrom, size)
+#define DMAMGR_REQUESTASYNC(req, ram, vrom, size, unk5, queue, msg, file, line) DmaMgr_SendRequest(req, ram, vrom, size, unk5, queue, msg)
 #define ZELDAARENA_MALLOC(size, file, line) ZeldaArena_Malloc(size)
 #define ZELDAARENA_MALLOCR(size, file, line) ZeldaArena_MallocR(size)
 #define ZELDAARENA_FREE(size, file, line) ZeldaArena_Free(size)
@@ -184,6 +188,7 @@ extern struct GraphicsContext* __gfxCtx;
 #define MATRIX_NEWMTX(gfxCtx, line, file) Matrix_NewMtx(gfxCtx, line, file)
 #define MATRIX_CHECKFLOATS(mtx, file, line) Matrix_CheckFloats(mtx, file, line)
 #define DMAMGR_REQUESTSYNC(ram, vrom, size, file, line) DmaMgr_RequestSyncDebug(ram, vrom, size, file, line)
+#define DMAMGR_REQUESTASYNC(req, ram, vrom, size, unk5, queue, msg, file, line) DmaMgr_RequestAsync(req, ram, vrom, size, unk5, queue, msg, file, line)
 #define ZELDAARENA_MALLOC(size, file, line) ZeldaArena_MallocDebug(size, file, line)
 #define ZELDAARENA_MALLOCR(size, file, line) ZeldaArena_MallocRDebug(size, file, line)
 #define ZELDAARENA_FREE(size, file, line) ZeldaArena_FreeDebug(size, file, line)

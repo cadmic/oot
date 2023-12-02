@@ -103,7 +103,7 @@ void Object_UpdateEntries(ObjectContext* objectCtx) {
 
                 osSyncPrintf("OBJECT EXCHANGE BANK-%2d SIZE %8.3fK SEG=%08x\n", i, size / 1024.0f, entry->segment);
 
-                DmaMgr_RequestAsync(&entry->dmaRequest, entry->segment, objectFile->vromStart, size, 0,
+                DMAMGR_REQUESTASYNC(&entry->dmaRequest, entry->segment, objectFile->vromStart, size, 0,
                                     &entry->loadQueue, NULL, "../z_scene.c", 266);
             } else if (osRecvMesg(&entry->loadQueue, NULL, OS_MESG_NOBLOCK) == 0) {
                 entry->id = -entry->id;

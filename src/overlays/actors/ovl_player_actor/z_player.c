@@ -179,7 +179,9 @@ void func_80846978(PlayState* play, Player* this);
 void func_808469BC(PlayState* play, Player* this);
 void func_80846A68(PlayState* play, Player* this);
 void Player_UpdateCommon(Player* this, PlayState* play, Input* input);
+#ifndef RETAIL
 s32 func_8084FCAC(Player* this, PlayState* play);
+#endif
 void func_8084FF7C(Player* this);
 void Player_UpdateBunnyEars(Player* this);
 void func_80851008(PlayState* play, Player* this, void* anim);
@@ -5429,7 +5431,7 @@ void func_8083AE40(Player* this, s16 objectId) {
         LOG_HEX("size", size, "../z_player.c", 9090);
         ASSERT(size <= 1024 * 8, "size <= 1024 * 8", "../z_player.c", 9091);
 
-        DmaMgr_RequestAsync(&this->giObjectDmaRequest, this->giObjectSegment, gObjectTable[objectId].vromStart, size, 0,
+        DMAMGR_REQUESTASYNC(&this->giObjectDmaRequest, this->giObjectSegment, gObjectTable[objectId].vromStart, size, 0,
                             &this->giObjectLoadQueue, NULL, "../z_player.c", 9099);
     }
 }
@@ -11326,7 +11328,11 @@ void Player_Update(Actor* thisx, PlayState* play) {
     Input sp44;
     Actor* dog;
 
+#ifdef RETAIL
+    if (1) {
+#else
     if (func_8084FCAC(this, play)) {
+#endif
         if (gSaveContext.dogParams < 0) {
             if (Object_GetSlot(&play->objectCtx, OBJECT_DOG) < 0) {
                 gSaveContext.dogParams = 0;
@@ -13633,6 +13639,7 @@ void Player_Action_8084FBF4(Player* this, PlayState* play) {
     func_8002F8F0(&this->actor, NA_SE_VO_LI_TAKEN_AWAY - SFX_FLAG + this->ageProperties->unk_92);
 }
 
+#ifndef RETAIL
 s32 func_8084FCAC(Player* this, PlayState* play) {
     sControlInput = &play->state.input[0];
 
@@ -13702,6 +13709,7 @@ s32 func_8084FCAC(Player* this, PlayState* play) {
 
     return 1;
 }
+#endif
 
 void func_8084FF7C(Player* this) {
     this->unk_858 += this->unk_85C;
@@ -15149,7 +15157,9 @@ void func_80852C50(PlayState* play, Player* this, CsCmdActorCue* cueUnused) {
         D_80858AA0 = this->skelAnime.moveFlags;
 
         func_80832DBC(this);
+#ifndef RETAIL
         osSyncPrintf("TOOL MODE=%d\n", csAction);
+#endif
         func_80852C0C(play, this, ABS(csAction));
         func_80852B4C(play, this, cue, &D_80854B18[ABS(csAction)]);
 
@@ -15168,7 +15178,9 @@ void Player_Action_CsAction(Player* this, PlayState* play) {
 
         func_80832DBC(this);
         this->prevCsAction = this->csAction;
+#ifndef RETAIL
         osSyncPrintf("DEMO MODE=%d\n", this->csAction);
+#endif
         func_80852C0C(play, this, this->csAction);
         func_80852B4C(play, this, NULL, &D_80854B18[this->csAction]);
     }
