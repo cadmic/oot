@@ -318,7 +318,7 @@ Gfx* func_8088D9F4(PlayState* play, BgHidanSekizou* this, s16 arg2, MtxF* arg3, 
     arg3->yw = this->dyna.actor.world.pos.y + 30.0f + (.7f * phi_f12);
     arg3->zw = (temp_f2 * arg5) + this->dyna.actor.world.pos.z;
     gSPMatrix(arg7++,
-              Matrix_MtxFToMtx(Matrix_CheckFloats(arg3, "../z_bg_hidan_sekizou.c", 711),
+              Matrix_MtxFToMtx(MATRIX_CHECKFLOATS(arg3, "../z_bg_hidan_sekizou.c", 711),
                                GRAPH_ALLOC(play->state.gfxCtx, sizeof(Mtx))),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
 

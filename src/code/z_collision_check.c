@@ -37,6 +37,7 @@ typedef enum {
     /* 2 */ MASSTYPE_NORMAL
 } ColChkMassType;
 
+#ifndef RETAIL
 /**
  * Draws a red triangle with vertices vA, vB, and vC.
  */
@@ -99,6 +100,7 @@ void Collider_DrawPoly(GraphicsContext* gfxCtx, Vec3f* vA, Vec3f* vB, Vec3f* vC,
 
     CLOSE_DISPS(gfxCtx, "../z_collision_check.c", 757);
 }
+#endif
 
 s32 Collider_InitBase(PlayState* play, Collider* collider) {
     static Collider init = {
@@ -1083,6 +1085,7 @@ void CollisionCheck_DisableSAC(PlayState* play, CollisionCheckContext* colChkCtx
     colChkCtx->sacFlags &= ~SAC_ENABLE;
 }
 
+#ifndef RETAIL
 /**
  * Draws a collider of any shape.
  * Math3D_DrawSphere and Math3D_DrawCylinder are noops, so JntSph and Cylinder are not drawn.
@@ -1158,6 +1161,7 @@ void CollisionCheck_DrawCollision(PlayState* play, CollisionCheckContext* colChk
         }
     }
 }
+#endif
 
 static ColChkResetFunc sATResetFuncs[] = {
     Collider_ResetJntSphAT,

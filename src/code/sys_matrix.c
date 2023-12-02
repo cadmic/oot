@@ -966,6 +966,7 @@ void Matrix_RotateAxis(f32 angle, Vec3f* axis, u8 mode) {
     }
 }
 
+#ifndef RETAIL
 MtxF* Matrix_CheckFloats(MtxF* mf, char* file, s32 line) {
     s32 i, j;
 
@@ -986,6 +987,7 @@ MtxF* Matrix_CheckFloats(MtxF* mf, char* file, s32 line) {
 
     return mf;
 }
+#endif
 
 void Matrix_SetTranslateUniformScaleMtxF(MtxF* mf, f32 scale, f32 translateX, f32 translateY, f32 translateZ) {
     mf->yx = 0.0f;

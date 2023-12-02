@@ -79,6 +79,9 @@ u16 sSurfaceMaterialToSfxOffset[SURFACE_MATERIAL_MAX] = {
     SURFACE_SFX_OFFSET_CARPET,        // SURFACE_MATERIAL_CARPET
 };
 
+#ifdef RETAIL
+#define BGCHECK_POSERRORCHECK(pos, file, line) 0
+#else
 /**
  * original name: T_BGCheck_PosErrorCheck
  */
@@ -94,6 +97,9 @@ s32 BgCheck_PosErrorCheck(Vec3f* pos, char* file, s32 line) {
     }
     return false;
 }
+
+#define BGCHECK_POSERRORCHECK(pos, file, line) (BgCheck_PosErrorCheck(pos, file, line) == true)
+#endif
 
 /**
  * Set SSNode
@@ -1717,7 +1723,7 @@ f32 BgCheck_RaycastDownImpl(PlayState* play, CollisionContext* colCtx, u16 xpFla
         if (checkPos.y < colCtx->minBounds.y) {
             break;
         }
-        if (BgCheck_PosErrorCheck(&checkPos, "../z_bgcheck.c", 4410)) {
+        if (BGCHECK_POSERRORCHECK(&checkPos, "../z_bgcheck.c", 4410)) {
             if (actor != NULL) {
                 osSyncPrintf("こいつ,pself_actor->name %d\n", actor->id);
             }
@@ -1966,8 +1972,8 @@ s32 BgCheck_CheckWallImpl(CollisionContext* colCtx, u16 xpFlags, Vec3f* posResul
     dy = posNext->y - posPrev->y;
     dz = posNext->z - posPrev->z;
 
-    if (BgCheck_PosErrorCheck(posNext, "../z_bgcheck.c", 4831) == true ||
-        BgCheck_PosErrorCheck(posPrev, "../z_bgcheck.c", 4832) == true) {
+    if (BGCHECK_POSERRORCHECK(posNext, "../z_bgcheck.c", 4831) == true ||
+        BGCHECK_POSERRORCHECK(posPrev, "../z_bgcheck.c", 4832) == true) {
         if (actor != NULL) {
             osSyncPrintf("こいつ,pself_actor->name %d\n", actor->id);
         }
@@ -2155,7 +2161,7 @@ s32 BgCheck_CheckCeilingImpl(CollisionContext* colCtx, u16 xpFlags, f32* outY, V
 
     *outBgId = BGCHECK_SCENE;
     *outY = pos->y;
-    if (BgCheck_PosErrorCheck(pos, "../z_bgcheck.c", 5206) == true) {
+    if (BGCHECK_POSERRORCHECK(pos, "../z_bgcheck.c", 5206) == true) {
         if (actor != NULL) {
             osSyncPrintf("こいつ,pself_actor->name %d\n", actor->id);
         }
@@ -2229,8 +2235,8 @@ s32 BgCheck_CheckLineImpl(CollisionContext* colCtx, u16 xpFlags1, u16 xpFlags2, 
     s32 temp_lo;
 
     *outBgId = BGCHECK_SCENE;
-    if (BgCheck_PosErrorCheck(posA, "../z_bgcheck.c", 5334) == true ||
-        BgCheck_PosErrorCheck(posB, "../z_bgcheck.c", 5335) == true) {
+    if (BGCHECK_POSERRORCHECK(posA, "../z_bgcheck.c", 5334) == true ||
+        BGCHECK_POSERRORCHECK(posB, "../z_bgcheck.c", 5335) == true) {
         if (actor != NULL) {
             osSyncPrintf("こいつ,pself_actor->name %d\n", actor->id);
         } else {
@@ -2443,7 +2449,7 @@ s32 BgCheck_SphVsFirstPolyImpl(CollisionContext* colCtx, u16 xpFlags, CollisionP
     StaticLookup* lookup;
 
     *outBgId = BGCHECK_SCENE;
-    if (BgCheck_PosErrorCheck(center, "../z_bgcheck.c", 5852) == true) {
+    if (BGCHECK_POSERRORCHECK(center, "../z_bgcheck.c", 5852) == true) {
         if (actor != NULL) {
             osSyncPrintf("こいつ,pself_actor->name %d\n", actor->id);
         }
@@ -4410,6 +4416,7 @@ s32 func_800427B4(CollisionPoly* polyA, CollisionPoly* polyB, Vec3f* pointA, Vec
     return result;
 }
 
+#ifndef RETAIL
 /**
  * Draw a list of dyna polys, specified by `ssList`
  */
@@ -4557,3 +4564,4 @@ void BgCheck_DrawStaticCollision(PlayState* play, CollisionContext* colCtx) {
         BgCheck_DrawStaticPolyList(play, colCtx, &lookup->ceiling, 255, 0, 0);
     }
 }
+#endif
