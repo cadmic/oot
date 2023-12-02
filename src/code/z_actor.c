@@ -8,6 +8,18 @@
 #include "assets/objects/gameplay_dangeon_keep/gameplay_dangeon_keep.h"
 #include "assets/objects/object_bdoor/object_bdoor.h"
 
+#ifdef RETAIL
+
+#define ACTOR_DEBUG_LOG_ENABLED 0
+#define ACTOR_DRAW_ENABLED 1
+
+#else
+
+#define ACTOR_DEBUG_LOG_ENABLED (HREG(20) != 0)
+#define ACTOR_DRAW_ENABLED (HREG(64) != 1)
+
+#endif
+
 static CollisionPoly* sCurCeilingPoly;
 static s32 sCurCeilingBgId;
 
@@ -833,11 +845,13 @@ void Actor_Destroy(Actor* actor, PlayState* play) {
         actor->destroy(actor, play);
         actor->destroy = NULL;
     } else {
+#ifndef RETAIL
         overlayEntry = actor->overlayEntry;
         name = overlayEntry->name != NULL ? overlayEntry->name : "";
 
         // "No Actor class destruct [%s]"
         osSyncPrintf("Ａｃｔｏｒクラス デストラクトがありません [%s]\n" VT_RST, name);
+#endif
     }
 }
 
@@ -1369,12 +1383,15 @@ Gfx* func_8002E830(Vec3f* object, Vec3f* eye, Vec3f* lightDir, GraphicsContext* 
 
     *hilite = GRAPH_ALLOC(gfxCtx, sizeof(Hilite));
 
+#ifndef RETAIL
     if (R_HREG_MODE == HREG_MODE_PRINT_HILITE_INFO) {
         osSyncPrintf("z_actor.c 3529 eye=[%f(%f) %f %f] object=[%f %f %f] light_direction=[%f %f %f]\n", correctedEyeX,
                      eye->x, eye->y, eye->z, object->x, object->y, object->z, lightDir->x, lightDir->y, lightDir->z);
     }
 
     View_ErrorCheckEyePosition(correctedEyeX, eye->y, eye->z);
+#endif
+
     guLookAtHilite(&D_8015BBA8, lookAt, *hilite, correctedEyeX, eye->y, eye->z, object->x, object->y, object->z, 0.0f,
                    1.0f, 0.0f, lightDir->x, lightDir->y, lightDir->z, lightDir->x, lightDir->y, lightDir->z, 16, 16);
 
@@ -1418,10 +1435,12 @@ void func_8002EBCC(Actor* actor, PlayState* play, s32 flag) {
     lightDir.y = play->envCtx.dirLight1.params.dir.y;
     lightDir.z = play->envCtx.dirLight1.params.dir.z;
 
+#ifndef RETAIL
     if (R_HREG_MODE == HREG_MODE_PRINT_HILITE_INFO) {
         osSyncPrintf("z_actor.c 3637 game_play->view.eye=[%f(%f) %f %f]\n", play->view.eye.x, play->view.eye.y,
                      play->view.eye.z);
     }
+#endif
 
     hilite = func_8002EABC(&actor->world.pos, &play->view.eye, &lightDir, play->state.gfxCtx);
 
@@ -1958,7 +1977,9 @@ void Actor_DrawFaroresWindPointer(PlayState* play) {
                 length *= 0.5f;
                 dx = diff - length;
                 yOffset += sqrtf(SQ(length) - SQ(dx)) * 0.2f;
+#ifndef RETAIL
                 osSyncPrintf("-------- DISPLAY Y=%f\n", yOffset);
+#endif
             }
 
             effectPos.x = curPos->x + Rand_CenteredFloat(6.0f);
@@ -2161,12 +2182,14 @@ void Actor_UpdateAll(PlayState* play, ActorContext* actorCtx) {
         actorCtx->unk_02--;
     }
 
+#ifndef RETAIL
     if (KREG(0) == -100) {
         refActor = &GET_PLAYER(play)->actor;
         KREG(0) = 0;
         Actor_Spawn(&play->actorCtx, play, ACTOR_EN_CLEAR_TAG, refActor->world.pos.x, refActor->world.pos.y + 100.0f,
                     refActor->world.pos.z, 0, 0, 0, 1);
     }
+#endif
 
     categoryFreezeMaskP = &sCategoryFreezeMasks[0];
 
@@ -2283,11 +2306,13 @@ void Actor_FaultPrint(Actor* actor, char* command) {
     overlayEntry = actor->overlayEntry;
     name = overlayEntry->name != NULL ? overlayEntry->name : "";
 
+#ifndef RETAIL
     osSyncPrintf("アクターの名前(%08x:%s)\n", actor, name); // "Actor name (%08x:%s)"
 
     if (command != NULL) {
         osSyncPrintf("コメント:%s\n", command); // "Command:%s"
     }
+#endif
 
     FaultDrawer_SetCursor(48, 24);
     FaultDrawer_Printf("ACTOR NAME %08x:%s", actor, name);
@@ -2528,20 +2553,22 @@ void func_800315AC(PlayState* play, ActorContext* actorCtx) {
             gDPNoOpString(POLY_OPA_DISP++, actorName, i);
             gDPNoOpString(POLY_XLU_DISP++, actorName, i);
 
+#ifndef RETAIL
             HREG(66) = i;
+#endif
 
-            if ((HREG(64) != 1) || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(68) == 0)) {
+            if (ACTOR_DRAW_ENABLED || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(68) == 0)) {
                 SkinMatrix_Vec3fMtxFMultXYZW(&play->viewProjectionMtxF, &actor->world.pos, &actor->projectedPos,
                                              &actor->projectedW);
             }
 
-            if ((HREG(64) != 1) || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(69) == 0)) {
+            if (ACTOR_DRAW_ENABLED || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(69) == 0)) {
                 if (actor->sfx != 0) {
                     func_80030ED8(actor);
                 }
             }
 
-            if ((HREG(64) != 1) || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(70) == 0)) {
+            if (ACTOR_DRAW_ENABLED || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(70) == 0)) {
                 if (func_800314B0(play, actor)) {
                     actor->flags |= ACTOR_FLAG_6;
                 } else {
@@ -2551,7 +2578,7 @@ void func_800315AC(PlayState* play, ActorContext* actorCtx) {
 
             actor->isDrawn = false;
 
-            if ((HREG(64) != 1) || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(71) == 0)) {
+            if (ACTOR_DRAW_ENABLED || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(71) == 0)) {
                 if ((actor->init == NULL) && (actor->draw != NULL) && (actor->flags & (ACTOR_FLAG_5 | ACTOR_FLAG_6))) {
                     if ((actor->flags & ACTOR_FLAG_7) &&
                         ((play->roomCtx.curRoom.lensMode == LENS_MODE_HIDE_ACTORS) || play->actorCtx.lensActive ||
@@ -2561,7 +2588,7 @@ void func_800315AC(PlayState* play, ActorContext* actorCtx) {
                         invisibleActors[invisibleActorCounter] = actor;
                         invisibleActorCounter++;
                     } else {
-                        if ((HREG(64) != 1) || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(72) == 0)) {
+                        if (ACTOR_DRAW_ENABLED || ((HREG(65) != -1) && (HREG(65) != HREG(66))) || (HREG(72) == 0)) {
                             Actor_Draw(play, actor);
                             actor->isDrawn = true;
                         }
@@ -2573,15 +2600,15 @@ void func_800315AC(PlayState* play, ActorContext* actorCtx) {
         }
     }
 
-    if ((HREG(64) != 1) || (HREG(73) != 0)) {
+    if (ACTOR_DRAW_ENABLED || (HREG(73) != 0)) {
         Effect_DrawAll(play->state.gfxCtx);
     }
 
-    if ((HREG(64) != 1) || (HREG(74) != 0)) {
+    if (ACTOR_DRAW_ENABLED || (HREG(74) != 0)) {
         EffectSs_DrawAll(play);
     }
 
-    if ((HREG(64) != 1) || (HREG(72) != 0)) {
+    if (ACTOR_DRAW_ENABLED || (HREG(72) != 0)) {
         if (play->actorCtx.lensActive) {
             Actor_DrawLensActors(play, invisibleActorCounter, invisibleActors);
             if ((play->csCtx.state != CS_STATE_IDLE) || Player_InCsMode(play)) {
@@ -2596,13 +2623,15 @@ void func_800315AC(PlayState* play, ActorContext* actorCtx) {
         Lights_DrawGlow(play);
     }
 
-    if ((HREG(64) != 1) || (HREG(75) != 0)) {
+    if (ACTOR_DRAW_ENABLED || (HREG(75) != 0)) {
         TitleCard_Draw(play, &actorCtx->titleCtx);
     }
 
-    if ((HREG(64) != 1) || (HREG(76) != 0)) {
+#ifndef RETAIL
+    if (ACTOR_DRAW_ENABLED || (HREG(76) != 0)) {
         CollisionCheck_DrawCollision(play, &play->colChkCtx);
     }
+#endif
 
     CLOSE_DISPS(play->state.gfxCtx, "../z_actor.c", 6563);
 }
@@ -2684,7 +2713,7 @@ void func_80031C3C(ActorContext* actorCtx, PlayState* play) {
         }
     }
 
-    if (HREG(20) != 0) {
+    if (ACTOR_DEBUG_LOG_ENABLED) {
         osSyncPrintf("絶対魔法領域解放\n"); // "Absolute magic field deallocation"
     }
 
@@ -2753,38 +2782,42 @@ Actor* Actor_RemoveFromCategory(PlayState* play, ActorContext* actorCtx, Actor* 
 }
 
 void Actor_FreeOverlay(ActorOverlay* actorOverlay) {
+#ifndef RETAIL
     osSyncPrintf(VT_FGCOL(CYAN));
+#endif
 
     if (actorOverlay->numLoaded == 0) {
-        if (HREG(20) != 0) {
+        if (ACTOR_DEBUG_LOG_ENABLED) {
             osSyncPrintf("アクタークライアントが０になりました\n"); // "Actor client is now 0"
         }
 
         if (actorOverlay->loadedRamAddr != NULL) {
             if (actorOverlay->allocType & ACTOROVL_ALLOC_PERSISTENT) {
-                if (HREG(20) != 0) {
+                if (ACTOR_DEBUG_LOG_ENABLED) {
                     osSyncPrintf("オーバーレイ解放しません\n"); // "Overlay will not be deallocated"
                 }
             } else if (actorOverlay->allocType & ACTOROVL_ALLOC_ABSOLUTE) {
-                if (HREG(20) != 0) {
+                if (ACTOR_DEBUG_LOG_ENABLED) {
                     // "Absolute magic field reserved, so deallocation will not occur"
                     osSyncPrintf("絶対魔法領域確保なので解放しません\n");
                 }
                 actorOverlay->loadedRamAddr = NULL;
             } else {
-                if (HREG(20) != 0) {
+                if (ACTOR_DEBUG_LOG_ENABLED) {
                     osSyncPrintf("オーバーレイ解放します\n"); // "Overlay deallocated"
                 }
                 ZELDAARENA_FREE(actorOverlay->loadedRamAddr, "../z_actor.c", 6834);
                 actorOverlay->loadedRamAddr = NULL;
             }
         }
-    } else if (HREG(20) != 0) {
+    } else if (ACTOR_DEBUG_LOG_ENABLED) {
         // "%d of actor client remains"
         osSyncPrintf("アクタークライアントはあと %d 残っています\n", actorOverlay->numLoaded);
     }
 
+#ifndef RETAIL
     osSyncPrintf(VT_RST);
+#endif
 }
 
 Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 posX, f32 posY, f32 posZ, s16 rotX,
@@ -2804,26 +2837,28 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
     name = overlayEntry->name != NULL ? overlayEntry->name : "";
     overlaySize = (uintptr_t)overlayEntry->vramEnd - (uintptr_t)overlayEntry->vramStart;
 
-    if (HREG(20) != 0) {
+    if (ACTOR_DEBUG_LOG_ENABLED) {
         // "Actor class addition [%d:%s]"
         osSyncPrintf("アクタークラス追加 [%d:%s]\n", actorId, name);
     }
 
     if (actorCtx->total > ACTOR_NUMBER_MAX) {
+#ifndef RETAIL
         // "Ａｃｔｏｒ set number exceeded"
         osSyncPrintf(VT_COL(YELLOW, BLACK) "Ａｃｔｏｒセット数オーバー\n" VT_RST);
+#endif
         return NULL;
     }
 
     if (overlayEntry->vramStart == NULL) {
-        if (HREG(20) != 0) {
+        if (ACTOR_DEBUG_LOG_ENABLED) {
             osSyncPrintf("オーバーレイではありません\n"); // "Not an overlay"
         }
 
         actorInit = overlayEntry->initInfo;
     } else {
         if (overlayEntry->loadedRamAddr != NULL) {
-            if (HREG(20) != 0) {
+            if (ACTOR_DEBUG_LOG_ENABLED) {
                 osSyncPrintf("既にロードされています\n"); // "Already loaded"
             }
         } else {
@@ -2835,7 +2870,7 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
                     // "AMF: absolute magic field"
                     actorCtx->absoluteSpace =
                         ZELDAARENA_MALLOCR(ACTOROVL_ABSOLUTE_SPACE_SIZE, "AMF:絶対魔法領域", 0);
-                    if (HREG(20) != 0) {
+                    if (ACTOR_DEBUG_LOG_ENABLED) {
                         // "Absolute magic field reservation - %d bytes reserved"
                         osSyncPrintf("絶対魔法領域確保 %d バイト確保\n", ACTOROVL_ABSOLUTE_SPACE_SIZE);
                     }
@@ -2849,14 +2884,17 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
             }
 
             if (overlayEntry->loadedRamAddr == NULL) {
+#ifndef RETAIL
                 // "Cannot reserve actor program memory"
                 osSyncPrintf(VT_COL(RED, WHITE) "Ａｃｔｏｒプログラムメモリが確保できません\n" VT_RST);
+#endif
                 return NULL;
             }
 
             Overlay_Load(overlayEntry->vromStart, overlayEntry->vromEnd, overlayEntry->vramStart, overlayEntry->vramEnd,
                          overlayEntry->loadedRamAddr);
 
+#ifndef RETAIL
             osSyncPrintf(VT_FGCOL(GREEN));
             osSyncPrintf("OVL(a):Seg:%08x-%08x Ram:%08x-%08x Off:%08x %s\n", overlayEntry->vramStart,
                          overlayEntry->vramEnd, overlayEntry->loadedRamAddr,
@@ -2864,6 +2902,7 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
                              (uintptr_t)overlayEntry->vramStart,
                          (uintptr_t)overlayEntry->vramStart - (uintptr_t)overlayEntry->loadedRamAddr, name);
             osSyncPrintf(VT_RST);
+#endif
 
             overlayEntry->numLoaded = 0;
         }
@@ -2879,9 +2918,11 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
 
     if ((objectSlot < 0) ||
         ((actorInit->category == ACTORCAT_ENEMY) && Flags_GetClear(play, play->roomCtx.curRoom.num))) {
+#ifndef RETAIL
         // "No data bank!! <data bank＝%d> (profilep->bank=%d)"
         osSyncPrintf(VT_COL(RED, WHITE) "データバンク無し！！<データバンク＝%d>(profilep->bank=%d)\n" VT_RST,
                      objectSlot, actorInit->objectId);
+#endif
         Actor_FreeOverlay(overlayEntry);
         return NULL;
     }
@@ -2889,9 +2930,11 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
     actor = ZELDAARENA_MALLOC(actorInit->instanceSize, name, 1);
 
     if (actor == NULL) {
+#ifndef RETAIL
         // "Actor class cannot be reserved! %s <size＝%d bytes>"
         osSyncPrintf(VT_COL(RED, WHITE) "Ａｃｔｏｒクラス確保できません！ %s <サイズ＝%dバイト>\n", VT_RST, name,
                      actorInit->instanceSize);
+#endif
         Actor_FreeOverlay(overlayEntry);
         return NULL;
     }
@@ -2900,7 +2943,7 @@ Actor* Actor_Spawn(ActorContext* actorCtx, PlayState* play, s16 actorId, f32 pos
 
     overlayEntry->numLoaded++;
 
-    if (HREG(20) != 0) {
+    if (ACTOR_DEBUG_LOG_ENABLED) {
         // "Actor client No. %d"
         osSyncPrintf("アクタークライアントは %d 個目です\n", overlayEntry->numLoaded);
     }
@@ -3001,7 +3044,7 @@ Actor* Actor_Delete(ActorContext* actorCtx, Actor* actor, PlayState* play) {
     overlayEntry = actor->overlayEntry;
     name = overlayEntry->name != NULL ? overlayEntry->name : "";
 
-    if (HREG(20) != 0) {
+    if (ACTOR_DEBUG_LOG_ENABLED) {
         osSyncPrintf("アクタークラス削除 [%s]\n", name); // "Actor class deleted [%s]"
     }
 
@@ -3030,7 +3073,7 @@ Actor* Actor_Delete(ActorContext* actorCtx, Actor* actor, PlayState* play) {
     ZELDAARENA_FREE(actor, "../z_actor.c", 7242);
 
     if (overlayEntry->vramStart == NULL) {
-        if (HREG(20) != 0) {
+        if (ACTOR_DEBUG_LOG_ENABLED) {
             osSyncPrintf("オーバーレイではありません\n"); // "Not an overlay"
         }
     } else {
