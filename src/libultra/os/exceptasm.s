@@ -631,7 +631,7 @@ panic:
 /**
  *  Handles posting event messages to the listening message queue, if there is one
  */
-send_mesg:
+LEAF(send_mesg)
     // Load pointer to listening message queue
     lui     $t2, %hi(__osEventStateTab)
     addiu   $t2, %lo(__osEventStateTab)
@@ -692,6 +692,7 @@ send_mesg:
 send_done:
     jr      $s2
      nop
+END(send_mesg)
 
 /**
  *  Handle coprocessor unusable exception
