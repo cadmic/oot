@@ -20,11 +20,13 @@ endif
 all: $(PROGRAMS)
 	$(MAKE) -C ZAPD
 	$(MAKE) -C fado
+	(cd z64decompress; ./release-linux.sh)
 
 clean:
 	$(RM) $(PROGRAMS) $(addsuffix .exe,$(PROGRAMS))
 	$(MAKE) -C ZAPD clean
 	$(MAKE) -C fado clean
+	$(RM) -r z64decompress/bin
 
 distclean: clean
 
