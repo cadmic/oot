@@ -14,6 +14,10 @@ NON_MATCHING ?= 0
 ORIG_COMPILER ?= 0
 # If COMPILER is "gcc", compile with GCC instead of IDO.
 COMPILER ?= ido
+# Target game version. Currently the following versions are supported:
+#   cpm:  GameCube PAL MQ
+#   cpmd: GameCube PAL MQ Debug (the default)
+VERSION ?= cpmd
 
 CFLAGS ?=
 CPPFLAGS ?=
@@ -41,8 +45,29 @@ ifeq ($(NON_MATCHING),1)
   COMPARE := 0
 endif
 
+# ROM paths
+ifeq ($(VERSION),cpmd)
+  BASEROM := baserom.z64
+  ROM := zelda_ocarina_mq_dbg.z64
+else
+  BASEROM := baserom_$(VERSION).z64
+  ROM := zelda_ocarina_$(VERSION).z64
+endif
+
+# Version-specific settings
+ifeq ($(VERSION),cpm)
+  CFLAGS += -DNON_MATCHING -DNDEBUG
+  CPPFLAGS += -DNON_MATCHING -DNDEBUG
+  OPTFLAGS := -O2 -g3
+  COMPARE := 0
+else ifeq ($(VERSION),cpmd)
+  OPTFLAGS := -O2
+else
+$(error Unsupported version $(VERSION))
+endif
+
 PROJECT_DIR := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
-BUILD_DIR := build
+BUILD_DIR := build/$(VERSION)
 
 MAKE = make
 CPPFLAGS += -fno-dollars-in-identifiers -P
@@ -71,13 +96,11 @@ endif
 # Detect compiler and set variables appropriately.
 ifeq ($(COMPILER),gcc)
   CC       := $(MIPS_BINUTILS_PREFIX)gcc
-else
-ifeq ($(COMPILER),ido)
+else ifeq ($(COMPILER),ido)
   CC       := tools/ido_recomp/$(DETECTED_OS)/7.1/cc
   CC_OLD   := tools/ido_recomp/$(DETECTED_OS)/5.3/cc
 else
 $(error Unsupported compiler. Please use either ido or gcc as the COMPILER variable.)
-endif
 endif
 
 # if ORIG_COMPILER is 1, check that either QEMU_IRIX is set or qemu-irix package installed
@@ -113,8 +136,6 @@ FADO       := tools/fado/fado.elf
 
 ifeq ($(COMPILER),gcc)
   OPTFLAGS := -Os -ffast-math -fno-unsafe-math-optimizations
-else
-  OPTFLAGS := -O2
 endif
 
 ASFLAGS := -march=vr4300 -32 -no-pad-sections -Iinclude
@@ -147,8 +168,6 @@ OBJDUMP_FLAGS := -d -r -z -Mreg-names=32
 
 #### Files ####
 
-# ROM image
-ROM := zelda_ocarina_mq_dbg.z64
 ELF := $(ROM:.z64=.elf)
 # description of ROM segments
 SPEC := spec
