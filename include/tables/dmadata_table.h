@@ -1,9 +1,6 @@
 /**
- * Select dmadata table for version
+ * Include dmadata table for version
  */
-#ifdef NON_MATCHING
-// For non-matching builds, dmadata is generated from the specfile segments
-#include "dmadata_table_spec.h"
-#else
-#include "dmadata_table_mqdbg.h"
+#ifdef DMADATA_TABLE_HEADER
+#include DMADATA_TABLE_HEADER
 #endif

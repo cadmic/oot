@@ -68,6 +68,15 @@ endif
 
 PROJECT_DIR := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR := build/$(VERSION)
+VERSION_DIR := versions/$(VERSION)
+
+# Select dmadata table for version
+ifeq ($(NON_MATCHING),1)
+  # For non-matching builds, dmadata is generated from the specfile segments
+  CFLAGS += -DDMADATA_TABLE_HEADER=\"dmadata_table_spec.h\"
+else
+  CFLAGS += -DDMADATA_TABLE_HEADER=\"$(VERSION_DIR)/dmadata_table.h\"
+endif
 
 MAKE = make
 CPPFLAGS += -fno-dollars-in-identifiers -P
@@ -354,9 +363,10 @@ $(BUILD_DIR)/src/%.o: src/%.s
 $(BUILD_DIR)/dmadata_table_spec.h: $(BUILD_DIR)/$(SPEC)
 	$(MKDMADATA) $< $@
 
-# Dependencies for files that may include the dmadata header automatically generated from the spec file
-$(BUILD_DIR)/src/boot/z_std_dma.o: $(BUILD_DIR)/dmadata_table_spec.h
-$(BUILD_DIR)/src/dmadata/dmadata.o: $(BUILD_DIR)/dmadata_table_spec.h
+# Dependencies for files that may include the dmadata header, either for a
+# specific version or automatically generated from the spec file
+$(BUILD_DIR)/src/boot/z_std_dma.o: $(VERSION_DIR)/dmadata_table.h $(BUILD_DIR)/dmadata_table_spec.h
+$(BUILD_DIR)/src/dmadata/dmadata.o: $(VERSION_DIR)/dmadata_table.h $(BUILD_DIR)/dmadata_table_spec.h
 
 # Dependencies for files including from include/tables/
 # TODO remove when full header dependencies are used.
