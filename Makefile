@@ -51,7 +51,7 @@ ifeq ($(VERSION),cpmd)
   ROM := zelda_ocarina_mq_dbg.z64
 else
   BASEROM := baserom_$(VERSION).z64
-  ROM := zelda_ocarina_$(VERSION).z64
+  ROM := zelda_ocarina_$(VERSION)_uncompressed.z64
 endif
 
 # Version-specific settings
@@ -68,6 +68,7 @@ endif
 
 PROJECT_DIR := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR := build/$(VERSION)
+EXPECTED_DIR := expected/$(VERSION)
 VERSION_DIR := versions/$(VERSION)
 
 # Select dmadata table for version
@@ -175,8 +176,13 @@ endif
 
 OBJDUMP_FLAGS := -d -r -z -Mreg-names=32
 
+DISASM_FLAGS += -q
+DISASM_FLAGS += --no-use-fpccsr --Mreg-names o32 --custom-suffix _unknown
+DISASM_FLAGS += --no-asm-comments --no-glabel-count --name-vars-by-file --sequential-label-names
+
 #### Files ####
 
+BASEROM_UNCOMPRESSED := $(BASEROM:.z64=_uncompressed.z64)
 ELF := $(ROM:.z64=.elf)
 # description of ROM segments
 SPEC := spec
@@ -204,6 +210,8 @@ O_FILES       := $(foreach f,$(S_FILES:.s=.o),$(BUILD_DIR)/$f) \
                  $(foreach f,$(wildcard baserom/*),$(BUILD_DIR)/$f.o)
 
 OVL_RELOC_FILES := $(shell $(CPP) $(CPPFLAGS) $(SPEC) | sed -e 's|$$(BUILD_DIR)|$(BUILD_DIR)|g' | grep -o '[^"]*_reloc.o' )
+
+CSV_FILES := $(wildcard $(VERSION_DIR)/*.csv)
 
 # Automatic dependency files
 # (Only asm_processor dependencies and reloc dependencies are handled for now)
@@ -280,7 +288,7 @@ ifeq ($(COMPARE),1)
 endif
 
 clean:
-	$(RM) -r $(ROM) $(ELF) $(BUILD_DIR)
+	$(RM) -r $(ROM) $(ELF) $(BUILD_DIR) $(EXPECTED_DIR)
 
 assetclean:
 	$(RM) -r $(ASSET_BIN_DIRS)
@@ -304,8 +312,9 @@ ifeq ($(EMULATOR),)
 endif
 	$(EMULATOR) $(EMU_FLAGS) $<
 
+disasm: $(EXPECTED_DIR)/asm/.disasm
 
-.PHONY: all clean setup run distclean assetclean
+.PHONY: all clean setup run disasm distclean assetclean
 
 #### Various Recipes ####
 
@@ -407,5 +416,12 @@ $(BUILD_DIR)/assets/%.bin.inc.c: assets/%.bin
 
 $(BUILD_DIR)/assets/%.jpg.inc.c: assets/%.jpg
 	$(ZAPD) bren -eh -i $< -o $@
+
+$(BASEROM_UNCOMPRESSED): $(BASEROM)
+	tools/z64decompress/bin/linux64/z64decompress $< $@ >/dev/null
+
+$(EXPECTED_DIR)/asm/.disasm: $(BASEROM_UNCOMPRESSED) $(CSV_FILES)
+	tools/disasm.py $(DISASM_FLAGS) $< --csv-dir $(VERSION_DIR) --output-dir $(EXPECTED_DIR)/asm
+	@touch $@
 
 -include $(DEP_FILES)
