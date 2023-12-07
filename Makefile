@@ -312,7 +312,7 @@ ifeq ($(EMULATOR),)
 endif
 	$(EMULATOR) $(EMU_FLAGS) $<
 
-disasm: $(EXPECTED_DIR)/asm/.disasm
+disasm: $(EXPECTED_DIR)/asm/.disasm $(BUILD_DIR)/asm/.disasm
 
 .PHONY: all clean setup run disasm distclean assetclean
 
@@ -422,6 +422,11 @@ $(BASEROM_UNCOMPRESSED): $(BASEROM)
 
 $(EXPECTED_DIR)/asm/.disasm: $(BASEROM_UNCOMPRESSED) $(CSV_FILES)
 	tools/disasm.py $(DISASM_FLAGS) $< --csv-dir $(VERSION_DIR) --output-dir $(EXPECTED_DIR)/asm
+	@touch $@
+
+$(BUILD_DIR)/asm/.disasm: $(ROM)
+	tools/gen_csvs_from_mapfile.py $(BUILD_DIR)/z64.map --csv-dir $(BUILD_DIR)
+	tools/disasm.py $(DISASM_FLAGS) $< --csv-dir $(BUILD_DIR) --output-dir $(BUILD_DIR)/asm
 	@touch $@
 
 -include $(DEP_FILES)
