@@ -20,7 +20,7 @@ MtxF* sMatrixStack;   // "Matrix_stack"
 MtxF* sCurrentMatrix; // "Matrix_now"
 
 void Matrix_Init(GameState* gameState) {
-    sCurrentMatrix = GameState_Alloc(gameState, 20 * sizeof(MtxF), "../sys_matrix.c", 153);
+    sCurrentMatrix = GAME_STATE_ALLOC(gameState, 20 * sizeof(MtxF), "../sys_matrix.c", 153);
     sMatrixStack = sCurrentMatrix;
 }
 
@@ -603,16 +603,30 @@ Mtx* Matrix_MtxFToMtx(MtxF* src, Mtx* dest) {
     return dest;
 }
 
-Mtx* Matrix_ToMtx(Mtx* dest, char* file, s32 line) {
+#ifdef Z_DEBUG
+
+Mtx* Matrix_ToMtxDebug(Mtx* dest, char* file, s32 line) {
     return Matrix_MtxFToMtx(Matrix_CheckFloats(sCurrentMatrix, file, line), dest);
 }
 
-Mtx* Matrix_NewMtx(GraphicsContext* gfxCtx, char* file, s32 line) {
-    return Matrix_ToMtx(Graph_Alloc(gfxCtx, sizeof(Mtx)), file, line);
+Mtx* Matrix_NewMtxDebug(GraphicsContext* gfxCtx, char* file, s32 line) {
+    return Matrix_ToMtxDebug(GRAPH_ALLOC(gfxCtx, sizeof(Mtx)), file, line);
 }
 
+#else
+
+Mtx* Matrix_ToMtx(Mtx* dest) {
+    return Matrix_MtxFToMtx(sCurrentMatrix, dest);
+}
+
+Mtx* Matrix_NewMtx(GraphicsContext* gfxCtx) {
+    return Matrix_ToMtx(GRAPH_ALLOC(gfxCtx, sizeof(Mtx)));
+}
+
+#endif
+
 Mtx* Matrix_MtxFToNewMtx(MtxF* src, GraphicsContext* gfxCtx) {
-    return Matrix_MtxFToMtx(src, Graph_Alloc(gfxCtx, sizeof(Mtx)));
+    return Matrix_MtxFToMtx(src, GRAPH_ALLOC(gfxCtx, sizeof(Mtx)));
 }
 
 void Matrix_MultVec3f(Vec3f* src, Vec3f* dest) {
@@ -955,6 +969,7 @@ void Matrix_RotateAxis(f32 angle, Vec3f* axis, u8 mode) {
     }
 }
 
+#ifdef Z_DEBUG
 MtxF* Matrix_CheckFloats(MtxF* mf, char* file, s32 line) {
     s32 i, j;
 
@@ -975,6 +990,7 @@ MtxF* Matrix_CheckFloats(MtxF* mf, char* file, s32 line) {
 
     return mf;
 }
+#endif
 
 void Matrix_SetTranslateUniformScaleMtxF(MtxF* mf, f32 scale, f32 translateX, f32 translateY, f32 translateZ) {
     mf->yx = 0.0f;

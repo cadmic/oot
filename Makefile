@@ -53,6 +53,8 @@ ifeq ($(VERSION),gc-eu-mq)
   OPTFLAGS := -O2 -g3
   COMPARE := 0
 else ifeq ($(VERSION),gc-eu-mq-dbg)
+  CFLAGS += -DZ_DEBUG
+  CPPFLAGS += -DZ_DEBUG
   OPTFLAGS := -O2
 else
 $(error Unsupported version $(VERSION))
