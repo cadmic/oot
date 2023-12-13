@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import collections
 from dataclasses import dataclass
 import difflib
 from enum import Enum
@@ -16,6 +17,7 @@ class RelocType(Enum):
 
 @dataclass
 class Inst:
+    func_name: str
     mnemonic: str
     args: list[str]
     reloc_type: str|None
@@ -41,14 +43,24 @@ def run_objdump(filename):
     except subprocess.CalledProcessError as e:
         return []
 
+    func_name = None
     result = []
     i = 6  # skip preamble
     while i < len(lines):
         row = lines[i]
         i += 1
 
-        if not row or not row.startswith(" "):
+        if not row:
             continue
+
+        if not row.startswith(" "):
+            label = row.split()[-1]
+            # strip '<' and '>:'
+            func_name = label[1:-2]
+            continue
+
+        if not func_name:
+            raise Exception(f"no function name for line '{row}'")
 
         parts = row.split()
         mnemonic = parts[2]
@@ -79,7 +91,7 @@ def run_objdump(filename):
             else:
                 raise Exception(f"unknown relocation '{reloc}' for line '{row}'")
 
-        result.append(Inst(mnemonic, args, reloc_type, reloc_symbol))
+        result.append(Inst(func_name, mnemonic, args, reloc_type, reloc_symbol))
 
     return result
 
@@ -96,7 +108,50 @@ def diff_lines(lines1, lines2):
         for line1, line2 in itertools.zip_longest(lines1[i1:i2], lines2[j1:j2]):
             yield (line1, line2)
 
-def print_progress(version):
+def should_ignore_diff(line1, line2):
+    if (
+        line1.mnemonic == line2.mnemonic
+        and line1.args[:2] == line2.args[:2]
+        and line1.reloc_type == line2.reloc_type
+    ):
+        # ignore symbol differences
+        return True
+
+    if line1.mnemonic == line2.mnemonic and line1.mnemonic.startswith("b"):
+        return True
+
+    return False
+
+def report_file(version, file):
+    expected_dir = Path("expected/build") / version
+    build_dir = Path("build") / version
+
+    lines1 = run_objdump(expected_dir / file)
+    lines2 = run_objdump(build_dir / file)
+
+    trim_trailing_nops(lines1)
+    trim_trailing_nops(lines2)
+
+    functions_with_diffs = collections.OrderedDict()
+    for line1, line2 in diff_lines(lines1, lines2):
+        if line1 is None:
+            functions_with_diffs[line2.func_name] = True
+        elif line2 is None:
+            functions_with_diffs[line1.func_name] = True
+        elif line1 != line2:
+            if not should_ignore_diff(line1, line2):
+                functions_with_diffs[line1.func_name] = True
+                functions_with_diffs[line2.func_name] = True
+
+    if not functions_with_diffs:
+        print(f"{file}: no diffs")
+        return
+
+    print(f"{file} functions with diffs:")
+    for func_name in functions_with_diffs:
+        print(f"  {func_name}")
+
+def report_all_files(version):
     expected_dir = Path("expected/build") / version
     build_dir = Path("build") / version
 
@@ -115,29 +170,25 @@ def print_progress(version):
 
         added = 0
         removed = 0
-        data_diff = 0
-        other_diff = 0
+        changed = 0
         for line1, line2 in diff_lines(lines1, lines2):
             if line1 is None:
                 added += 1
             elif line2 is None:
                 removed += 1
             elif line1 != line2:
-                if (
-                    line1 is not None
-                    and line2 is not None
-                    and line1.mnemonic == line2.mnemonic
-                    and line1.args[:2] == line2.args[:2]
-                    and line1.reloc_type == line2.reloc_type
-                ):
-                    data_diff += 1
-                else:
-                    other_diff += 1
+                if not should_ignore_diff(line1, line2):
+                    changed += 1
 
-        print(f"{path},{len(lines1)},{len(lines2)},{added},{removed},{data_diff},{other_diff}")
+        print(f"{path},{len(lines1)},{len(lines2)},{added},{removed},{changed}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate progress matching .text sections")
     parser.add_argument("-v", "--version", help="version to compare", required=True)
+    parser.add_argument("-f", "--file", help="object file to compare")
     args = parser.parse_args()
-    print_progress(args.version)
+
+    if args.file is not None:
+        report_file(args.version, args.file)
+    else:
+        report_all_files(args.version)
