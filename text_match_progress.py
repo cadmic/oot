@@ -155,7 +155,7 @@ def report_all_files(version):
     expected_dir = Path("expected/build") / version
     build_dir = Path("build") / version
 
-    print("path,expected,actual,added,removed,data diff,other diff")
+    print("path,expected,actual,added,removed,changed")
     for object_file in sorted(expected_dir.glob("src/**/*.o")):
         path = object_file.relative_to(expected_dir)
 
