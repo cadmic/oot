@@ -139,11 +139,13 @@ def has_diff(inst1: Inst, inst2: Inst) -> bool:
     return inst1 != inst2
 
 def find_functions_with_diffs(version: str, object_file: str):
+    object_path = Path(object_file).with_suffix(".o")
+
     expected_dir = Path("expected/build") / version
     build_dir = Path("build") / version
 
-    insts1 = run_objdump(expected_dir / object_file)
-    insts2 = run_objdump(build_dir / object_file)
+    insts1 = run_objdump(expected_dir / object_path)
+    insts2 = run_objdump(build_dir / object_path)
 
     functions_with_diffs = collections.OrderedDict()
     for inst1, inst2 in pair_instructions(insts1, insts2):
@@ -159,7 +161,7 @@ def find_functions_with_diffs(version: str, object_file: str):
         print(f"no diffs")
         return
 
-    print(f"{object_file} functions with diffs:")
+    print(f"{object_path} functions with diffs:")
     for func_name in functions_with_diffs:
         print(f"  {func_name}")
 
@@ -169,10 +171,10 @@ def print_summary_csv(version: str):
 
     print("path,expected,actual,added,removed,changed")
     for object_file in sorted(expected_dir.glob("src/**/*.o")):
-        path = object_file.relative_to(expected_dir)
+        object_path = object_file.relative_to(expected_dir)
 
-        insts1 = run_objdump(expected_dir / path)
-        insts2 = run_objdump(build_dir / path)
+        insts1 = run_objdump(expected_dir / object_path)
+        insts2 = run_objdump(build_dir / object_path)
 
         added = 0
         removed = 0
@@ -185,7 +187,7 @@ def print_summary_csv(version: str):
             elif inst1 is not None and inst2 is not None and has_diff(inst1, inst2):
                 changed += 1
 
-        print(f"{path},{len(insts1)},{len(insts2)},{added},{removed},{changed}")
+        print(f"{object_path},{len(insts1)},{len(insts2)},{added},{removed},{changed}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate progress matching .text sections")
