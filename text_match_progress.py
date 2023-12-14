@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import difflib
 from enum import Enum
 import itertools
+import math
 from pathlib import Path
 import re
 import subprocess
@@ -158,18 +159,23 @@ def find_functions_with_diffs(version: str, object_file: str):
             functions_with_diffs[inst2.func_name] = True
 
     if not functions_with_diffs:
-        print(f"no diffs")
+        print(f"{object_path} OK")
         return
 
     print(f"{object_path} functions with diffs:")
     for func_name in functions_with_diffs:
         print(f"  {func_name}")
 
-def print_summary_csv(version: str):
+GREEN = "\033[32m"
+RED = "\033[31m"
+END = "\033[0m"
+
+def print_summary(version: str, csv: bool):
     expected_dir = Path("expected/build") / version
     build_dir = Path("build") / version
 
-    print("path,expected,actual,added,removed,changed")
+    if csv:
+        print("path,expected,actual,added,removed,changed,progress")
     for object_file in sorted(expected_dir.glob("src/**/*.o")):
         object_path = object_file.relative_to(expected_dir)
 
@@ -187,15 +193,26 @@ def print_summary_csv(version: str):
             elif inst1 is not None and inst2 is not None and has_diff(inst1, inst2):
                 changed += 1
 
-        print(f"{object_path},{len(insts1)},{len(insts2)},{added},{removed},{changed}")
+        if insts1:
+            progress = max(1.0 - (added + removed + changed) / len(insts1), 0)
+        else:
+            progress = 1.0
+
+        if csv:
+            print(f"{object_path},{len(insts1)},{len(insts2)},{added},{removed},{changed},{progress:.3f}")
+        elif progress == 1.0:
+            print(f"   OK {object_path}")
+        else:
+            print(f"  {RED}{math.floor(progress * 100):>2}%{END} {object_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate progress matching .text sections")
     parser.add_argument("-v", "--version", help="version to compare", required=True)
     parser.add_argument("-f", "--file", help="find functions with diffs given an object file to compare")
+    parser.add_argument("--csv", help="print summary CSV", action="store_true")
     args = parser.parse_args()
 
     if args.file is not None:
         find_functions_with_diffs(args.version, args.file)
     else:
-        print_summary_csv(args.version)
+        print_summary(args.version, args.csv)
