@@ -34,6 +34,7 @@ def is_branch(mnemonic: str) -> bool:
 
 def parse_inst(func_name: str, line: str) -> Inst:
     parts = line.split()
+    addr = int(parts[0][:-1], 16)
     mnemonic = parts[2]
     regs = []
     imm = None
@@ -43,10 +44,16 @@ def parse_inst(func_name: str, line: str) -> Inst:
                 offset, rest = part.split("(")
                 regs.append(rest[:-1])
                 imm = int(offset, 10)
+            elif is_branch(mnemonic):
+                try:
+                    # convert branch targets to relative offsets
+                    offset = int(part, 16)
+                    imm = offset - addr - 4
+                except ValueError:
+                    regs.append(part)
             else:
                 try:
-                    # branches use hex offsets from start of file
-                    imm = int(part, 16 if is_branch(mnemonic) else 0)
+                    imm = int(part, 0)
                 except ValueError:
                     regs.append(part)
     return Inst(func_name, mnemonic, regs, imm, None, None)
@@ -122,12 +129,11 @@ def has_diff(inst1: Inst, inst2: Inst) -> bool:
     ):
         return True
 
-    if inst1.reloc_type == inst2.reloc_type:
+    if (
+        inst1.reloc_type == inst2.reloc_type
+        and inst1.reloc_type in ("R_MIPS_HI16", "R_MIPS_LO16")
+    ):
         # ignore symbol differences
-        return False
-
-    if is_branch(inst1.mnemonic):
-        # ignore branch target differences
         return False
 
     return inst1 != inst2
