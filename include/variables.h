@@ -41,6 +41,10 @@ extern u32 __additional_scanline;
 extern u8 gBuildTeam[];
 extern u8 gBuildDate[];
 extern u8 gBuildMakeOption[];
+extern OSThread gMainThread;
+extern STACK(sMainStack, 0x900);
+extern StackEntry sMainStackInfo;
+extern OSMesg sPiMgrCmdBuff[50];
 extern OSMesgQueue gPiMgrCmdQueue;
 extern OSViMode gViConfigMode;
 extern u8 gViConfigModeType;
@@ -204,6 +208,7 @@ extern volatile OSTime gAudioThreadUpdateTimeAcc;
 extern volatile OSTime gRSPAudioTimeAcc;
 extern volatile OSTime gRSPGfxTimeAcc;
 extern volatile OSTime gRSPOtherTimeAcc;
+extern volatile OSTime D_8016A578;
 extern volatile OSTime gRDPTimeAcc;
 
 extern SfxBankEntry D_8016BAD0[9];
