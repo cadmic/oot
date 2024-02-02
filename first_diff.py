@@ -30,8 +30,9 @@ def firstDiffMain():
     parser = argparse.ArgumentParser(description="Find the first difference(s) between the built ROM and the base ROM.")
 
     parser.add_argument("-c", "--count", type=int, default=5, help="find up to this many instruction difference(s)")
-    parser.add_argument("-v", "--oot-version", help="Which version should be processed", default="gc-eu-mq-dbg")
+    parser.add_argument("-v", "--oot-version", default="gc-eu-mq-dbg", help="Which version should be processed")
     parser.add_argument("-a", "--add-colons", action='store_true', help="Add colon between bytes" )
+    parser.add_argument("--no-expected", dest="no_expected", action="store_true", help="use the map file in build/ instead of expected/build/ for the baserom")
 
     args = parser.parse_args()
 
@@ -41,7 +42,10 @@ def firstDiffMain():
     BUILTMAP = buildFolder / f"oot-{args.oot_version}.map"
 
     EXPECTEDROM = Path(f"baseroms/{args.oot_version}/baserom-decompressed.z64")
-    EXPECTEDMAP = "expected" / BUILTMAP
+    if args.no_expected:
+        EXPECTEDMAP = BUILTMAP
+    else:
+        EXPECTEDMAP = "expected" / BUILTMAP
 
     mapfile_parser.frontends.first_diff.doFirstDiff(BUILTMAP, EXPECTEDMAP, BUILTROM, EXPECTEDROM, args.count, mismatchSize=True, addColons=args.add_colons, bytesConverterCallback=decodeInstruction)
 
