@@ -7040,6 +7040,7 @@ void Camera_Init(Camera* camera, View* view, CollisionContext* colCtx, PlayState
 
     __osMemset(camera, 0, sizeof(Camera));
     if (sInitRegs) {
+#if OOT_DEBUG
         for (i = 0; i < sOREGInitCnt; i++) {
             OREG(i) = sOREGInit[i];
         }
@@ -7048,7 +7049,6 @@ void Camera_Init(Camera* camera, View* view, CollisionContext* colCtx, PlayState
             R_CAM_DATA(i) = sCamDataRegsInit[i];
         }
 
-#if OOT_DEBUG
         DebugCamera_Reset(camera, &D_8015BD80);
 #endif
         sInitRegs = false;
@@ -7242,6 +7242,7 @@ s16 Camera_ChangeStatus(Camera* camera, s16 status) {
     return camera->status;
 }
 
+#if OOT_DEBUG
 void Camera_PrintSettings(Camera* camera) {
     char sp58[8];
     char sp50[8];
@@ -7318,6 +7319,7 @@ void Camera_PrintSettings(Camera* camera) {
         DebugCamera_ScreenTextColored(5, 26, DEBUG_CAM_TEXT_GOLD, sp50);
     }
 }
+#endif
 
 s32 Camera_UpdateWater(Camera* camera) {
     f32 waterY;
@@ -7457,6 +7459,7 @@ s32 Camera_UpdateHotRoom(Camera* camera) {
     return 1;
 }
 
+#if OOT_DEBUG
 s32 Camera_DbgChangeMode(Camera* camera) {
     s32 changeDir = 0;
 
@@ -7485,6 +7488,7 @@ s32 Camera_DbgChangeMode(Camera* camera) {
     }
     return true;
 }
+#endif
 
 void Camera_UpdateDistortion(Camera* camera) {
     static s16 depthPhase = 0x3F0;
@@ -7666,8 +7670,11 @@ Vec3s Camera_Update(Camera* camera) {
             }
         }
     }
+
+#if OOT_DEBUG
     Camera_PrintSettings(camera);
     Camera_DbgChangeMode(camera);
+#endif
 
     if (camera->status == CAM_STAT_WAIT) {
         if (R_DEBUG_CAM_UPDATE) {

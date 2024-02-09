@@ -26,6 +26,8 @@ typedef struct {
 
 /*==================================================================*/
 // Data
+
+#if OOT_DEBUG
 s16 sOREGInit[] = {
     0,     // OREG(0)
     1,     // OREG(1)
@@ -208,6 +210,7 @@ char sCameraModeNames[][12] = {
     "PUSHPULL   ", // CAM_MODE_PUSH_PULL
     "BOOKEEPON  ", // CAM_MODE_FOLLOW_BOOMERANG
 };
+#endif
 
 /**
  *=====================================================================
