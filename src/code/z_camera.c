@@ -7697,18 +7697,18 @@ Vec3s Camera_Update(Camera* camera) {
         }
     }
 
+#if OOT_DEBUG
     // Debug cam update
     if (gDebugCamEnabled) {
         camera->play->view.fovy = D_8015BD80.fov;
-#if OOT_DEBUG
         DebugCamera_Update(&D_8015BD80, camera);
-#endif
         View_LookAt(&camera->play->view, &D_8015BD80.eye, &D_8015BD80.at, &D_8015BD80.unk_1C);
         if (R_DEBUG_CAM_UPDATE) {
             PRINTF("camera: debug out\n");
         }
         return D_8015BD80.sub.unk_104A;
     }
+#endif
 
     OREG(0) &= ~8;
 
@@ -8128,11 +8128,13 @@ s32 Camera_RequestBgCam(Camera* camera, s32 requestedBgCamIndex) {
 }
 
 Vec3s Camera_GetInputDir(Camera* camera) {
+#if OOT_DEBUG
     if (gDebugCamEnabled) {
         return D_8015BD80.sub.unk_104A;
-    } else {
-        return camera->inputDir;
     }
+#endif
+
+    return camera->inputDir;
 }
 
 s16 Camera_GetInputDirPitch(Camera* camera) {
@@ -8148,11 +8150,13 @@ s16 Camera_GetInputDirYaw(Camera* camera) {
 }
 
 Vec3s Camera_GetCamDir(Camera* camera) {
+#if OOT_DEBUG
     if (gDebugCamEnabled) {
         return D_8015BD80.sub.unk_104A;
-    } else {
-        return camera->camDir;
     }
+#endif
+
+    return camera->camDir;
 }
 
 s16 Camera_GetCamDirPitch(Camera* camera) {

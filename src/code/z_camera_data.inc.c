@@ -3047,5 +3047,9 @@ s16 D_8011DAFC[] = {
 #endif
 
 PlayState* D_8015BD7C;
+
+#if OOT_DEBUG
 DebugCam D_8015BD80;
+#endif
+
 CollisionPoly* playerFloorPoly;
