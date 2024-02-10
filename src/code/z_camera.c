@@ -728,6 +728,7 @@ void Camera_CopyDataToRegs(Camera* camera, s16 mode) {
     CameraModeValue* valueP;
     s32 i;
 
+#if OOT_DEBUG
     if (PREG(82)) {
         PRINTF("camera: res: stat (%d/%d/%d)\n", camera->camId, camera->setting, mode);
     }
@@ -741,6 +742,8 @@ void Camera_CopyDataToRegs(Camera* camera, s16 mode) {
             PRINTF("camera: res: PREG(%02d) = %d\n", valueP->dataType, valueP->val);
         }
     }
+#endif
+
     camera->animState = 0;
 }
 
@@ -7057,7 +7060,9 @@ void Camera_Init(Camera* camera, View* view, CollisionContext* colCtx, PlayState
     camera->quakeOffset.x = camera->quakeOffset.y = camera->quakeOffset.z = 0;
     camera->atLERPStepScale = 1;
     sCameraInterfaceField = CAM_INTERFACE_FIELD(CAM_LETTERBOX_IGNORE, CAM_HUD_VISIBILITY_IGNORE, 0);
+#if OOT_DEBUG
     sDbgModeIdx = -1;
+#endif
     D_8011D3F0 = 3;
     PRINTF(VT_FGCOL(BLUE) "camera: initialize --- " VT_RST " UID %d\n", camera->uid);
 }
@@ -7167,6 +7172,7 @@ s16 Camera_ChangeStatus(Camera* camera, s16 status) {
     CameraModeValue* valueP;
     s32 i;
 
+#if OOT_DEBUG
     if (PREG(82)) {
         PRINTF("camera: change camera status: cond %c%c\n", status == CAM_STAT_ACTIVE ? 'o' : 'x',
                camera->status != CAM_STAT_ACTIVE ? 'o' : 'x');
@@ -7186,6 +7192,8 @@ s16 Camera_ChangeStatus(Camera* camera, s16 status) {
             }
         }
     }
+#endif
+
     camera->status = status;
     return camera->status;
 }

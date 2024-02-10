@@ -85,6 +85,7 @@ s16 sOREGInit[] = {
 };
 
 s16 sOREGInitCnt = ARRAY_COUNT(sOREGInit);
+#endif
 
 s16 sCamDataRegsInit[CAM_DATA_MAX] = {
     -20, // CAM_DATA_Y_OFFSET
@@ -118,6 +119,7 @@ s16 sCamDataRegsInit[CAM_DATA_MAX] = {
 
 s16 sCamDataRegsInitCount = ARRAY_COUNT(sCamDataRegsInit);
 
+#if OOT_DEBUG
 char sCameraSettingNames[][12] = {
     "NONE      ",  // CAM_SET_NONE
     "NORMAL0    ", // CAM_SET_NORMAL0
@@ -2559,7 +2561,11 @@ s32 (*sCameraFunctions[])(Camera*) = {
 s32 sInitRegs = 1;
 
 s32 gDebugCamEnabled = false;
+
+#if OOT_DEBUG
 s32 sDbgModeIdx = -1;
+#endif
+
 s16 sNextUID = 0;
 
 s32 sCameraInterfaceField = CAM_INTERFACE_FIELD(CAM_LETTERBOX_NONE, CAM_HUD_VISIBILITY_ALL, 1);
@@ -2582,6 +2588,7 @@ s32 D_8011D3F0 = 0;
 
 s32 sDemo5PrevAction12Frame = -16;
 
+#if OOT_DEBUG
 char sCameraFunctionNames[][8] = {
     "NONE   ", // CAM_FUNC_NONE
     "NORM0()", // CAM_FUNC_NORM0
@@ -2656,6 +2663,7 @@ char sCameraFunctionNames[][8] = {
     "SPEC9()", // CAM_FUNC_SPEC9
     "",        "", "", "", "",
 };
+#endif
 
 VecSph D_8011D658[] = {
     { 50.0f, 0xEE3A, 0xD558 },
@@ -3032,9 +3040,11 @@ s16 sCamElevatorPlatformRolls[] = {
 s32 D_8011DAF4 = 0;
 s32 D_8011DAF8 = 0;
 
+#if OOT_DEBUG
 s16 D_8011DAFC[] = {
     CAM_SET_NORMAL0, CAM_SET_NORMAL1, CAM_SET_NORMAL2, CAM_SET_DUNGEON0, CAM_SET_DUNGEON1, CAM_SET_DUNGEON2,
 };
+#endif
 
 PlayState* D_8015BD7C;
 DebugCam D_8015BD80;
