@@ -6,8 +6,11 @@
 
 s16 Camera_RequestSettingImpl(Camera* camera, s16 requestedSetting, s16 flags);
 s32 Camera_RequestModeImpl(Camera* camera, s16 requestedMode, u8 forceModeChange);
-s32 Camera_QRegInit(void);
 s32 Camera_UpdateWater(Camera* camera);
+
+#if OOT_DEBUG
+s32 Camera_QRegInit(void);
+#endif
 
 #if OOT_DEBUG
 #define GET_OREG(i, default) OREG(i)
@@ -7273,7 +7276,9 @@ void Camera_InitDataUsingPlayer(Camera* camera, Player* player) {
     camera->nextBgCamIndex = -1;
     camera->atLERPStepScale = 1.0f;
     Camera_CopyDataToRegs(camera, camera->mode);
+#if OOT_DEBUG
     Camera_QRegInit();
+#endif
     PRINTF(VT_FGCOL(BLUE) "camera: personalize ---" VT_RST "\n");
 
     if (camera->camId == CAM_ID_MAIN) {
@@ -8465,7 +8470,11 @@ s32 Camera_Copy(Camera* dstCamera, Camera* srcCamera) {
 }
 
 s32 Camera_IsDebugCamEnabled(void) {
+#if OOT_DEBUG
     return gDebugCamEnabled;
+#else
+    return false;
+#endif
 }
 
 Vec3f Camera_GetQuakeOffset(Camera* camera) {
@@ -8495,6 +8504,7 @@ void Camera_SetCameraData(Camera* camera, s16 setDataFlags, void* data0, void* d
     }
 }
 
+#if OOT_DEBUG
 s32 Camera_QRegInit(void) {
     if (!R_RELOAD_CAM_PARAMS) {
         QREG(2) = 1;
@@ -8529,6 +8539,7 @@ s32 Camera_QRegInit(void) {
     QREG(65) = 50;
     return true;
 }
+#endif
 
 s32 func_8005B198(void) {
     return D_8011D3AC;
