@@ -64,7 +64,7 @@ s32 Camera_QRegInit(void);
 #define R_CAM_SLOPE_Y_ADJ_AMOUNT GET_OREG(9, 25)
 #define R_CAM_10 GET_OREG_SCALED(10, 1.5f)
 #define R_CAM_11 GET_OREG_SCALED(11, 0.06f)
-#define R_CAM_12 GET_OREG_SCALED(12, 0.1f)
+#define R_CAM_12 GET_OREG_SCALED(12, .1f)
 #define R_CAM_13 GET_OREG(13, 10)
 #define R_CAM_14 GET_OREG(14, 0) // unused
 #define R_CAM_15 GET_OREG(15, 0) // unused
@@ -679,9 +679,9 @@ s16 Camera_GetPitchAdjFromFloorHeightDiffs(Camera* camera, s16 viewYaw, s16 init
     viewForwardsUnitZ = Math_CosS(viewYaw);
 
     playerHeight = Player_GetHeight(camera->player);
-    checkOffsetY = R_CAM_PITCH_FLOOR_CHECK_OFFSET_Y_FAC * playerHeight;
-    nearDist = R_CAM_PITCH_FLOOR_CHECK_NEAR_DIST_FAC * playerHeight;
-    farDist = R_CAM_PITCH_FLOOR_CHECK_FAR_DIST_FAC * playerHeight;
+    checkOffsetY = playerHeight * R_CAM_PITCH_FLOOR_CHECK_OFFSET_Y_FAC;
+    nearDist = playerHeight * R_CAM_PITCH_FLOOR_CHECK_NEAR_DIST_FAC;
+    farDist = playerHeight * R_CAM_PITCH_FLOOR_CHECK_FAR_DIST_FAC;
 
     playerPos.x = camera->playerPosRot.pos.x;
     playerPos.y = camera->playerGroundY + checkOffsetY;
@@ -882,11 +882,15 @@ void Camera_UpdateInterface(s16 interfaceField) {
 
 Vec3f Camera_BGCheckCorner(Vec3f* linePointA, Vec3f* linePointB, CamColChk* pointAColChk, CamColChk* pointBColChk) {
     Vec3f closestPoint;
+    bool result;
 
-    if (!func_800427B4(pointAColChk->poly, pointBColChk->poly, linePointA, linePointB, &closestPoint)) {
+    result = func_800427B4(pointAColChk->poly, pointBColChk->poly, linePointA, linePointB, &closestPoint);
+#if OOT_DEBUG
+    if (!result) {
         PRINTF(VT_COL(YELLOW, BLACK) "camera: corner check no cross point %x %x\n" VT_RST, pointAColChk, pointBColChk);
         return pointAColChk->pos;
     }
+#endif
 
     return closestPoint;
 }
@@ -2938,6 +2942,8 @@ s32 Camera_Battle1(Camera* camera) {
         rwData->roll = 0.0f;
         rwData->target = camera->target;
         camera->animState++;
+
+#if OOT_DEBUG
         if (rwData->target->id > 0) {
             PRINTF("camera: battle: target actor name " VT_FGCOL(BLUE) "%d" VT_RST "\n", rwData->target->id);
         } else {
@@ -2946,6 +2952,8 @@ s32 Camera_Battle1(Camera* camera) {
             Camera_RequestMode(camera, CAM_MODE_Z_PARALLEL);
             return true;
         }
+#endif
+
         rwData->animTimer = R_CAM_DEFAULT_ANIM_TIME + R_CAM_24;
         rwData->initialEyeToAtYaw = atToEyeDir.yaw;
         rwData->initialEyeToAtPitch = atToEyeDir.pitch;
@@ -3331,7 +3339,7 @@ s32 Camera_KeepOn1(Camera* camera) {
     spD0 = OLib_Vec3fDiffToVecGeo(at, &sp108);
     spD0.r = spE8 - ((spD0.r <= spE8 ? spD0.r : spE8) * 0.5f);
     spEC = roData->unk_0C + ((roData->unk_10 - roData->unk_0C) * (1.1f - sp84));
-    spF0 = R_CAM_13 + spEC;
+    spF0 = spEC + R_CAM_13;
     spD8.r = camera->dist = Camera_LERPCeilF(spE8, camera->dist, R_CAM_11, 2.0f);
     spD8.yaw = spB8.yaw;
     spE2 = spD0.yaw - (s16)(spB8.yaw - 0x7FFF);
