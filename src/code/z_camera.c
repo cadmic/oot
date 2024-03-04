@@ -5708,6 +5708,7 @@ s32 Camera_Unique9(Camera* camera) {
     return true;
 }
 
+#if OOT_DEBUG
 void Camera_DebugPrintSplineArray(char* name, s16 length, CutsceneCameraPoint cameraPoints[]) {
     s32 i;
 
@@ -5724,6 +5725,7 @@ void Camera_DebugPrintSplineArray(char* name, s16 length, CutsceneCameraPoint ca
     }
     PRINTF("};\n\n");
 }
+#endif
 
 /**
  * Copies `src` to `dst`, used in Camera_Demo1
@@ -5788,10 +5790,12 @@ s32 Camera_Demo1(Camera* camera) {
             PRINTF(VT_SGR("1") "%06u:" VT_RST " camera: spline demo: start %s \n", camera->play->state.frames,
                    *relativeToPlayer == 0 ? "絶対" : "相対");
 
+#if OOT_DEBUG
             if (PREG(93)) {
                 Camera_DebugPrintSplineArray("CENTER", 5, csAtPoints);
                 Camera_DebugPrintSplineArray("   EYE", 5, csEyePoints);
             }
+#endif
             FALLTHROUGH;
         case 1:
             // follow CutsceneCameraPoints.  function returns 1 if at the end.
@@ -7060,12 +7064,13 @@ void Camera_Destroy(Camera* camera) {
 
 void Camera_Init(Camera* camera, View* view, CollisionContext* colCtx, PlayState* play) {
     Camera* camP;
-    s32 i;
     s16 curUID;
     s16 j;
 
     __osMemset(camera, 0, sizeof(Camera));
     if (sInitRegs) {
+        s32 i;
+
 #if OOT_DEBUG
         for (i = 0; i < sOREGInitCnt; i++) {
             OREG(i) = sOREGInit[i];
@@ -7111,9 +7116,8 @@ void Camera_Init(Camera* camera, View* view, CollisionContext* colCtx, PlayState
     camera->camDir = camera->inputDir;
     camera->rUpdateRateInv = 10.0f;
     camera->yawUpdateRateInv = 10.0f;
-    camera->up.x = 0.0f;
     camera->up.y = 1.0f;
-    camera->up.z = 0.0f;
+    camera->up.z = camera->up.x = 0.0f;
     camera->fov = 60.0f;
     camera->pitchUpdateRateInv = R_CAM_PITCH_UPDATE_RATE_INV;
     camera->xzOffsetUpdateRate = R_CAM_XZ_OFFSET_UPDATE_RATE;
@@ -7132,7 +7136,9 @@ void Camera_Init(Camera* camera, View* view, CollisionContext* colCtx, PlayState
 
     camera->up.y = 1.0f;
     camera->up.z = camera->up.x = 0.0f;
-    camera->quakeOffset.x = camera->quakeOffset.y = camera->quakeOffset.z = 0;
+    camera->quakeOffset.x = 0;
+    camera->quakeOffset.y = 0;
+    camera->quakeOffset.z = 0;
     camera->atLERPStepScale = 1;
     sCameraInterfaceField = CAM_INTERFACE_FIELD(CAM_LETTERBOX_IGNORE, CAM_HUD_VISIBILITY_IGNORE, 0);
 #if OOT_DEBUG
