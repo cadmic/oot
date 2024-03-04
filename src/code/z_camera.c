@@ -7579,6 +7579,12 @@ void Camera_UpdateDistortion(Camera* camera) {
     }
 }
 
+#if OOT_DEBUG
+#define ENABLE_DEBUG_CAM_UPDATE R_DEBUG_CAM_UPDATE
+#else
+#define ENABLE_DEBUG_CAM_UPDATE false
+#endif
+
 Vec3s Camera_Update(Camera* camera) {
     static s32 sOOBTimer = 0;
     Vec3f viewAt;
@@ -7598,12 +7604,12 @@ Vec3s Camera_Update(Camera* camera) {
 
     player = camera->play->cameraPtrs[CAM_ID_MAIN]->player;
 
-    if (R_DEBUG_CAM_UPDATE) {
+    if (ENABLE_DEBUG_CAM_UPDATE) {
         PRINTF("camera: in %x\n", camera);
     }
 
     if (camera->status == CAM_STAT_CUT) {
-        if (R_DEBUG_CAM_UPDATE) {
+        if (ENABLE_DEBUG_CAM_UPDATE) {
             PRINTF("camera: cut out %x\n", camera);
         }
         return camera->inputDir;
@@ -7626,18 +7632,18 @@ Vec3s Camera_Update(Camera* camera) {
                                                    &camera->player->actor, &pos);
         if (playerGroundY != BGCHECK_Y_MIN) {
             // player is above ground.
-            sOOBTimer = 0;
             camera->floorNorm.x = COLPOLY_GET_NORMAL(playerFloorPoly->normal.x);
             camera->floorNorm.y = COLPOLY_GET_NORMAL(playerFloorPoly->normal.y);
             camera->floorNorm.z = COLPOLY_GET_NORMAL(playerFloorPoly->normal.z);
             camera->bgId = bgId;
             camera->playerGroundY = playerGroundY;
+            sOOBTimer = 0;
         } else {
             // player is not above ground.
-            sOOBTimer++;
             camera->floorNorm.x = 0.0;
             camera->floorNorm.y = 1.0f;
             camera->floorNorm.z = 0.0;
+            sOOBTimer++;
         }
 
         camera->playerPosRot = curPlayerPosRot;
@@ -7680,7 +7686,7 @@ Vec3s Camera_Update(Camera* camera) {
 #endif
 
     if (camera->status == CAM_STAT_WAIT) {
-        if (R_DEBUG_CAM_UPDATE) {
+        if (ENABLE_DEBUG_CAM_UPDATE) {
             PRINTF("camera: wait out %x\n", camera);
         }
         return camera->inputDir;
@@ -7690,7 +7696,7 @@ Vec3s Camera_Update(Camera* camera) {
     camera->stateFlags &= ~(CAM_STATE_BLOCK_BG | CAM_STATE_LOCK_MODE);
     camera->stateFlags |= CAM_STATE_CAM_FUNC_FINISH;
 
-    if (R_DEBUG_CAM_UPDATE) {
+    if (ENABLE_DEBUG_CAM_UPDATE) {
         PRINTF("camera: engine (%d %d %d) %04x \n", camera->setting, camera->mode,
                sCameraSettings[camera->setting].cameraModes[camera->mode].funcIdx, camera->stateFlags);
     }
@@ -7714,50 +7720,50 @@ Vec3s Camera_Update(Camera* camera) {
             sCameraInterfaceField = CAM_INTERFACE_FIELD(CAM_LETTERBOX_IGNORE, CAM_HUD_VISIBILITY_NOTHING_ALT, 0);
             Camera_UpdateInterface(sCameraInterfaceField);
         } else if (camera->play->csCtx.state != CS_STATE_IDLE) {
-            sCameraInterfaceField = CAM_INTERFACE_FIELD(CAM_LETTERBOX_LARGE, CAM_HUD_VISIBILITY_NOTHING_ALT, 0);
+            // clang-format off
+            sCameraInterfaceField = CAM_INTERFACE_FIELD(CAM_LETTERBOX_LARGE, CAM_HUD_VISIBILITY_NOTHING_ALT, 0); \
             Camera_UpdateInterface(sCameraInterfaceField);
+            // clang-format on
         } else {
             Camera_UpdateInterface(sCameraInterfaceField);
         }
     }
 
-    if (R_DEBUG_CAM_UPDATE) {
+    if (ENABLE_DEBUG_CAM_UPDATE) {
         PRINTF("camera: shrink_and_bitem %x(%d)\n", sCameraInterfaceField, camera->play->transitionMode);
     }
 
-    if (R_DEBUG_CAM_UPDATE) {
+    if (ENABLE_DEBUG_CAM_UPDATE) {
         PRINTF("camera: engine (%s(%d) %s(%d) %s(%d)) ok!\n", &sCameraSettingNames[camera->setting], camera->setting,
                &sCameraModeNames[camera->mode], camera->mode,
                &sCameraFunctionNames[sCameraSettings[camera->setting].cameraModes[camera->mode].funcIdx],
                sCameraSettings[camera->setting].cameraModes[camera->mode].funcIdx);
     }
 
+#if OOT_DEBUG
     // enable/disable debug cam
     if (CHECK_BTN_ALL(D_8015BD7C->state.input[2].press.button, BTN_START)) {
         gDebugCamEnabled ^= 1;
         if (gDebugCamEnabled) {
-#if OOT_DEBUG
             DebugCamera_Enable(&D_8015BD80, camera);
-#endif
         } else if (camera->play->csCtx.state != CS_STATE_IDLE) {
             Cutscene_StopManual(camera->play, &camera->play->csCtx);
         }
     }
 
-#if OOT_DEBUG
     // Debug cam update
     if (gDebugCamEnabled) {
         camera->play->view.fovy = D_8015BD80.fov;
         DebugCamera_Update(&D_8015BD80, camera);
         View_LookAt(&camera->play->view, &D_8015BD80.eye, &D_8015BD80.at, &D_8015BD80.unk_1C);
-        if (R_DEBUG_CAM_UPDATE) {
+        if (ENABLE_DEBUG_CAM_UPDATE) {
             PRINTF("camera: debug out\n");
         }
         return D_8015BD80.sub.unk_104A;
     }
-#endif
 
     OREG(0) &= ~8;
+#endif
 
     if (camera->status == CAM_STAT_UNK3) {
         return camera->inputDir;
@@ -7823,11 +7829,11 @@ Vec3s Camera_Update(Camera* camera) {
                CAM_BINANG_TO_DEG(camera->camDir.x), camera->camDir.y, CAM_BINANG_TO_DEG(camera->camDir.y));
     }
 
-    if (camera->timer != -1 && CHECK_BTN_ALL(D_8015BD7C->state.input[0].press.button, BTN_DRIGHT)) {
+    if (OOT_DEBUG && camera->timer != -1 && CHECK_BTN_ALL(D_8015BD7C->state.input[0].press.button, BTN_DRIGHT)) {
         camera->timer = 0;
     }
 
-    if (R_DEBUG_CAM_UPDATE) {
+    if (ENABLE_DEBUG_CAM_UPDATE) {
         PRINTF("camera: out (%f %f %f) (%f %f %f)\n", camera->at.x, camera->at.y, camera->at.z, camera->eye.x,
                camera->eye.y, camera->eye.z);
         PRINTF("camera: dir (%f %d(%f) %d(%f)) (%f)\n", eyeAtAngle.r, eyeAtAngle.pitch,
@@ -8155,6 +8161,7 @@ s32 Camera_RequestBgCam(Camera* camera, s32 requestedBgCamIndex) {
     if (!(camera->behaviorFlags & CAM_BEHAVIOR_BG_PROCESSED)) {
         requestedCamSetting = Camera_GetBgCamSetting(camera, requestedBgCamIndex);
         camera->behaviorFlags |= CAM_BEHAVIOR_BG_PROCESSED;
+#if OOT_DEBUG
         settingChangeSuccessful = Camera_RequestSettingImpl(camera, requestedCamSetting,
                                                             CAM_REQUEST_SETTING_PRESERVE_BG_CAM_INDEX |
                                                                 CAM_REQUEST_SETTING_FORCE_CHANGE) >= 0;
@@ -8168,6 +8175,16 @@ s32 Camera_RequestBgCam(Camera* camera, s32 requestedBgCamIndex) {
             PRINTF(VT_COL(RED, WHITE) "camera: error: illegal camera ID (%d) !! (%d|%d|%d)\n" VT_RST,
                    requestedBgCamIndex, camera->camId, BGCHECK_SCENE, requestedCamSetting);
         }
+#else
+        if ((Camera_RequestSettingImpl(camera, requestedCamSetting,
+                                       CAM_REQUEST_SETTING_PRESERVE_BG_CAM_INDEX | CAM_REQUEST_SETTING_FORCE_CHANGE) >=
+             0) ||
+            (sCameraSettings[camera->setting].unk_00 & 0x80000000)) {
+            camera->bgCamIndex = requestedBgCamIndex;
+            camera->behaviorFlags |= CAM_BEHAVIOR_BG_SUCCESS;
+            Camera_CopyDataToRegs(camera, camera->mode);
+        }
+#endif
         return 0x80000000 | requestedBgCamIndex;
     }
 
