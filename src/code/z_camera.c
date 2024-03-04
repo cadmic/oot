@@ -54,9 +54,9 @@ s32 Camera_QRegInit(void);
 
 #define R_CAM_0 GET_OREG(0, 0)
 #define R_CAM_1 GET_OREG(1, 1)
-#define R_CAM_XZ_OFFSET_UPDATE_RATE GET_OREG_SCALED(2, 0.05f)
-#define R_CAM_Y_OFFSET_UPDATE_RATE GET_OREG_SCALED(3, 0.05f)
-#define R_CAM_FOV_UPDATE_RATE GET_OREG_SCALED(4, 0.05f)
+#define R_CAM_XZ_OFFSET_UPDATE_RATE GET_OREG_SCALED(2, .05f)
+#define R_CAM_Y_OFFSET_UPDATE_RATE GET_OREG_SCALED(3, .05f)
+#define R_CAM_FOV_UPDATE_RATE GET_OREG_SCALED(4, .05f)
 #define R_CAM_MAX_PITCH GET_OREG(5, 14500)
 #define R_CAM_R_UPDATE_RATE_INV GET_OREG(6, 20)
 #define R_CAM_PITCH_UPDATE_RATE_INV GET_OREG(7, 16)
@@ -77,8 +77,8 @@ s32 Camera_QRegInit(void);
 #define R_CAM_22 GET_OREG_SCALED(22, 1.2f)
 #define R_CAM_DEFAULT_ANIM_TIME GET_OREG(23, 4)
 #define R_CAM_24 GET_OREG(24, 1)
-#define R_CAM_UPDATE_RATE_STEP_SCALE_XZ GET_OREG_SCALED(25, 0.5f) // also used as a step scale for other data
-#define R_CAM_UPDATE_RATE_STEP_SCALE_Y GET_OREG_SCALED(26, 0.2f) // also used as a step scale for other data
+#define R_CAM_UPDATE_RATE_STEP_SCALE_XZ GET_OREG_SCALED(25, .5f) // also used as a step scale for other data
+#define R_CAM_UPDATE_RATE_STEP_SCALE_Y GET_OREG_SCALED(26, .2f) // also used as a step scale for other data
 #define R_CAM_27 GET_OREG(27, 1800)
 #define R_CAM_28 GET_OREG_SCALED(28, 0.5f)
 #define R_CAM_29 GET_OREG_SCALED(29, 0.5f)
@@ -101,7 +101,7 @@ s32 Camera_QRegInit(void);
 #define R_CAM_YOFFSET_NORM GET_OREG_SCALED(46, -0.1f)
 #define R_CAM_47 GET_OREG(47, 30) // unused
 #define R_CAM_48 GET_OREG_SCALED(48, 0.3f)
-#define R_CAM_49 GET_OREG(49, 70)
+#define R_CAM_49 GET_OREG_SCALED(49, 0.7f)
 #define R_CAM_50 GET_OREG(50, 20)
 #define R_CAM_51 GET_OREG(51, 20)
 #define R_CAM_52 GET_OREG(52, 20)
@@ -1620,7 +1620,7 @@ s32 Camera_Normal1(Camera* camera) {
         rwData->swing.swingUpdateRateTimer--;
     } else {
         camera->yawUpdateRateInv = Camera_LERPCeilF(rwData->swing.swingUpdateRate -
-                                                        ((R_CAM_49 * 0.01f) * rwData->swing.swingUpdateRate * sp94),
+                                                        (rwData->swing.swingUpdateRate * R_CAM_49 * sp94),
                                                     camera->yawUpdateRateInv, sp98, rate);
         camera->pitchUpdateRateInv =
             Camera_LERPCeilF(R_CAM_PITCH_UPDATE_RATE_INV, camera->pitchUpdateRateInv, sp9C, rate);
@@ -1903,7 +1903,7 @@ s32 Camera_Normal2(Camera* camera) {
     }
 
     camera->fov = Camera_LERPCeilF(rwData->unk_1C, camera->fov, camera->fovUpdateRate, 1.0f);
-    camera->roll = Camera_LERPCeilS(0, camera->roll, 0.5f, 0xA);
+    camera->roll = Camera_LERPCeilS(0, camera->roll, .5f, 0xA);
     camera->atLERPStepScale = Camera_ClampLERPScale(camera, roData->unk_18);
     return 1;
 }
@@ -1983,7 +1983,6 @@ s32 Camera_Normal3(Camera* camera) {
         camera->pitchUpdateRateInv =
             Camera_LERPCeilF((f32)R_CAM_PITCH_UPDATE_RATE_INV + (rwData->swing.swingUpdateRateTimer * 2),
                              camera->pitchUpdateRateInv, sp94, 0.1f);
-        if (1) {}
         rwData->swing.swingUpdateRateTimer--;
     } else {
         camera->yawUpdateRateInv = Camera_LERPCeilF(roData->yawUpdateSpeed, camera->yawUpdateRateInv, sp98, 0.1f);
@@ -2035,6 +2034,7 @@ s32 Camera_Normal3(Camera* camera) {
     sp98 = sp98 + (sp94 * sp90);
     sp98 = (sp98 * phi_a0) / camera->yawUpdateRateInv;
 
+    if (1) {}
     sp84.yaw = fabsf(sp98) > (150.0f * (1.0f - camera->speedRatio)) ? (s16)(sp74.yaw + sp98) : sp74.yaw;
 
     if (rwData->yawTimer > 0) {
@@ -4447,13 +4447,13 @@ s32 Camera_Subj4(Camera* camera) {
     Vec3f temp1;
     Vec3f zoomAtTarget;
     f32 temp2;
-    Player* player;
+    s32 pad1;
     f32 eyeLerp;
     PosRot playerPosRot;
     VecGeo targetOffset;
     VecGeo atEyeOffset;
     s16 eyeToAtYaw;
-    s32 pad[2];
+    s32 pad2;
     f32 temp;
     Subj4ReadOnlyData* roData = &camera->paramData.subj4.roData;
     Subj4ReadWriteData* rwData = &camera->paramData.subj4.rwData;
@@ -4569,7 +4569,8 @@ s32 Camera_Subj4(Camera* camera) {
     // When camera reaches the peak of offset and starts to move down
     // && alternating cycles (sfx plays only every 2nd cycle)
     if ((eyeLerp > rwData->eyeLerp) && !rwData->isSfxOff) {
-        player = camera->player;
+        Player* player = camera->player;
+
         rwData->isSfxOff = true;
         func_800F4010(&player->actor.projectedPos, NA_SE_PL_CRAWL + player->floorSfxOffset, 4.0f);
     } else if (eyeLerp < rwData->eyeLerp) {
@@ -4626,17 +4627,17 @@ s32 Camera_Data4(Camera* camera) {
     Vec3f* eyeNext = &camera->eyeNext;
     BgCamFuncData* bgCamFuncData;
     Vec3f lookAt;
-    CameraModeValue* values;
+    s32 pad;
     Data4ReadWriteData* rwData = &camera->paramData.data4.rwData;
     Vec3f* eye = &camera->eye;
     f32 playerHeight;
     Vec3f* at = &camera->at;
-    s32 pad;
 
     playerHeight = Player_GetHeight(camera->player);
 
     if (RELOAD_PARAMS(camera) || CAM_DEBUG_RELOAD_PARAMS) {
-        values = sCameraSettings[camera->setting].cameraModes[camera->mode].values;
+        CameraModeValue* values = sCameraSettings[camera->setting].cameraModes[camera->mode].values;
+
         yNormal =
             1.0f + R_CAM_YOFFSET_NORM - (R_CAM_YOFFSET_NORM * (68.0f / playerHeight));
         roData->yOffset = GET_NEXT_SCALED_RO_DATA(values) * playerHeight * yNormal;
