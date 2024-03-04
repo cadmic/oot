@@ -8400,11 +8400,7 @@ s32 Camera_ChangeDoorCam(Camera* camera, Actor* doorActor, s16 bgCamIndex, f32 a
 }
 
 s32 Camera_Copy(Camera* dstCamera, Camera* srcCamera) {
-    s32 pad;
-
-    dstCamera->playerToAtOffset.x = 0.0f;
-    dstCamera->playerToAtOffset.y = 0.0f;
-    dstCamera->playerToAtOffset.z = 0.0f;
+    dstCamera->playerToAtOffset.x = dstCamera->playerToAtOffset.y = dstCamera->playerToAtOffset.z = 0.0f;
     dstCamera->atLERPStepScale = 0.1f;
     dstCamera->at = srcCamera->at;
 
