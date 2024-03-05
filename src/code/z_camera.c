@@ -2993,7 +2993,11 @@ s32 Camera_Battle1(Camera* camera) {
             tmpAng1 = (s16)(rwData->initialEyeToAtYaw - playerToTargetDir.yaw) * var2;
             tmpAng2 = (s16)(rwData->initialEyeToAtPitch - playerToTargetDir.pitch) * var2;
 
+#if OOT_DEBUG
             spB4.r = Camera_LERPCeilF(playerToTargetDir.r + (var3 * sp86), atToEyeDir.r, R_CAM_28, 1.0f);
+#else
+            spB4.r = Camera_LERPCeilF(playerToTargetDir.r + (var3 * sp86), atToEyeDir.r, R_CAM_28, 1);
+#endif
             spB4.yaw = Camera_LERPCeilS(playerToTargetDir.yaw + (tmpAng1 * sp86), atToEyeDir.yaw, R_CAM_28, 0xA);
             spB4.pitch = Camera_LERPCeilS(playerToTargetDir.pitch + (tmpAng2 * sp86), atToEyeDir.pitch, R_CAM_28, 0xA);
         } else {
@@ -3018,7 +3022,11 @@ s32 Camera_Battle1(Camera* camera) {
     if (!skipEyeAtCalc) {
         var3 = atToTargetDir.pitch * roData->swingPitchAdj;
         var2 = F32_LERPIMP(sp7C, sp78, distRatio);
+#if OOT_DEBUG
         tmpAng1 = CAM_DEG_TO_BINANG(var2) - (s16)(playerToTargetDir.pitch * (0.5f + distRatio * (1.0f - 0.5f)));
+#else
+        tmpAng1 = CAM_DEG_TO_BINANG(var2) - (s16)(playerToTargetDir.pitch * ((0.5f * 1.0f) + distRatio * (1.0f - 0.5f)));
+#endif
         tmpAng1 += (s16)(var3);
 
         if (tmpAng1 < -0x2AA8) {
