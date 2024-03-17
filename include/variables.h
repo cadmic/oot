@@ -110,6 +110,11 @@ extern MtxF gMtxFClear;
 #if OOT_DEBUG
 extern u32 gIsCtrlr2Valid;
 #endif
+extern FaultMgr* gFaultInstance;
+extern u8 gFaultAwaitingInput;
+extern STACK(gFaultStack, 0x600);
+extern StackEntry gFaultThreadInfo;
+extern FaultMgr gFaultMgr;
 extern s16* gWaveSamples[9];
 extern f32 gBendPitchOneOctaveFrequencies[256];
 extern f32 gBendPitchTwoSemitonesFrequencies[256];
