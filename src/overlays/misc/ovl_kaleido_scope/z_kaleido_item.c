@@ -118,6 +118,11 @@ void KaleidoScope_DrawItemSelect(PlayState* play) {
                 pauseCtx->stickAdjX = 40;
             }
 
+#if !OOT_DEBUG
+            // TODO
+            if (&gSaveContext) {}
+#endif
+
             if (ABS(pauseCtx->stickAdjX) > 30) {
                 cursorPoint = pauseCtx->cursorPoint[PAUSE_ITEM];
                 cursorX = pauseCtx->cursorX[PAUSE_ITEM];
@@ -125,9 +130,11 @@ void KaleidoScope_DrawItemSelect(PlayState* play) {
 
                 PRINTF("now=%d  ccc=%d\n", cursorPoint, cursorItem);
 
+#if OOT_DEBUG
                 // Seems necessary to match
                 if (pauseCtx->cursorX[PAUSE_ITEM]) {}
                 if (gSaveContext.save.info.inventory.items[pauseCtx->cursorPoint[PAUSE_ITEM]]) {}
+#endif
 
                 while (moveCursorResult == 0) {
                     if (pauseCtx->stickAdjX < -30) {
@@ -491,6 +498,7 @@ void KaleidoScope_DrawItemSelect(PlayState* play) {
         }
     }
 
+    if (1) {}
     CLOSE_DISPS(play->state.gfxCtx, "../z_kaleido_item.c", 516);
 }
 
