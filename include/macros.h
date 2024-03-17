@@ -271,4 +271,21 @@ extern struct GraphicsContext* __gfxCtx;
                        ((height)-1) << G_TEXTURE_IMAGE_FRAC);                                                          \
     } while (0)
 
+#define DUMMY_STRUCT(line, index) struct DummyStruct_##line##_##index
+#define DUMMY_STRUCT_INDIRECT(line, index) DUMMY_STRUCT(line, index)
+
+// Macros which define dummy structs to increment the IDO block number for BSS ordering.
+#define INCREMENT_BLOCK_NUMBER_BY_1() DUMMY_STRUCT_INDIRECT(__LINE__, 0)
+#define INCREMENT_BLOCK_NUMBER_BY_10()      \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 0);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 1);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 2);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 3);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 4);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 5);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 6);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 7);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 8);     \
+    DUMMY_STRUCT_INDIRECT(__LINE__, 9)
+
 #endif
