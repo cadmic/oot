@@ -314,7 +314,9 @@ $(BUILD_DIR)/src/code/jpegdecoder.o: CC := $(CC_OLD)
 
 ifeq ($(PERMUTER),)  # permuter + reencode.sh misbehaves, permuter doesn't care about encoding ((ro)data diffs) so just don't use it in that case
 # Handle encoding (UTF-8 -> EUC-JP)
-$(BUILD_DIR)/%.o: CC := tools/reencode.sh $(CC)
+# $(BUILD_DIR)/%.o: CC := tools/reencode.sh $(CC)
+# $(BUILD_DIR)/src/%.o: CC := tools/reencode.sh $(CC)
+$(BUILD_DIR)/src/%.o: CC := $(PYTHON) tools/reencode.py $(CC)
 endif
 
 else
