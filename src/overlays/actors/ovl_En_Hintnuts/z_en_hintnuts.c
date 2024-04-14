@@ -28,15 +28,15 @@ void EnHintnuts_Leave(EnHintnuts* this, PlayState* play);
 void EnHintnuts_Freeze(EnHintnuts* this, PlayState* play);
 
 ActorInit En_Hintnuts_InitVars = {
-    ACTOR_EN_HINTNUTS,
-    ACTORCAT_ENEMY,
-    FLAGS,
-    OBJECT_HINTNUTS,
-    sizeof(EnHintnuts),
-    (ActorFunc)EnHintnuts_Init,
-    (ActorFunc)EnHintnuts_Destroy,
-    (ActorFunc)EnHintnuts_Update,
-    (ActorFunc)EnHintnuts_Draw,
+    /**/ ACTOR_EN_HINTNUTS,
+    /**/ ACTORCAT_ENEMY,
+    /**/ FLAGS,
+    /**/ OBJECT_HINTNUTS,
+    /**/ sizeof(EnHintnuts),
+    /**/ EnHintnuts_Init,
+    /**/ EnHintnuts_Destroy,
+    /**/ EnHintnuts_Update,
+    /**/ EnHintnuts_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -52,8 +52,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0xFFCFFFFF, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_ON,
+        ATELEM_NONE,
+        ACELEM_ON,
         OCELEM_ON,
     },
     { 18, 32, 0, { 0, 0, 0 } },
@@ -186,12 +186,12 @@ void EnHintnuts_SetupRun(EnHintnuts* this) {
 void EnHintnuts_SetupTalk(EnHintnuts* this) {
     Animation_MorphToLoop(&this->skelAnime, &gHintNutsTalkAnim, -5.0f);
     this->actionFunc = EnHintnuts_Talk;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
 }
 
 void EnHintnuts_SetupLeave(EnHintnuts* this, PlayState* play) {
     Animation_MorphToLoop(&this->skelAnime, &gHintNutsRunAnim, -5.0f);
-    this->actor.speedXZ = 3.0f;
+    this->actor.speed = 3.0f;
     this->animFlagAndTimer = 100;
     this->actor.world.rot.y = this->actor.shape.rot.y;
     this->collider.base.ocFlags1 &= ~OC1_ON;
@@ -210,7 +210,7 @@ void EnHintnuts_SetupFreeze(EnHintnuts* this) {
     this->animFlagAndTimer = 0;
     Actor_PlaySfx(&this->actor, NA_SE_EN_NUTS_FAINT);
     if (sPuzzleCounter == -3) {
-        func_80078884(NA_SE_SY_ERROR);
+        Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
         sPuzzleCounter = -4;
     }
     this->actionFunc = EnHintnuts_Freeze;
@@ -330,7 +330,7 @@ void EnHintnuts_CheckProximity(EnHintnuts* this, PlayState* play) {
         }
         if (this->actor.xzDistToPlayer < 130.0f) {
             this->actor.textId = this->textIdCopy;
-            func_8002F2F4(&this->actor, play);
+            Actor_OfferTalkNearColChkInfoCylinder(&this->actor, play);
         }
     }
 }
@@ -350,7 +350,7 @@ void EnHintnuts_Run(EnHintnuts* this, PlayState* play) {
         Actor_PlaySfx(&this->actor, NA_SE_EN_NUTS_WALK);
     }
 
-    Math_StepToF(&this->actor.speedXZ, 7.5f, 1.0f);
+    Math_StepToF(&this->actor.speed, 7.5f, 1.0f);
     if (Math_SmoothStepToS(&this->actor.world.rot.y, this->unk_196, 1, 0xE38, 0xB6) == 0) {
         if (this->actor.bgCheckFlags & BGCHECKFLAG_WATER) {
             this->unk_196 = Actor_WorldYawTowardPoint(&this->actor, &this->actor.home.pos);
@@ -371,11 +371,11 @@ void EnHintnuts_Run(EnHintnuts* this, PlayState* play) {
     }
 
     this->actor.shape.rot.y = this->actor.world.rot.y + 0x8000;
-    if (Actor_ProcessTalkRequest(&this->actor, play)) {
+    if (Actor_TalkOfferAccepted(&this->actor, play)) {
         EnHintnuts_SetupTalk(this);
     } else if (this->animFlagAndTimer == 0 && Actor_WorldDistXZToPoint(&this->actor, &this->actor.home.pos) < 20.0f &&
                fabsf(this->actor.world.pos.y - this->actor.home.pos.y) < 2.0f) {
-        this->actor.speedXZ = 0.0f;
+        this->actor.speed = 0.0f;
         if (this->actor.category == ACTORCAT_BG) {
             this->actor.flags &= ~(ACTOR_FLAG_0 | ACTOR_FLAG_3 | ACTOR_FLAG_16);
             this->actor.flags |= ACTOR_FLAG_0 | ACTOR_FLAG_2;
@@ -461,7 +461,7 @@ void EnHintnuts_Freeze(EnHintnuts* this, PlayState* play) {
 void EnHintnuts_ColliderCheck(EnHintnuts* this, PlayState* play) {
     if (this->collider.base.acFlags & AC_HIT) {
         this->collider.base.acFlags &= ~AC_HIT;
-        Actor_SetDropFlag(&this->actor, &this->collider.info, true);
+        Actor_SetDropFlag(&this->actor, &this->collider.elem, true);
         if (this->collider.base.ac->id != ACTOR_EN_NUTSBALL) {
             EnHintnuts_SetupBurrow(this);
         } else {
@@ -482,7 +482,7 @@ void EnHintnuts_Update(Actor* thisx, PlayState* play) {
         EnHintnuts_ColliderCheck(this, play);
         this->actionFunc(this, play);
         if (this->actionFunc != EnHintnuts_Freeze && this->actionFunc != EnHintnuts_BeginFreeze) {
-            Actor_MoveForward(&this->actor);
+            Actor_MoveXZGravity(&this->actor);
             Actor_UpdateBgCheckInfo(play, &this->actor, 20.0f, this->collider.dim.radius, this->collider.dim.height,
                                     UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2 | UPDBGCHECKINFO_FLAG_3 |
                                         UPDBGCHECKINFO_FLAG_4);

@@ -25,8 +25,9 @@ WRITE_EXTRACT = True
 from ..conf import WRITE_HINTS, I_D_OMEGALUL
 
 
-BASEROM_PATH = Path("baserom")
-BUILD_PATH = Path("build")
+OOT_VERSION = "gc-eu-mq-dbg"
+BASEROM_PATH = Path("extracted") / OOT_VERSION / "baserom"
+BUILD_PATH = Path("build") / OOT_VERSION
 
 
 @functools.lru_cache(maxsize=200)
@@ -280,7 +281,8 @@ def extract_xml(sub_path: Path):
     """
     top_xml_path = (Path("assets/xml/") / sub_path).with_suffix(".xml")
     top_source_path = Path("assets/") / sub_path
-    top_extract_path = Path("assets/_extracted/") / sub_path
+    # FIXME handle multiversion
+    top_extract_path = Path("extracted/gc-eu-mq-dbg/") / sub_path
 
     base_memory_context = MemoryContext()
 

@@ -90,7 +90,8 @@ def get_dmadata_table_rom_file_name_from_vrom(vromStart: int, vromEnd: int) -> s
     if dmadata is None:
         import struct
 
-        with open("baserom/dmadata", "rb") as f:
+        # FIXME handle multiversion
+        with open("extracted/gc-eu-mq-dbg/baserom/dmadata", "rb") as f:
             bytes = f.read()
         dmadata = list(struct.iter_unpack(">IIII", bytes))
     for i, (e_vromStart, e_vromEnd, e_romStart, e_romEnd) in enumerate(dmadata):

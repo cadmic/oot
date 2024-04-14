@@ -34,15 +34,15 @@ static Vec3s D_80AD8C30[] = {
 };
 
 ActorInit En_Po_Relay_InitVars = {
-    ACTOR_EN_PO_RELAY,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_TK,
-    sizeof(EnPoRelay),
-    (ActorFunc)EnPoRelay_Init,
-    (ActorFunc)EnPoRelay_Destroy,
-    (ActorFunc)EnPoRelay_Update,
-    (ActorFunc)EnPoRelay_Draw,
+    /**/ ACTOR_EN_PO_RELAY,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_TK,
+    /**/ sizeof(EnPoRelay),
+    /**/ EnPoRelay_Init,
+    /**/ EnPoRelay_Destroy,
+    /**/ EnPoRelay_Update,
+    /**/ EnPoRelay_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -58,8 +58,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 30, 52, 0, { 0, 0, 0 } },
@@ -148,7 +148,7 @@ void EnPoRelay_SetupRace(EnPoRelay* this) {
 void EnPoRelay_SetupEndRace(EnPoRelay* this) {
     this->actor.world.rot.y = this->actor.home.rot.y + 0xC000;
     this->actor.flags &= ~ACTOR_FLAG_27;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actionFunc = EnPoRelay_EndRace;
 }
 
@@ -159,13 +159,13 @@ void EnPoRelay_CorrectY(EnPoRelay* this) {
 
 void EnPoRelay_Idle(EnPoRelay* this, PlayState* play) {
     Math_ScaledStepToS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 0x100);
-    if (Actor_ProcessTalkRequest(&this->actor, play)) {
+    if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->actor.flags &= ~ACTOR_FLAG_16;
         this->actionFunc = EnPoRelay_Talk;
     } else if (this->actor.xzDistToPlayer < 250.0f) {
         this->actor.flags |= ACTOR_FLAG_16;
         this->actor.textId = this->textId;
-        func_8002F2CC(&this->actor, play, 250.0f);
+        Actor_OfferTalk(&this->actor, play, 250.0f);
     }
     func_8002F974(&this->actor, NA_SE_EN_PO_FLY - SFX_FLAG);
 }
@@ -183,7 +183,7 @@ void EnPoRelay_Talk(EnPoRelay* this, PlayState* play) {
 void EnPoRelay_Race(EnPoRelay* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     Vec3f vec;
-    f32 speed;
+    f32 speedXZ;
     f32 multiplier;
 
     if (this->actionTimer != 0) {
@@ -192,19 +192,19 @@ void EnPoRelay_Race(EnPoRelay* this, PlayState* play) {
     if (this->actionTimer == 0 && Rand_ZeroOne() < 0.03f) {
         this->actionTimer = 32;
         if (this->pathIndex < 23) {
-            speed = Rand_ZeroOne() * 3.0f;
-            if (speed < 1.0f) {
+            speedXZ = Rand_ZeroOne() * 3.0f;
+            if (speedXZ < 1.0f) {
                 multiplier = 1.0f;
-            } else if (speed < 2.0f) {
+            } else if (speedXZ < 2.0f) {
                 multiplier = -1.0f;
             } else {
                 multiplier = 0.0f;
             }
-            speed = 30.0f * multiplier;
+            speedXZ = 30.0f * multiplier;
             Actor_Spawn(&play->actorCtx, play, ACTOR_EN_HONOTRAP,
-                        Math_CosS(this->unk_19A) * speed + this->actor.world.pos.x, this->actor.world.pos.y,
-                        Math_SinS(this->unk_19A) * speed + this->actor.world.pos.z, 0,
-                        (this->unk_19A + 0x8000) - (0x2000 * multiplier), 0, HONOTRAP_FLAME_DROP);
+                        Math_CosS(this->unk_19A) * speedXZ + this->actor.world.pos.x, this->actor.world.pos.y,
+                        Math_SinS(this->unk_19A) * speedXZ + this->actor.world.pos.z, 0,
+                        (this->unk_19A + 0x8000) - (0x2000 * multiplier), 0, HONOTRAP_TYPE_FLAME_DROP);
         }
     }
     Math_SmoothStepToS(&this->actor.world.rot.y, this->unk_19A, 2, 0x1000, 0x100);
@@ -217,22 +217,22 @@ void EnPoRelay_Race(EnPoRelay* this, PlayState* play) {
                                     player->actor.world.pos.z) != 0) ||
             (Math3D_PointInSquare2D(1580.0f, 2090.0f, -3030.0f, -2500.0f, player->actor.world.pos.x,
                                     player->actor.world.pos.z) != 0)) {
-            speed = (this->hookshotSlotFull) ? player->actor.speedXZ * 1.4f : player->actor.speedXZ * 1.2f;
+            speedXZ = (this->hookshotSlotFull) ? player->actor.speed * 1.4f : player->actor.speed * 1.2f;
         } else if (this->actor.xzDistToPlayer < 150.0f) {
-            speed = (this->hookshotSlotFull) ? player->actor.speedXZ * 1.2f : player->actor.speedXZ;
+            speedXZ = (this->hookshotSlotFull) ? player->actor.speed * 1.2f : player->actor.speed;
         } else if (this->actor.xzDistToPlayer < 300.0f) {
-            speed = (this->hookshotSlotFull) ? player->actor.speedXZ : player->actor.speedXZ * 0.8f;
+            speedXZ = (this->hookshotSlotFull) ? player->actor.speed : player->actor.speed * 0.8f;
         } else if (this->hookshotSlotFull) {
-            speed = 4.5f;
+            speedXZ = 4.5f;
         } else {
-            speed = 3.5f;
+            speedXZ = 3.5f;
         }
         multiplier = 250.0f - this->actor.xzDistToPlayer;
         multiplier = CLAMP_MIN(multiplier, 0.0f);
-        speed += multiplier * 0.02f + 1.0f;
-        Math_ApproachF(&this->actor.speedXZ, speed, 0.5f, 1.5f);
+        speedXZ += multiplier * 0.02f + 1.0f;
+        Math_ApproachF(&this->actor.speed, speedXZ, 0.5f, 1.5f);
     } else {
-        Math_ApproachF(&this->actor.speedXZ, 3.5f, 0.5f, 1.5f);
+        Math_ApproachF(&this->actor.speed, 3.5f, 0.5f, 1.5f);
     }
     EnPoRelay_Vec3sToVec3f(&vec, &D_80AD8C30[this->pathIndex]);
     if (Actor_WorldDistXZToPoint(&this->actor, &vec) < 40.0f) {
@@ -254,14 +254,14 @@ void EnPoRelay_Race(EnPoRelay* this, PlayState* play) {
 
 void EnPoRelay_EndRace(EnPoRelay* this, PlayState* play) {
     Math_ScaledStepToS(&this->actor.shape.rot.y, -0x4000, 0x800);
-    if (Actor_ProcessTalkRequest(&this->actor, play)) {
+    if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->actionFunc = EnPoRelay_Talk2;
     } else if (play->roomCtx.curRoom.num == 5) {
         Actor_Kill(&this->actor);
         gSaveContext.timerState = TIMER_STATE_OFF;
     } else if (Actor_IsFacingAndNearPlayer(&this->actor, 150.0f, 0x3000)) {
         this->actor.textId = this->textId;
-        func_8002F2CC(&this->actor, play, 250.0f);
+        Actor_OfferTalk(&this->actor, play, 250.0f);
     }
     func_8002F974(&this->actor, NA_SE_EN_PO_FLY - SFX_FLAG);
 }
@@ -290,8 +290,6 @@ void EnPoRelay_DisappearAndReward(EnPoRelay* this, PlayState* play) {
     Vec3f vec;
     f32 multiplier;
     s32 pad;
-    Vec3f sp60;
-    s32 pad1;
 
     this->actionTimer++;
     if (this->actionTimer < 8) {
@@ -323,6 +321,9 @@ void EnPoRelay_DisappearAndReward(EnPoRelay* this, PlayState* play) {
     }
     if (Math_StepToF(&this->actor.scale.x, 0.0f, 0.001f) != 0) {
         if (this->hookshotSlotFull != 0) {
+            Vec3f sp60;
+            s32 pad1;
+
             sp60.x = this->actor.world.pos.x;
             sp60.y = this->actor.floorHeight;
             sp60.z = this->actor.world.pos.z;
@@ -351,7 +352,7 @@ void EnPoRelay_Update(Actor* thisx, PlayState* play) {
 
     SkelAnime_Update(&this->skelAnime);
     this->actionFunc(this, play);
-    Actor_MoveForward(&this->actor);
+    Actor_MoveXZGravity(&this->actor);
     EnPoRelay_CorrectY(this);
     Actor_UpdateBgCheckInfo(play, &this->actor, 0.0f, 27.0f, 60.0f, UPDBGCHECKINFO_FLAG_2);
     Collider_UpdateCylinder(&this->actor, &this->collider);
@@ -391,7 +392,7 @@ void EnPoRelay_PostLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3s* 
                                   this->lightColor.b, 200);
     } else if (limbIndex == 8) {
         OPEN_DISPS(play->state.gfxCtx, "../z_en_po_relay.c", 916);
-        gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_en_po_relay.c", 918),
+        gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_en_po_relay.c", 918),
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(POLY_OPA_DISP++, gDampeHaloDL);
         CLOSE_DISPS(play->state.gfxCtx, "../z_en_po_relay.c", 922);

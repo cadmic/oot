@@ -26,6 +26,8 @@ typedef struct {
 
 /*==================================================================*/
 // Data
+
+#if OOT_DEBUG
 s16 sOREGInit[] = {
     0,     // OREG(0)
     1,     // OREG(1)
@@ -83,6 +85,7 @@ s16 sOREGInit[] = {
 };
 
 s16 sOREGInitCnt = ARRAY_COUNT(sOREGInit);
+#endif
 
 s16 sCamDataRegsInit[CAM_DATA_MAX] = {
     -20, // CAM_DATA_Y_OFFSET
@@ -116,6 +119,7 @@ s16 sCamDataRegsInit[CAM_DATA_MAX] = {
 
 s16 sCamDataRegsInitCount = ARRAY_COUNT(sCamDataRegsInit);
 
+#if OOT_DEBUG
 char sCameraSettingNames[][12] = {
     "NONE      ",  // CAM_SET_NONE
     "NORMAL0    ", // CAM_SET_NORMAL0
@@ -208,6 +212,7 @@ char sCameraModeNames[][12] = {
     "PUSHPULL   ", // CAM_MODE_PUSH_PULL
     "BOOKEEPON  ", // CAM_MODE_FOLLOW_BOOMERANG
 };
+#endif
 
 /**
  *=====================================================================
@@ -874,7 +879,7 @@ CameraModeValue sDataOnlyNullFlags[] = {
  *=====================================================================
  */
 
-CameraModeValue sSetPrerendFixedModeZTargetFriendlyData[] = {
+CameraModeValue sSetPreRendFixedModeZTargetFriendlyData[] = {
     CAM_FUNCDATA_INTERFACE_FIELD(CAM_INTERFACE_FIELD(CAM_LETTERBOX_MEDIUM, CAM_HUD_VISIBILITY_ALL, 0)),
 };
 
@@ -884,15 +889,15 @@ CameraModeValue sSetPrerendFixedModeZTargetFriendlyData[] = {
  *=====================================================================
  */
 
-CameraModeValue sSetPrerendPivotModeNormalData[] = {
+CameraModeValue sSetPreRendPivotModeNormalData[] = {
     CAM_FUNCDATA_UNIQ7(60, CAM_INTERFACE_FIELD(CAM_LETTERBOX_NONE, CAM_HUD_VISIBILITY_ALL, 0)),
 };
 
-CameraModeValue sSetPrerendPivotModeZTargetFriendlyData[] = {
+CameraModeValue sSetPreRendPivotModeZTargetFriendlyData[] = {
     CAM_FUNCDATA_UNIQ7(60, CAM_INTERFACE_FIELD(CAM_LETTERBOX_MEDIUM, CAM_HUD_VISIBILITY_ALL, 0)),
 };
 
-CameraModeValue sSetPrerendPivotModeTalkData[] = {
+CameraModeValue sSetPreRendPivotModeTalkData[] = {
     CAM_FUNCDATA_KEEP0(30, 0, 4, CAM_INTERFACE_FIELD(CAM_LETTERBOX_LARGE, CAM_HUD_VISIBILITY_A_HEARTS_MAGIC_FORCE, 0)),
 };
 
@@ -957,11 +962,11 @@ CameraModeValue sSetFree0ModeNormalData[] = {
 
 /**
  *=====================================================================
- *                   Custom Data: FREE1 Setting
+ *                   Custom Data: FREE2 Setting
  *=====================================================================
  */
 
-CameraModeValue sSetFree1ModeNormalData[] = {
+CameraModeValue sSetFree2ModeNormalData[] = {
     CAM_FUNCDATA_INTERFACE_FIELD(CAM_INTERFACE_FIELD(CAM_LETTERBOX_IGNORE, CAM_HUD_VISIBILITY_IGNORE, UNIQUE6_FLAG_0)),
 };
 
@@ -1459,7 +1464,7 @@ CameraModeValue sSetDirectedYawModeTalkData[] = {
  *=====================================================================
  */
 
-CameraModeValue sNormal4ModeTalkData[] = {
+CameraModeValue sSetNormal4ModeTalkData[] = {
     CAM_FUNCDATA_KEEP3(-30, 70, 200, 40, 10, 0, 5, 70, 45, 50, 10,
                        CAM_INTERFACE_FIELD(CAM_LETTERBOX_LARGE, CAM_HUD_VISIBILITY_A_HEARTS_MAGIC_FORCE,
                                            KEEPON3_FLAG_7 | KEEPON3_FLAG_5)),
@@ -1965,15 +1970,15 @@ CameraMode sCamSetPivotInFrontModes[] = {
 CameraMode sCamSetPreRendFixedModes[] = {
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_FIXD3, sDataOnlyNullFlags),                      // CAM_MODE_NORMAL
     { CAM_FUNC_NONE, 0, NULL },                                                      // CAM_MODE_Z_PARALLEL
-    CAM_SETTING_MODE_ENTRY(CAM_FUNC_FIXD3, sSetPrerendFixedModeZTargetFriendlyData), // CAM_MODE_Z_TARGET_FRIENDLY
-    CAM_SETTING_MODE_ENTRY(CAM_FUNC_FIXD3, sSetPrerendFixedModeZTargetFriendlyData), // CAM_MODE_TALK
+    CAM_SETTING_MODE_ENTRY(CAM_FUNC_FIXD3, sSetPreRendFixedModeZTargetFriendlyData), // CAM_MODE_Z_TARGET_FRIENDLY
+    CAM_SETTING_MODE_ENTRY(CAM_FUNC_FIXD3, sSetPreRendFixedModeZTargetFriendlyData), // CAM_MODE_TALK
 };
 
 CameraMode sCamSetPreRendPivotModes[] = {
-    CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ7, sSetPrerendPivotModeNormalData),          // CAM_MODE_NORMAL
+    CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ7, sSetPreRendPivotModeNormalData),          // CAM_MODE_NORMAL
     { CAM_FUNC_NONE, 0, NULL },                                                      // CAM_MODE_Z_PARALLEL
-    CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ7, sSetPrerendPivotModeZTargetFriendlyData), // CAM_MODE_Z_TARGET_FRIENDLY
-    CAM_SETTING_MODE_ENTRY(CAM_FUNC_KEEP0, sSetPrerendPivotModeTalkData),            // CAM_MODE_TALK
+    CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ7, sSetPreRendPivotModeZTargetFriendlyData), // CAM_MODE_Z_TARGET_FRIENDLY
+    CAM_SETTING_MODE_ENTRY(CAM_FUNC_KEEP0, sSetPreRendPivotModeTalkData),            // CAM_MODE_TALK
 };
 
 CameraMode sCamSetPreRendSideScrollModes[] = {
@@ -2005,15 +2010,15 @@ CameraMode sCamSetFree0Modes[] = {
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ6, sSetFree0ModeNormalData), // CAM_MODE_NORMAL
 };
 
-CameraMode sCamSetFree1Modes[] = {
-    CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ6, sSetFree1ModeNormalData), // CAM_MODE_NORMAL
+CameraMode sCamSetFree2Modes[] = {
+    CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ6, sSetFree2ModeNormalData), // CAM_MODE_NORMAL
 };
 
 CameraMode sCamSetPivotCornerModes[] = {
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_FIXD2, sSetPivotCornerModeNormalData), // CAM_MODE_NORMAL
 };
 
-CameraMode sCamSetPivotDivingModes[] = {
+CameraMode sCamSetPivotWaterSurfaceModes[] = {
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ2, sSetPivotWaterSurfaceModeNormalData),    // CAM_MODE_NORMAL
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_UNIQ2, sSetPivotWaterSurfaceModeZParallelData), // CAM_MODE_Z_PARALLEL
 };
@@ -2319,7 +2324,7 @@ CameraMode sCamSetNormal4Modes[] = {
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_NORM1, sSetNormal2and4ModeNormalData),        // CAM_MODE_NORMAL
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_PARA1, sSetNormal0ModeZParallelData),         // CAM_MODE_Z_PARALLEL
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_KEEP1, sSetNormal0ModeZTargetFriendlyData),   // CAM_MODE_Z_TARGET_FRIENDLY
-    CAM_SETTING_MODE_ENTRY(CAM_FUNC_KEEP3, sNormal4ModeTalkData),                 // CAM_MODE_TALK
+    CAM_SETTING_MODE_ENTRY(CAM_FUNC_KEEP3, sSetNormal4ModeTalkData),              // CAM_MODE_TALK
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_BATT1, sSetNormal1ModeZTargetUnfriendlyData), // CAM_MODE_Z_TARGET_UNFRIENDLY
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_JUMP2, sSetNormal0ModeWallClimbData),         // CAM_MODE_WALL_CLIMB
     CAM_SETTING_MODE_ENTRY(CAM_FUNC_SUBJ3, sSetNormal0ModeFirstPersonData),       // CAM_MODE_FIRST_PERSON
@@ -2374,9 +2379,9 @@ CameraSetting sCameraSettings[] = {
     { { 0xC5000001 }, sCamSetStart0Modes },               // CAM_SET_START0
     { { 0xC5000001 }, sCamSetStart1Modes },               // CAM_SET_START1
     { { 0x05000001 }, sCamSetFree0Modes },                // CAM_SET_FREE0
-    { { 0x05000001 }, sCamSetFree1Modes },                // CAM_SET_FREE2
+    { { 0x05000001 }, sCamSetFree2Modes },                // CAM_SET_FREE2
     { { 0x85000001 }, sCamSetPivotCornerModes },          // CAM_SET_PIVOT_CORNER
-    { { 0x05000003 }, sCamSetPivotDivingModes },          // CAM_SET_PIVOT_WATER_SURFACE
+    { { 0x05000003 }, sCamSetPivotWaterSurfaceModes },    // CAM_SET_PIVOT_WATER_SURFACE
     { { 0xCE000001 }, sCamSetCs0Modes },                  // CAM_SET_CS_0
     { { 0x4E000001 }, sCamSetCsTwistedHallwayModes },     // CAM_SET_CS_TWISTED_HALLWAY
     { { 0x05000009 }, sCamSetForestBirdsEyeModes },       // CAM_SET_FOREST_BIRDS_EYE
@@ -2555,8 +2560,12 @@ s32 (*sCameraFunctions[])(Camera*) = {
 
 s32 sInitRegs = 1;
 
-s32 gDbgCamEnabled = 0;
+s32 gDebugCamEnabled = false;
+
+#if OOT_DEBUG
 s32 sDbgModeIdx = -1;
+#endif
+
 s16 sNextUID = 0;
 
 s32 sCameraInterfaceField = CAM_INTERFACE_FIELD(CAM_LETTERBOX_NONE, CAM_HUD_VISIBILITY_ALL, 1);
@@ -2579,6 +2588,7 @@ s32 D_8011D3F0 = 0;
 
 s32 sDemo5PrevAction12Frame = -16;
 
+#if OOT_DEBUG
 char sCameraFunctionNames[][8] = {
     "NONE   ", // CAM_FUNC_NONE
     "NORM0()", // CAM_FUNC_NORM0
@@ -2653,6 +2663,7 @@ char sCameraFunctionNames[][8] = {
     "SPEC9()", // CAM_FUNC_SPEC9
     "",        "", "", "", "",
 };
+#endif
 
 VecSph D_8011D658[] = {
     { 50.0f, 0xEE3A, 0xD558 },
@@ -2668,371 +2679,10 @@ Vec3f D_8011D678[] = {
     { 0.0f, 3.0f, -3.0 },
 };
 
-/*******************************************************
- * OnePoint initalization values for Attention Cutscenes (Demo5)
- ********************************************************/
-s32 sDemo5PrevSfxFrame = -200;
-
-// target is player, far from eye
-OnePointCsFull D_8011D6AC[] = {
-    {
-        // initflags & 0x00FF (at): 2, atTarget is view lookAt + atInit
-        // initFlags & 0xFF00 (eye): none
-        // action: 15, copy at, eye, roll, fov to camera
-        // result: eye remains in the same location, at is View's lookAt
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_15, false, true),
-        0xFF,
-        0x0002,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, 0.0f },
-    },
-    {
-        // initFlags & 0x00FF (at): 3, atTarget is camera's current at + atInit
-        // initFlags & 0xFF00 (eye): 3, eyeTarget is the camera's current eye + eyeInit
-        // action: interpolate eye and at.
-        // result: eye and at's y interpolate to become +20 from their current location.
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_1, false, true),
-        0xFF,
-        0x0303,
-        19,
-        0,
-        45.0f,
-        1.0f,
-        { 0.0f, 20.0f, 0.0f },
-        { 0.0f, 20.0f, 0.0f },
-    },
-    {
-        // initFlags & 0x00FF (at): 0 none
-        // initFlags & 0xFF00 (eye): 0 none
-        // action: 18, copy this camera to default camera.
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-// target is player close to current eye
-OnePointCsFull D_8011D724[] = {
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_15, false, true),
-        0xFF,
-        0x2424,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 10.0f, -20.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_1, false, true),
-        0xFF,
-        0x2121,
-        19,
-        0,
-        50.0f,
-        1.0f,
-        { 0.0f, -10.0f, 0.0f },
-        { 0.0f, 0.0f, 60.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-// target is close to player
-OnePointCsFull D_8011D79C[] = {
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_15, true, true),
-        0xFF,
-        0x0002,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, 0.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_1, true, true),
-        0xFF,
-        0x0303,
-        19,
-        0,
-        45.0f,
-        1.0f,
-        { 0.0f, -20.0f, 0.0f },
-        { 0.0f, -10.0f, 5.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_1, true, true),
-        0xFF,
-        0x0303,
-        9,
-        0,
-        60.0f,
-        1.0f,
-        { 0.0f, 10.0f, 0.0f },
-        { 0.0f, 10.0f, 0.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-// target is within 300 units of eye, and player is within 30 units of eye
-OnePointCsFull D_8011D83C[] = {
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_3, false, true),
-        0xFF,
-        0x2141,
-        20,
-        0,
-        45.0f,
-        0.2f,
-        { 0.0f, 0.0f, 10.0f },
-        { 0.0f, 0.0f, 10.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-// target is within 700 units of eye, angle between player/eye and target/eye is less than
-// 76.9 degrees.  The x/y coordinates of the target on screen is between (21, 41) and (300, 200),
-// and the player is farther than 30 units of the eye
-OnePointCsFull D_8011D88C[] = {
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_1, false, true),
-        0xFF,
-        0x0303,
-        20,
-        0,
-        45.0f,
-        1.0f,
-        { 0.0f, 0.0f, 0.0f },
-        { 0.0f, 0.0f, 0.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-// same as above, but the target is NOT within the screen area.
-OnePointCsFull D_8011D8DC[] = {
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_15, false, true),
-        0xFF,
-        0x0404,
-        20,
-        1,
-        50.0f,
-        1.0f,
-        { 0.0f, 5.0f, 10.0f },
-        { 0.0f, 10.0f, -80.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_2, false, true),
-        0xFF,
-        0x2121,
-        5,
-        0,
-        60.0f,
-        1.0f,
-        { 0.0f, 5.0f, 0.0f },
-        { 5.0f, 5.0f, -200.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-// target is a door.
-OnePointCsFull D_8011D954[] = {
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_15, false, false),
-        0xFF,
-        0xC1C1,
-        20,
-        0,
-        60.0f,
-        1.0f,
-        { 0.0f, 0.0f, 50.0f },
-        { 0.0f, 0.0f, 250.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_3, false, true),
-        0xFF,
-        0x05B1,
-        5,
-        0,
-        60.0f,
-        0.1f,
-        { 0.0f, 10.0f, 50.0f },
-        { 0.0f, 10.0f, 100.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_2, false, true),
-        0xFF,
-        0x2121,
-        5,
-        2,
-        60.0f,
-        1.0f,
-        { 0.0f, 10.0f, 0.0f },
-        { 0.0f, 20.0f, -150.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-// otherwise
-OnePointCsFull D_8011D9F4[] = {
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_15, false, true),
-        0xFF,
-        0x0504,
-        20,
-        2,
-        60.0f,
-        1.0f,
-        { 0.0f, 5.0f, 50.0f },
-        { 0.0f, 20.0f, 300.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_2, false, true),
-        0xFF,
-        0x2121,
-        5,
-        2,
-        60.0f,
-        1.0f,
-        { 0.0f, 10.0f, 0.0f },
-        { 0.0f, 20.0f, -150.0f },
-    },
-    {
-        ONEPOINT_CS_ACTION(ONEPOINT_CS_ACTION_ID_18, false, false),
-        0xFF,
-        0x0000,
-        1,
-        0,
-        60.0f,
-        1.0f,
-        { -1.0f, -1.0f, -1.0f },
-        { -1.0f, -1.0f, -1.0f },
-    },
-};
-
-typedef enum {
-    /* 0 */ CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_LOWER_FLOOR, // ACTOR_BG_HIDAN_ROCK
-    /* 1 */ CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_EAST_TOWER,  // ACTOR_BG_HIDAN_FSLIFT
-    /* 2 */ CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_WEST_TOWER,  // ACTOR_BG_HIDAN_SYOKU
-    /* 3 */ CAM_ELEVATOR_PLATFORM_SPIRIT_TEMPLE_ENTRANCE   // ACTOR_BG_JYA_1FLIFT
-} CamElevatorPlatform;
-
-Vec3f sCamElevatorPlatformLowerEyePoints[] = {
-    { 3050.0f, 700.0f, 0.0f },     // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_LOWER_FLOOR
-    { 1755.0f, 3415.0f, -380.0f }, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_EAST_TOWER
-    { -3120.0f, 3160.0f, 245.0f }, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_WEST_TOWER
-    { 0.0f, -10.0f, 240.0f },      // CAM_ELEVATOR_PLATFORM_SPIRIT_TEMPLE_ENTRANCE
-};
-
-Vec3f sCamElevatorPlatformUpperEyePoints[] = {
-    { 3160.0f, 2150.0f, 0.0f },    // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_LOWER_FLOOR
-    { 1515.0f, 4130.0f, -835.0f }, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_EAST_TOWER
-    { -3040.0f, 4135.0f, 230.0f }, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_WEST_TOWER
-    { -50.0f, 600.0f, -75.0f },    // CAM_ELEVATOR_PLATFORM_SPIRIT_TEMPLE_ENTRANCE
-};
-
-// Trigger player y position to swap eye points
-f32 sCamElevatorPlatformTogglePosY[] = {
-    1570.0f, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_LOWER_FLOOR
-    3680.0f, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_EAST_TOWER
-    3700.0f, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_WEST_TOWER
-    395.0f,  // CAM_ELEVATOR_PLATFORM_SPIRIT_TEMPLE_ENTRANCE
-};
-
-f32 sCamElevatorPlatformFovRollParam[] = {
-    320.0f, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_LOWER_FLOOR
-    320.0f, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_EAST_TOWER
-    320.0f, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_WEST_TOWER
-    0.0f,   // CAM_ELEVATOR_PLATFORM_SPIRIT_TEMPLE_ENTRANCE
-};
-
-s16 sCamElevatorPlatformRolls[] = {
-    -2000, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_LOWER_FLOOR
-    -1000, // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_EAST_TOWER
-    0,     // CAM_ELEVATOR_PLATFORM_FIRE_TEMPLE_WEST_TOWER
-    0      // CAM_ELEVATOR_PLATFORM_SPIRIT_TEMPLE_ENTRANCE
-};
-
-// unused
-s32 D_8011DAF4 = 0;
-s32 D_8011DAF8 = 0;
-
-s16 D_8011DAFC[] = {
-    CAM_SET_NORMAL0, CAM_SET_NORMAL1, CAM_SET_NORMAL2, CAM_SET_DUNGEON0, CAM_SET_DUNGEON1, CAM_SET_DUNGEON2,
-};
-
 PlayState* D_8015BD7C;
-DbCamera D_8015BD80;
+
+#if OOT_DEBUG
+DebugCam D_8015BD80;
+#endif
+
 CollisionPoly* playerFloorPoly;

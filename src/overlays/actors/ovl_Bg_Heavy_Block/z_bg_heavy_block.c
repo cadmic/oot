@@ -28,15 +28,15 @@ void BgHeavyBlock_Land(BgHeavyBlock* this, PlayState* play);
 void BgHeavyBlock_DoNothing(BgHeavyBlock* this, PlayState* play);
 
 ActorInit Bg_Heavy_Block_InitVars = {
-    ACTOR_BG_HEAVY_BLOCK,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_HEAVY_OBJECT,
-    sizeof(BgHeavyBlock),
-    (ActorFunc)BgHeavyBlock_Init,
-    (ActorFunc)BgHeavyBlock_Destroy,
-    (ActorFunc)BgHeavyBlock_Update,
-    (ActorFunc)BgHeavyBlock_Draw,
+    /**/ ACTOR_BG_HEAVY_BLOCK,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_HEAVY_OBJECT,
+    /**/ sizeof(BgHeavyBlock),
+    /**/ BgHeavyBlock_Init,
+    /**/ BgHeavyBlock_Destroy,
+    /**/ BgHeavyBlock_Update,
+    /**/ BgHeavyBlock_Draw,
 };
 
 static InitChainEntry sInitChain[] = {
@@ -146,7 +146,7 @@ void BgHeavyBlock_Init(Actor* thisx, PlayState* play) {
             break;
     }
     // "Largest Block Save Bit %x"
-    osSyncPrintf(VT_FGCOL(CYAN) " 最大 ブロック セーブビット %x\n" VT_RST, thisx->params);
+    PRINTF(VT_FGCOL(CYAN) " 最大 ブロック セーブビット %x\n" VT_RST, thisx->params);
 }
 
 void BgHeavyBlock_Destroy(Actor* thisx, PlayState* play) {
@@ -172,7 +172,7 @@ void BgHeavyBlock_MovePiece(BgHeavyBlock* this, PlayState* play) {
 
     thisx->velocity.x *= 0.98f;
     thisx->velocity.z *= 0.98f;
-    func_8002D7EC(thisx);
+    Actor_UpdatePos(thisx);
     thisx->shape.rot.x += thisx->world.rot.x;
     thisx->shape.rot.y += thisx->world.rot.y;
     thisx->shape.rot.z += thisx->world.rot.z;
@@ -367,7 +367,7 @@ void BgHeavyBlock_LiftedUp(BgHeavyBlock* this, PlayState* play) {
 
     this->timer++;
 
-    func_8002DF54(play, &player->actor, PLAYER_CSMODE_8);
+    Player_SetCsActionWithHaltedActors(play, &player->actor, PLAYER_CSACTION_8);
 
     // if parent is NULL, link threw it
     if (Actor_HasNoParent(&this->dyna.actor, play)) {
@@ -382,7 +382,7 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play) {
     Vec3f checkPos;
     f32 yIntersect;
 
-    Actor_MoveForward(&this->dyna.actor);
+    Actor_MoveXZGravity(&this->dyna.actor);
     checkPos.x = this->dyna.actor.home.pos.x;
     checkPos.y = this->dyna.actor.home.pos.y + 1000.0f;
     checkPos.z = this->dyna.actor.home.pos.z;
@@ -441,7 +441,7 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play) {
                 this->actionFunc = BgHeavyBlock_Land;
         }
     }
-    this->dyna.actor.shape.rot.x = Math_Atan2S(this->dyna.actor.velocity.y, this->dyna.actor.speedXZ);
+    this->dyna.actor.shape.rot.x = Math_Atan2S(this->dyna.actor.velocity.y, this->dyna.actor.speed);
 }
 
 void BgHeavyBlock_DoNothing(BgHeavyBlock* this, PlayState* play) {
@@ -451,11 +451,11 @@ void BgHeavyBlock_Land(BgHeavyBlock* this, PlayState* play) {
     s32 pad;
 
     if (Math_SmoothStepToS(&this->dyna.actor.shape.rot.x, 0x8AD0, 6, 2000, 100) != 0) {
-        Math_StepToF(&this->dyna.actor.speedXZ, 0.0f, 20.0f);
+        Math_StepToF(&this->dyna.actor.speed, 0.0f, 20.0f);
         Math_StepToF(&this->dyna.actor.velocity.y, 0.0f, 3.0f);
         this->dyna.actor.gravity = 0.0f;
         this->dyna.actor.world.pos = this->dyna.actor.home.pos;
-        Actor_MoveForward(&this->dyna.actor);
+        Actor_MoveXZGravity(&this->dyna.actor);
         this->dyna.actor.home.pos = this->dyna.actor.world.pos;
         switch (this->dyna.actor.params & 0xFF) {
             case HEAVYBLOCK_UNBREAKABLE_OUTSIDE_CASTLE:
@@ -490,6 +490,8 @@ void BgHeavyBlock_Draw(Actor* thisx, PlayState* play) {
 
     OPEN_DISPS(play->state.gfxCtx, "../z_bg_heavy_block.c", 904);
 
+    if (1) {}
+
     if (BgHeavyBlock_LiftedUp == this->actionFunc) {
         Matrix_SetTranslateRotateYXZ(player->leftHandPos.x, player->leftHandPos.y, player->leftHandPos.z,
                                      &thisx->shape.rot);
@@ -503,7 +505,7 @@ void BgHeavyBlock_Draw(Actor* thisx, PlayState* play) {
     Matrix_MultVec3f(&D_80884ED4, &thisx->home.pos);
     Gfx_SetupDL_25Opa(play->state.gfxCtx);
 
-    gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_bg_heavy_block.c", 931),
+    gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_bg_heavy_block.c", 931),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     gSPDisplayList(POLY_OPA_DISP++, gHeavyBlockEntirePillarDL);
 

@@ -16,8 +16,7 @@ typedef struct {
 
 typedef struct {
     /* 0x00 */ void* loadedRamAddr; // original name: "allocp"
-    /* 0x04 */ uintptr_t vromStart;
-    /* 0x08 */ uintptr_t vromEnd;
+    /* 0x04 */ RomFile file;
     /* 0x0C */ void* vramStart;
     /* 0x10 */ void* vramEnd;
     /* 0x14 */ void* vramTable;
@@ -43,30 +42,27 @@ static MapMarkInfo sMapMarkInfoTable[] = {
 };
 
 static MapMarkDataOverlay sMapMarkDataOvl = {
-    NULL,
-    (uintptr_t)_ovl_map_mark_dataSegmentRomStart,
-    (uintptr_t)_ovl_map_mark_dataSegmentRomEnd,
-    _ovl_map_mark_dataSegmentStart,
-    _ovl_map_mark_dataSegmentEnd,
-    gMapMarkDataTable,
+    NULL, ROM_FILE(ovl_map_mark_data), _ovl_map_mark_dataSegmentStart, _ovl_map_mark_dataSegmentEnd, gMapMarkDataTable,
 };
 
 static MapMarkData** sLoadedMarkDataTable;
 
 void MapMark_Init(PlayState* play) {
     MapMarkDataOverlay* overlay = &sMapMarkDataOvl;
-    u32 overlaySize = (u32)overlay->vramEnd - (u32)overlay->vramStart;
+    u32 overlaySize = (uintptr_t)overlay->vramEnd - (uintptr_t)overlay->vramStart;
 
-    overlay->loadedRamAddr = GameState_Alloc(&play->state, overlaySize, "../z_map_mark.c", 235);
-    LogUtils_CheckNullPointer("dlftbl->allocp", overlay->loadedRamAddr, "../z_map_mark.c", 236);
+    overlay->loadedRamAddr = GAME_STATE_ALLOC(&play->state, overlaySize, "../z_map_mark.c", 235);
+    LOG_UTILS_CHECK_NULL_POINTER("dlftbl->allocp", overlay->loadedRamAddr, "../z_map_mark.c", 236);
 
-    Overlay_Load(overlay->vromStart, overlay->vromEnd, overlay->vramStart, overlay->vramEnd, overlay->loadedRamAddr);
+    Overlay_Load(overlay->file.vromStart, overlay->file.vromEnd, overlay->vramStart, overlay->vramEnd,
+                 overlay->loadedRamAddr);
 
     sLoadedMarkDataTable = gMapMarkDataTable;
-    sLoadedMarkDataTable = (void*)(u32)(
-        (overlay->vramTable != NULL)
-            ? (void*)((u32)overlay->vramTable - (s32)((u32)overlay->vramStart - (u32)overlay->loadedRamAddr))
-            : NULL);
+    sLoadedMarkDataTable =
+        (void*)(uintptr_t)((overlay->vramTable != NULL)
+                               ? (void*)((uintptr_t)overlay->vramTable -
+                                         (intptr_t)((uintptr_t)overlay->vramStart - (uintptr_t)overlay->loadedRamAddr))
+                               : NULL);
 }
 
 void MapMark_ClearPointers(PlayState* play) {
@@ -88,8 +84,8 @@ void MapMark_DrawForDungeon(PlayState* play) {
 
     if ((gMapData != NULL) && (play->interfaceCtx.mapRoomNum >= gMapData->dgnMinimapCount[dungeon])) {
         // "Room number exceeded, yikes %d/%d  MapMarkDraw processing interrupted"
-        osSyncPrintf(VT_COL(RED, WHITE) "部屋番号がオーバーしてるで,ヤバイで %d/%d  \nMapMarkDraw の処理を中断します\n",
-                     VT_RST, play->interfaceCtx.mapRoomNum, gMapData->dgnMinimapCount[dungeon]);
+        PRINTF(VT_COL(RED, WHITE) "部屋番号がオーバーしてるで,ヤバイで %d/%d  \nMapMarkDraw の処理を中断します\n",
+               VT_RST, play->interfaceCtx.mapRoomNum, gMapData->dgnMinimapCount[dungeon]);
         return;
     }
 
@@ -117,8 +113,8 @@ void MapMark_DrawForDungeon(PlayState* play) {
                                     markInfo->textureWidth, markInfo->textureHeight, 0, G_TX_NOMIRROR | G_TX_WRAP,
                                     G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
 
-                rectLeft = (GREG(94) + markPoint->x + 204) << 2;
-                rectTop = (GREG(95) + markPoint->y + 140) << 2;
+                rectLeft = ((OOT_DEBUG ? GREG(94) : 0) + markPoint->x + 204) << 2;
+                rectTop = ((OOT_DEBUG ? GREG(95) : 0) + markPoint->y + 140) << 2;
                 gSPTextureRectangle(OVERLAY_DISP++, rectLeft, rectTop, markInfo->rectWidth + rectLeft,
                                     rectTop + markInfo->rectHeight, G_TX_RENDERTILE, 0, 0, markInfo->dsdx,
                                     markInfo->dtdy);

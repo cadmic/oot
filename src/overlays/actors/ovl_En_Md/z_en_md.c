@@ -22,15 +22,15 @@ void func_80AABC10(EnMd* this, PlayState* play);
 void func_80AABD0C(EnMd* this, PlayState* play);
 
 ActorInit En_Md_InitVars = {
-    ACTOR_EN_MD,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_MD,
-    sizeof(EnMd),
-    (ActorFunc)EnMd_Init,
-    (ActorFunc)EnMd_Destroy,
-    (ActorFunc)EnMd_Update,
-    (ActorFunc)EnMd_Draw,
+    /**/ ACTOR_EN_MD,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_MD,
+    /**/ sizeof(EnMd),
+    /**/ EnMd_Init,
+    /**/ EnMd_Destroy,
+    /**/ EnMd_Update,
+    /**/ EnMd_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -46,8 +46,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 36, 46, 0, { 0, 0, 0 } },
@@ -385,10 +385,10 @@ s16 func_80AAAC78(EnMd* this, PlayState* play) {
 }
 
 u16 EnMd_GetTextIdKokiriForest(PlayState* play, EnMd* this) {
-    u16 reactionText = Text_GetFaceReaction(play, 0x11);
+    u16 textId = MaskReaction_GetTextId(play, MASK_REACTION_SET_MIDO);
 
-    if (reactionText != 0) {
-        return reactionText;
+    if (textId != 0) {
+        return textId;
     }
 
     this->unk_208 = 0;
@@ -568,13 +568,13 @@ void func_80AAB158(EnMd* this, PlayState* play) {
         temp2 = 1;
     }
 
-    if ((play->csCtx.state != CS_STATE_IDLE) || gDbgCamEnabled) {
+    if ((play->csCtx.state != CS_STATE_IDLE) || gDebugCamEnabled) {
         this->interactInfo.trackPos = play->view.eye;
         this->interactInfo.yOffset = 40.0f;
         trackingMode = NPC_TRACKING_HEAD_AND_TORSO;
     } else {
         this->interactInfo.trackPos = player->actor.world.pos;
-        this->interactInfo.yOffset = (gSaveContext.linkAge > 0) ? 0.0f : -18.0f;
+        this->interactInfo.yOffset = (gSaveContext.save.linkAge > 0) ? 0.0f : -18.0f;
     }
 
     Npc_TrackPoint(&this->actor, &this->interactInfo, 2, trackingMode);
@@ -752,7 +752,7 @@ void func_80AAB948(EnMd* this, PlayState* play) {
         this->waypoint = 1;
         this->interactInfo.talkState = NPC_TALK_STATE_IDLE;
         this->actionFunc = func_80AABD0C;
-        this->actor.speedXZ = 1.5f;
+        this->actor.speed = 1.5f;
         return;
     }
 
@@ -764,7 +764,7 @@ void func_80AAB948(EnMd* this, PlayState* play) {
         if (player->stateFlags2 & PLAYER_STATE2_24) {
             player->stateFlags2 |= PLAYER_STATE2_25;
             player->unk_6A8 = &this->actor;
-            func_8010BD58(play, OCARINA_ACTION_CHECK_SARIA);
+            Message_StartOcarina(play, OCARINA_ACTION_CHECK_SARIA);
             this->actionFunc = func_80AABC10;
             return;
         }
@@ -785,7 +785,7 @@ void func_80AABC10(EnMd* this, PlayState* play) {
         Audio_PlaySfxGeneral(NA_SE_SY_CORRECT_CHIME, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
                              &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
         this->actor.textId = 0x1067;
-        func_8002F2CC(&this->actor, play, this->collider.dim.radius + 30.0f);
+        Actor_OfferTalk(&this->actor, play, this->collider.dim.radius + 30.0f);
 
         this->actionFunc = func_80AAB948;
         play->msgCtx.ocarinaMode = OCARINA_MODE_04;
@@ -814,7 +814,7 @@ void func_80AABD0C(EnMd* this, PlayState* play) {
     func_80AAA92C(this, 11);
 
     this->skelAnime.playSpeed = 0.0f;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.home.pos = this->actor.world.pos;
     this->actionFunc = func_80AAB8F8;
 }
@@ -828,7 +828,7 @@ void EnMd_Update(Actor* thisx, PlayState* play) {
     SkelAnime_Update(&this->skelAnime);
     EnMd_UpdateEyes(this);
     func_80AAB5A4(this, play);
-    Actor_MoveForward(&this->actor);
+    Actor_MoveXZGravity(&this->actor);
     func_80AAB158(this, play);
     Actor_UpdateBgCheckInfo(play, &this->actor, 0.0f, 0.0f, 0.0f, UPDBGCHECKINFO_FLAG_2);
     this->actionFunc(this, play);

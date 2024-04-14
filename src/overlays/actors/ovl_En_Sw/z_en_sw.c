@@ -21,15 +21,15 @@ void func_80B0DB00(EnSw* this, PlayState* play);
 void func_80B0D878(EnSw* this, PlayState* play);
 
 ActorInit En_Sw_InitVars = {
-    ACTOR_EN_SW,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_ST,
-    sizeof(EnSw),
-    (ActorFunc)EnSw_Init,
-    (ActorFunc)EnSw_Destroy,
-    (ActorFunc)EnSw_Update,
-    (ActorFunc)EnSw_Draw,
+    /**/ ACTOR_EN_SW,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_ST,
+    /**/ sizeof(EnSw),
+    /**/ EnSw_Init,
+    /**/ EnSw_Destroy,
+    /**/ EnSw_Update,
+    /**/ EnSw_Draw,
 };
 
 static ColliderJntSphElementInit sJntSphItemsInit[1] = {
@@ -90,9 +90,9 @@ s32 func_80B0BE20(EnSw* this, CollisionPoly* poly) {
     if (temp_f0 < 0.001f) {
         return 0;
     }
-    this->unk_37C.x = this->unk_37C.x * (1.0f / temp_f0);
-    this->unk_37C.y = this->unk_37C.y * (1.0f / temp_f0);
-    this->unk_37C.z = this->unk_37C.z * (1.0f / temp_f0);
+    this->unk_37C.x *= 1.0f / temp_f0;
+    this->unk_37C.y *= 1.0f / temp_f0;
+    this->unk_37C.z *= 1.0f / temp_f0;
     this->unk_364 = polyNormal;
     this->unk_3D8.xx = this->unk_370.x;
     this->unk_3D8.yx = this->unk_370.y;
@@ -182,7 +182,6 @@ s32 func_80B0C0CC(EnSw* this, PlayState* play, s32 arg2) {
             if (phi_s1 == 0) {
                 sp78.x = sp84.x - (this->unk_37C.x * 24.0f);
                 sp78.y = sp84.y - (this->unk_37C.y * 24.0f);
-                if (0) {}
                 sp78.z = sp84.z - (this->unk_37C.z * 24.0f);
             } else if (phi_s1 == 1) {
                 sp78.x = sp84.x + (this->unk_370.x * 24.0f);
@@ -194,15 +193,17 @@ s32 func_80B0C0CC(EnSw* this, PlayState* play, s32 arg2) {
                 sp78.z = sp84.z - (this->unk_370.z * 24.0f);
             }
             temp_v0_2 = func_80B0C020(play, &sp84, &sp78, &sp9C, &sp6C);
-            if (temp_v0_2 != NULL) {
-                if (arg2 == 1) {
-                    func_80B0BE20(this, temp_v0_2);
-                    this->actor.world.pos = sp9C;
-                    this->actor.floorBgId = sp6C;
-                }
-                sp64 = 1;
-                break;
+            if (temp_v0_2 == NULL) {
+                continue;
             }
+
+            if (arg2 == 1) {
+                func_80B0BE20(this, temp_v0_2);
+                this->actor.world.pos = sp9C;
+                this->actor.floorBgId = sp6C;
+            }
+            sp64 = 1;
+            break;
         }
     }
 
@@ -275,14 +276,14 @@ void EnSw_Init(Actor* thisx, PlayState* play) {
         case 4:
             this->unk_360 = 1;
             this->actor.velocity.y = 8.0f;
-            this->actor.speedXZ = 4.0f;
+            this->actor.speed = 4.0f;
             this->actor.gravity = -1.0f;
             FALLTHROUGH;
         case 2:
             this->actor.scale.x = 0.0f;
             FALLTHROUGH;
         case 1:
-            this->collider.elements[0].info.toucher.damage *= 2;
+            this->collider.elements[0].base.atDmgInfo.damage *= 2;
             this->actor.naviEnemyId = NAVI_ENEMY_GOLD_SKULLTULA;
             this->actor.colChkInfo.health *= 2;
             this->actor.flags &= ~ACTOR_FLAG_0;
@@ -510,9 +511,9 @@ void func_80B0D3AC(EnSw* this, PlayState* play) {
     this->actor.world.pos.x += this->unk_364.x * this->actor.velocity.y;
     this->actor.world.pos.y += this->unk_364.y * this->actor.velocity.y;
     this->actor.world.pos.z += this->unk_364.z * this->actor.velocity.y;
-    this->actor.world.pos.x += this->unk_37C.x * this->actor.speedXZ;
-    this->actor.world.pos.y += this->unk_37C.y * this->actor.speedXZ;
-    this->actor.world.pos.z += this->unk_37C.z * this->actor.speedXZ;
+    this->actor.world.pos.x += this->unk_37C.x * this->actor.speed;
+    this->actor.world.pos.y += this->unk_37C.y * this->actor.speed;
+    this->actor.world.pos.z += this->unk_37C.z * this->actor.speed;
     this->actor.velocity.y += this->actor.gravity;
     this->actor.velocity.y = CLAMP_MIN(this->actor.velocity.y, this->actor.minVelocityY);
 
@@ -527,7 +528,7 @@ void func_80B0D3AC(EnSw* this, PlayState* play) {
         Actor_SetScale(&this->actor, 0.02f);
         this->actionFunc = func_80B0D590;
         this->actor.velocity.y = 0.0f;
-        this->actor.speedXZ = 0.0f;
+        this->actor.speed = 0.0f;
         this->actor.gravity = 0.0f;
     }
 }
@@ -537,15 +538,15 @@ void func_80B0D590(EnSw* this, PlayState* play) {
 
     if (((this->actor.params & 0xE000) >> 0xD) == 2) {
         if (this->actor.scale.x < 0.0139999995f) {
-            this->collider.elements[0].info.toucherFlags = TOUCH_NONE;
-            this->collider.elements[0].info.bumperFlags = BUMP_NONE;
-            this->collider.elements[0].info.ocElemFlags = OCELEM_NONE;
+            this->collider.elements[0].base.atElemFlags = ATELEM_NONE;
+            this->collider.elements[0].base.acElemFlags = ACELEM_NONE;
+            this->collider.elements[0].base.ocElemFlags = OCELEM_NONE;
         }
 
         if (this->actor.scale.x >= 0.0139999995f) {
-            this->collider.elements[0].info.toucherFlags = TOUCH_ON;
-            this->collider.elements[0].info.bumperFlags = BUMP_ON;
-            this->collider.elements[0].info.ocElemFlags = OCELEM_ON;
+            this->collider.elements[0].base.atElemFlags = ATELEM_ON;
+            this->collider.elements[0].base.acElemFlags = ACELEM_ON;
+            this->collider.elements[0].base.ocElemFlags = OCELEM_ON;
         }
 
         Math_ApproachF(&this->actor.scale.x, !IS_DAY ? 0.02f : 0.0f, 0.2f, 0.01f);
@@ -637,7 +638,7 @@ void func_80B0D878(EnSw* this, PlayState* play) {
 }
 
 void func_80B0DB00(EnSw* this, PlayState* play) {
-    Actor_MoveForward(&this->actor);
+    Actor_MoveXZGravity(&this->actor);
     this->actor.shape.rot.x += 0x1000;
     this->actor.shape.rot.z += 0x1000;
     Actor_UpdateBgCheckInfo(play, &this->actor, 20.0f, 20.0f, 0.0f, UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2);
@@ -762,7 +763,7 @@ void func_80B0E314(EnSw* this, Vec3f arg1, f32 arg4) {
     f32 yDiff;
     f32 zDiff;
 
-    Math_SmoothStepToF(&this->actor.speedXZ, arg4, 0.3f, 100.0f, 0.1f);
+    Math_SmoothStepToF(&this->actor.speed, arg4, 0.3f, 100.0f, 0.1f);
     xDiff = arg1.x - this->actor.world.pos.x;
     yDiff = arg1.y - this->actor.world.pos.y;
     zDiff = arg1.z - this->actor.world.pos.z;
@@ -774,9 +775,9 @@ void func_80B0E314(EnSw* this, Vec3f arg1, f32 arg4) {
         yDist = yDiff / dist;
         zDist = zDiff / dist;
     }
-    xDist *= this->actor.speedXZ;
-    yDist *= this->actor.speedXZ;
-    zDist *= this->actor.speedXZ;
+    xDist *= this->actor.speed;
+    yDist *= this->actor.speed;
+    zDist *= this->actor.speed;
     this->actor.world.pos.x += xDist;
     this->actor.world.pos.y += yDist;
     this->actor.world.pos.z += zDist;
@@ -871,7 +872,7 @@ void func_80B0E90C(EnSw* this, PlayState* play) {
     s32 pad;
 
     func_80B0E314(this, this->unk_448, 0.0f);
-    if (this->actor.speedXZ == 0.0f) {
+    if (this->actor.speed == 0.0f) {
         this->unk_444 = func_80B0DE34(this, &this->actor.home.pos);
         this->unk_448 = this->actor.home.pos;
         this->actionFunc = func_80B0E9BC;

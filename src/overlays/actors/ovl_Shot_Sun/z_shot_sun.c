@@ -22,15 +22,15 @@ void ShotSun_UpdateFairySpawner(ShotSun* this, PlayState* play);
 void ShotSun_UpdateHyliaSun(ShotSun* this, PlayState* play);
 
 ActorInit Shot_Sun_InitVars = {
-    ACTOR_SHOT_SUN,
-    ACTORCAT_PROP,
-    FLAGS,
-    OBJECT_GAMEPLAY_KEEP,
-    sizeof(ShotSun),
-    (ActorFunc)ShotSun_Init,
-    (ActorFunc)ShotSun_Destroy,
-    (ActorFunc)ShotSun_Update,
-    NULL,
+    /**/ ACTOR_SHOT_SUN,
+    /**/ ACTORCAT_PROP,
+    /**/ FLAGS,
+    /**/ OBJECT_GAMEPLAY_KEEP,
+    /**/ sizeof(ShotSun),
+    /**/ ShotSun_Init,
+    /**/ ShotSun_Destroy,
+    /**/ ShotSun_Update,
+    /**/ NULL,
 };
 
 typedef enum {
@@ -52,8 +52,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000020, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_ON,
+        ATELEM_NONE,
+        ACELEM_ON,
         OCELEM_ON,
     },
     { 30, 60, 0, { 0, 0, 0 } },
@@ -64,7 +64,7 @@ void ShotSun_Init(Actor* thisx, PlayState* play) {
     s32 params;
 
     // "Ocarina secret occurrence"
-    osSyncPrintf("%d ---- オカリナの秘密発生!!!!!!!!!!!!!\n", this->actor.params);
+    PRINTF("%d ---- オカリナの秘密発生!!!!!!!!!!!!!\n", this->actor.params);
     params = this->actor.params & 0xFF;
     if (params == 0x40 || params == 0x41) {
         this->fairySpawnerState = SPAWNER_OUT_OF_RANGE;
@@ -121,7 +121,7 @@ void ShotSun_TriggerFairy(ShotSun* this, PlayState* play) {
         Actor_Spawn(&play->actorCtx, play, ACTOR_DEMO_KANKYO, this->actor.home.pos.x, this->actor.home.pos.y,
                     this->actor.home.pos.z, 0, 0, 0, DEMOKANKYO_SPARKLES);
 
-        func_80078914(&this->actor.projectedPos, NA_SE_EV_TRE_BOX_APPEAR);
+        Sfx_PlaySfxAtPos(&this->actor.projectedPos, NA_SE_EV_TRE_BOX_APPEAR);
     }
 }
 
@@ -142,7 +142,7 @@ void ShotSun_UpdateFairySpawner(ShotSun* this, PlayState* play) {
             }
         }
         if (this->fairySpawnerState == SPAWNER_OCARINA_START) {
-            func_8010BD58(play, OCARINA_ACTION_FREE_PLAY);
+            Message_StartOcarina(play, OCARINA_ACTION_FREE_PLAY);
             this->fairySpawnerState = SPAWNER_OCARINA_PLAYING;
         } else if (this->fairySpawnerState == SPAWNER_OCARINA_PLAYING && play->msgCtx.ocarinaMode == OCARINA_MODE_04) {
             if ((params == 0x40 && play->msgCtx.lastPlayedSong == OCARINA_SONG_SUNS) ||
@@ -163,17 +163,18 @@ void ShotSun_UpdateHyliaSun(ShotSun* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     EnItem00* collectible;
     s32 pad;
-    Vec3f spawnPos;
 
     if (this->collider.base.acFlags & AC_HIT) {
-        func_80078884(NA_SE_SY_CORRECT_CHIME);
-        osSyncPrintf(VT_FGCOL(CYAN) "SHOT_SUN HIT!!!!!!!\n" VT_RST);
+        Sfx_PlaySfxCentered(NA_SE_SY_CORRECT_CHIME);
+        PRINTF(VT_FGCOL(CYAN) "SHOT_SUN HIT!!!!!!!\n" VT_RST);
         if (INV_CONTENT(ITEM_ARROW_FIRE) == ITEM_NONE) {
             Actor_Spawn(&play->actorCtx, play, ACTOR_ITEM_ETCETERA, 700.0f, -800.0f, 7261.0f, 0, 0, 0, 7);
-            play->csCtx.segment = SEGMENTED_TO_VIRTUAL(gLakeHyliaFireArrowsCS);
+            play->csCtx.script = SEGMENTED_TO_VIRTUAL(gLakeHyliaFireArrowsCS);
             if (1) {}
             gSaveContext.cutsceneTrigger = 1;
         } else {
+            Vec3f spawnPos;
+
             spawnPos.x = 700.0f;
             spawnPos.y = -800.0f;
             spawnPos.z = 7261.0f;
@@ -181,13 +182,13 @@ void ShotSun_UpdateHyliaSun(ShotSun* this, PlayState* play) {
             collectible = Item_DropCollectible(play, &spawnPos, ITEM00_MAGIC_LARGE);
             if (collectible != NULL) {
                 collectible->despawnTimer = 6000;
-                collectible->actor.speedXZ = 0.0f;
+                collectible->actor.speed = 0.0f;
             }
         }
         Actor_Kill(&this->actor);
     } else {
-        if (!(this->actor.xzDistToPlayer > 120.0f) && gSaveContext.dayTime >= CLOCK_TIME(6, 30) &&
-            gSaveContext.dayTime < CLOCK_TIME(7, 30)) {
+        if (!(this->actor.xzDistToPlayer > 120.0f) && gSaveContext.save.dayTime >= CLOCK_TIME(6, 30) &&
+            gSaveContext.save.dayTime < CLOCK_TIME(7, 30)) {
             cylinderPos.x = player->bodyPartsPos[PLAYER_BODYPART_HEAD].x + play->envCtx.sunPos.x * (1.0f / 6.0f);
             cylinderPos.y =
                 player->bodyPartsPos[PLAYER_BODYPART_HEAD].y - 30.0f + play->envCtx.sunPos.y * (1.0f / 6.0f);

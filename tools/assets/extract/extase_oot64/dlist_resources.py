@@ -30,10 +30,6 @@ VERBOSE_ColorIndexedTexturesManager = False
 VERBOSE_BEST_EFFORT_TLUT_NO_REAL_USER = True
 
 
-# FIXME ...
-import sys
-
-sys.path.insert(0, "/home/dragorn421/Documents/pygfxd/")
 import pygfxd
 from typing import TYPE_CHECKING
 
@@ -154,55 +150,16 @@ class VtxArrayResource(CDataResource):
 
 from ...n64 import G_IM_FMT, G_IM_SIZ, G_TT, G_MDSFT_TEXTLUT
 
-sys.path.insert(0, "/home/dragorn421/Documents/n64texconv/")
-import n64texconv
-
 from tools.assets.png2raw import raw2png
-
-
-def png_from_data(
-    outpath, width, height, greyscale, alpha, bitdepth, image_data, palette
-):
-    # assert raw2png current limitations
-    assert not greyscale
-    assert alpha
-    assert bitdepth == 8
-
-    if palette is None:
-        raw2png.write(outpath, width, height, bytearray(image_data))
-    else:
-
-        assert len(palette) == HACK_DEBUG_EXPECTED_PALETTE_LENGTH, (
-            len(palette),
-            palette,
-        )
-
-        # TODO not entirely sure write_paletted takes a `palette`,
-        # for some reason I make use of the buffer protocol (I think) in write_paletted???
-
-        palette_buffer = []
-        for c in palette:
-            palette_buffer.extend(c)
-
-        # TODO figure out passing read only data through ctypes
-        raw2png.write_paletted(
-            outpath,
-            width,
-            height,
-            bytearray(palette_buffer),
-            len(palette),
-            bytearray(image_data),
-        )
-
-
-n64texconv.png_from_data = png_from_data
+from tools.assets import n64yatc
 
 
 def write_n64_image_to_png(
     path: Path, width: int, height: int, fmt: G_IM_FMT, siz: G_IM_SIZ, data: memoryview
 ):
-    tex = n64texconv.Image.from_bin(data, width, height, fmt.i, siz.i, None)
-    tex.to_png(path)
+    # TODO replace n64yatc, don't copy to bytearray
+    image_data_rgba32 = n64yatc.convert(data, fmt, siz, G_IM_FMT.RGBA, G_IM_SIZ._32b)
+    raw2png.write(path, width, height, bytearray(image_data_rgba32))
 
 
 def write_n64_image_to_png_color_indexed(
@@ -216,14 +173,14 @@ def write_n64_image_to_png_color_indexed(
     tlut_count: int,
     tlut_fmt: G_IM_FMT,
 ):
-    tlut = n64texconv.Image.palette_from_bin(
-        bytearray(tlut_data), tlut_count, tlut_fmt.i
+    palette_data_rgba32 = n64yatc.convert(
+        tlut_data, tlut_fmt, G_IM_SIZ._16b, G_IM_FMT.RGBA, G_IM_SIZ._32b
     )
-    tex = n64texconv.Image.from_bin(data, width, height, fmt.i, siz.i, tlut)
-    global HACK_DEBUG_EXPECTED_PALETTE_LENGTH
-    HACK_DEBUG_EXPECTED_PALETTE_LENGTH = tlut_count
-    tex.to_png(path)
-    del HACK_DEBUG_EXPECTED_PALETTE_LENGTH
+    num_palette = tlut_count
+    image_data_ci8 = n64yatc.convert(data, fmt, siz, G_IM_FMT.CI, G_IM_SIZ._8b)
+    raw2png.write_paletted(
+        path, width, height, bytearray(palette_data_rgba32), num_palette, bytearray(image_data_ci8)
+    )
 
 
 class TextureResource(Resource):

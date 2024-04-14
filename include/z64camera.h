@@ -42,7 +42,7 @@
 #define CAM_LETTERBOX_MEDIUM CAM_LETTERBOX(2)
 #define CAM_LETTERBOX_LARGE  CAM_LETTERBOX(3)
 
-#define CAM_LETTERBOX_INSTANT CAM_LETTERBOX(8) // Bit to determine whether to set the current value directly (on), or to set the size target (off) 
+#define CAM_LETTERBOX_INSTANT CAM_LETTERBOX(8) // Bit to determine whether to set the current value directly (on), or to set the size target (off)
 #define CAM_LETTERBOX_IGNORE  CAM_LETTERBOX(0xF) // No change in letterbox size, keep the previous size
 
 // Camera-unique hud visibility mode macros
@@ -50,26 +50,28 @@
 #define CAM_HUD_VISIBILITY_MASK (0xF << CAM_HUD_VISIBILITY_SHIFT)
 #define CAM_HUD_VISIBILITY(hudVisibility) (((hudVisibility) & 0xF) << CAM_HUD_VISIBILITY_SHIFT)
 
-//! @note: since `interfaceField` can only have `0 - 0xF` values,
-//! there is no cam value mapped to `HUD_VISIBILITY_NOTHING_INSTANT`.
-//! @note: since 0 means `HUD_VISIBILITY_ALL`,
-//! there is no cam value mapped to `HUD_VISIBILITY_NO_CHANGE`.
-#define CAM_HUD_VISIBILITY_ALL                          CAM_HUD_VISIBILITY(0) // HUD_VISIBILITY_ALL
-#define CAM_HUD_VISIBILITY_NOTHING                      CAM_HUD_VISIBILITY(HUD_VISIBILITY_NOTHING)
-#define CAM_HUD_VISIBILITY_NOTHING_ALT                  CAM_HUD_VISIBILITY(HUD_VISIBILITY_NOTHING_ALT)
-#define CAM_HUD_VISIBILITY_HEARTS_FORCE                 CAM_HUD_VISIBILITY(HUD_VISIBILITY_HEARTS_FORCE)
-#define CAM_HUD_VISIBILITY_A                            CAM_HUD_VISIBILITY(HUD_VISIBILITY_A)
-#define CAM_HUD_VISIBILITY_A_HEARTS_MAGIC_FORCE         CAM_HUD_VISIBILITY(HUD_VISIBILITY_A_HEARTS_MAGIC_FORCE)
-#define CAM_HUD_VISIBILITY_A_HEARTS_MAGIC_MINIMAP_FORCE CAM_HUD_VISIBILITY(HUD_VISIBILITY_A_HEARTS_MAGIC_MINIMAP_FORCE)
-#define CAM_HUD_VISIBILITY_ALL_NO_MINIMAP_BY_BTN_STATUS CAM_HUD_VISIBILITY(HUD_VISIBILITY_ALL_NO_MINIMAP_BY_BTN_STATUS)
-#define CAM_HUD_VISIBILITY_B                            CAM_HUD_VISIBILITY(HUD_VISIBILITY_B)
-#define CAM_HUD_VISIBILITY_HEARTS_MAGIC                 CAM_HUD_VISIBILITY(HUD_VISIBILITY_HEARTS_MAGIC)
-#define CAM_HUD_VISIBILITY_B_ALT                        CAM_HUD_VISIBILITY(HUD_VISIBILITY_B_ALT)
-#define CAM_HUD_VISIBILITY_HEARTS                       CAM_HUD_VISIBILITY(HUD_VISIBILITY_HEARTS)
-#define CAM_HUD_VISIBILITY_A_B_MINIMAP                  CAM_HUD_VISIBILITY(HUD_VISIBILITY_A_B_MINIMAP)
-#define CAM_HUD_VISIBILITY_HEARTS_MAGIC_FORCE           CAM_HUD_VISIBILITY(HUD_VISIBILITY_HEARTS_MAGIC_FORCE)
+// These defines exist to clarify exactly which HUD visibility modes are supported by the camera system. While most of
+// them map 1 to 1 with their HUD visibility counterparts, not all HUD visibility mode values will work as expected if
+// used directly. Notably:
+// - CAM_HUD_VISIBILITY_ALL (0) maps to HUD_VISIBILITY_ALL (50), not HUD_VISIBILITY_NO_CHANGE (0)
+// - HUD_VISIBILITY_NOTHING_INSTANT (52) has no CAM_HUD_VISIBILITY_* mapping,
+//   because camera HUD visibility values are restricted to the 0-0xF range
+#define CAM_HUD_VISIBILITY_ALL                          (0) // HUD_VISIBILITY_ALL
+#define CAM_HUD_VISIBILITY_NOTHING                      (HUD_VISIBILITY_NOTHING)
+#define CAM_HUD_VISIBILITY_NOTHING_ALT                  (HUD_VISIBILITY_NOTHING_ALT)
+#define CAM_HUD_VISIBILITY_HEARTS_FORCE                 (HUD_VISIBILITY_HEARTS_FORCE)
+#define CAM_HUD_VISIBILITY_A                            (HUD_VISIBILITY_A)
+#define CAM_HUD_VISIBILITY_A_HEARTS_MAGIC_FORCE         (HUD_VISIBILITY_A_HEARTS_MAGIC_FORCE)
+#define CAM_HUD_VISIBILITY_A_HEARTS_MAGIC_MINIMAP_FORCE (HUD_VISIBILITY_A_HEARTS_MAGIC_MINIMAP_FORCE)
+#define CAM_HUD_VISIBILITY_ALL_NO_MINIMAP_BY_BTN_STATUS (HUD_VISIBILITY_ALL_NO_MINIMAP_BY_BTN_STATUS)
+#define CAM_HUD_VISIBILITY_B                            (HUD_VISIBILITY_B)
+#define CAM_HUD_VISIBILITY_HEARTS_MAGIC                 (HUD_VISIBILITY_HEARTS_MAGIC)
+#define CAM_HUD_VISIBILITY_B_ALT                        (HUD_VISIBILITY_B_ALT)
+#define CAM_HUD_VISIBILITY_HEARTS                       (HUD_VISIBILITY_HEARTS)
+#define CAM_HUD_VISIBILITY_A_B_MINIMAP                  (HUD_VISIBILITY_A_B_MINIMAP)
+#define CAM_HUD_VISIBILITY_HEARTS_MAGIC_FORCE           (HUD_VISIBILITY_HEARTS_MAGIC_FORCE)
 // Unique to camera, does not change hud visibility mode (similar effect as HUD_VISIBILITY_NO_CHANGE)
-#define CAM_HUD_VISIBILITY_IGNORE                       CAM_HUD_VISIBILITY(0xF)
+#define CAM_HUD_VISIBILITY_IGNORE                       (0xF)
 
 /**
  * letterboxFlag: Determines the size of the letter-box window. See CAM_LETTERBOX_* defines.
@@ -80,35 +82,35 @@
  * funcFlags: Custom flags for functions
  */
 #define CAM_INTERFACE_FIELD(letterboxFlag, hudVisibilityMode, funcFlags) \
-    (((letterboxFlag) & CAM_LETTERBOX_MASK) | (hudVisibilityMode) | ((funcFlags) & 0xFF))
+    (((letterboxFlag) & CAM_LETTERBOX_MASK) | CAM_HUD_VISIBILITY(hudVisibilityMode) | ((funcFlags) & 0xFF))
 
-// Camera behaviorFlags. Flags specifically for settings, modes, and bgCam
-// Used to store current state, only CAM_BEHAVIOR_SETTING_1 and CAM_BEHAVIOR_BG_2 are read from and used in logic
+// Camera behaviorFlags. Flags specifically for settings, modes, and bgCam. Reset every frame.
+// Used to store current state, only CAM_BEHAVIOR_SETTING_CHECK_PRIORITY and CAM_BEHAVIOR_BG_PROCESSED are read from and used in logic
 // Setting (0x1, 0x10)
-#define CAM_BEHAVIOR_SETTING_1 (1 << 0)
-#define CAM_BEHAVIOR_SETTING_2 (1 << 4)
+#define CAM_BEHAVIOR_SETTING_CHECK_PRIORITY (1 << 0)
+#define CAM_BEHAVIOR_SETTING_VALID (1 << 4) // Set when a valid camera setting is requested
 // Mode (0x2, 0x20)
-#define CAM_BEHAVIOR_MODE_1 (1 << 1)
-#define CAM_BEHAVIOR_MODE_2 (1 << 5)
+#define CAM_BEHAVIOR_MODE_SUCCESS (1 << 1) // Set when the camera mode is the requested mode
+#define CAM_BEHAVIOR_MODE_VALID (1 << 5) // Set when a valid camera mode is requested
 // bgCam (0x4, 0x40)
-#define CAM_BEHAVIOR_BG_1 (1 << 2)
-#define CAM_BEHAVIOR_BG_2 (1 << 6)
+#define CAM_BEHAVIOR_BG_SUCCESS (1 << 2)
+#define CAM_BEHAVIOR_BG_PROCESSED (1 << 6)
 
 // Camera stateFlags. Variety of generic flags
-#define CAM_STATE_0 (1 << 0) // Must be set for the camera to change settings based on the bg surface
-#define CAM_STATE_1 (1 << 1) // Must be set for Camera_UpdateWater to run
-#define CAM_STATE_2 (1 << 2)
-#define CAM_STATE_3 (1 << 3) // Customizable flag for different functions
-#define CAM_STATE_4 (1 << 4)
-#define CAM_STATE_5 (1 << 5)
-#define CAM_STATE_6 (1 << 6)
-#define CAM_STATE_7 (1 << 7) // Set in play, unused
-#define CAM_STATE_8 (1 << 8) // Camera (eye) is underwater
-#define CAM_STATE_9 (1 << 9)
-#define CAM_STATE_10 (1 << 10) // Prevents the camera from changing settings based on the bg surface
-#define CAM_STATE_12 (1 << 12) // Set in Camera_Demo7, but Camera_Demo7 is never called
-#define CAM_STATE_14 (1 << 14) // isInitialized. Turned on in Camera Init, never used or changed
-#define CAM_STATE_15 ((s16)(1 << 15))
+#define CAM_STATE_CHECK_BG_ALT (1 << 0) // Must be set for the camera to change settings based on the bg surface
+#define CAM_STATE_CHECK_WATER (1 << 1) // Must be set for Camera_UpdateWater to run
+#define CAM_STATE_CHECK_BG (1 << 2) //  Must be set for the camera to change settings based on the bg surface
+#define CAM_STATE_EXTERNAL_FINISHED (1 << 3) // Signal from the external systems to camera that the current cam-update function is no longer needed
+#define CAM_STATE_CAM_FUNC_FINISH (1 << 4) // Signal from camera to player that the cam-update function is finished its primary purpose
+#define CAM_STATE_LOCK_MODE (1 << 5) // Prevents camera from changing mode, unless overriden by `forceModeChange` passed to `Camera_RequestModeImpl`
+#define CAM_STATE_DISTORTION (1 << 6) // Set when camera distortion is on
+#define CAM_STATE_PLAY_INIT (1 << 7) // Set in Play_Init, never used or changed
+#define CAM_STATE_CAMERA_IN_WATER (1 << 8) // Camera (eye) is underwater
+#define CAM_STATE_PLAYER_IN_WATER (1 << 9) // Player is swimming in water
+#define CAM_STATE_BLOCK_BG (1 << 10) // Prevents the camera from changing settings based on the bg surface for 1 frame
+#define CAM_STATE_DEMO7 (1 << 12) // Set in Camera_Demo7, but this function is never called
+#define CAM_STATE_CAM_INIT (1 << 14) // Set in Camera_Init, never used or changed
+#define CAM_STATE_PLAYER_DIVING ((s16)(1 << 15)) // Diving from the surface of the water down
 
 // Camera viewFlags. Set params related to view
 #define CAM_VIEW_AT (1 << 0) // camera->at
@@ -119,7 +121,7 @@
 #define CAM_VIEW_FOV (1 << 5) // camera->fov
 #define CAM_VIEW_ROLL (1 << 6) // camera->roll
 
-// All scenes using `SCENE_CAM_TYPE_FIXED_SHOP_VIEWPOINT` or `SCENE_CAM_TYPE_FIXED_TOGGLE_VIEWPOINT` are expected 
+// All scenes using `SCENE_CAM_TYPE_FIXED_SHOP_VIEWPOINT` or `SCENE_CAM_TYPE_FIXED_TOGGLE_VIEWPOINT` are expected
 // to have their first two bgCamInfo entries be the following:
 #define BGCAM_INDEX_TOGGLE_LOCKED 0
 #define BGCAM_INDEX_TOGGLE_PIVOT 1
@@ -168,7 +170,7 @@ typedef enum {
     /* 0x20 */ CAM_SET_START1, // Scene/room door transitions that snap the camera to a fixed location (example: ganon's towers doors climbing up)
     /* 0x21 */ CAM_SET_FREE0, // Full manual control is given over the camera
     /* 0x22 */ CAM_SET_FREE2, // Various OnePoint Cutscenes, 10 total (example: falling chest)
-    /* 0x23 */ CAM_SET_PIVOT_CORNER, // Inside the carpenter jail cells from theives hideout "CIRCLE4"
+    /* 0x23 */ CAM_SET_PIVOT_CORNER, // Inside the carpenter jail cells from thieves hideout "CIRCLE4"
     /* 0x24 */ CAM_SET_PIVOT_WATER_SURFACE, // Player diving from the surface of the water to underwater "CIRCLE5"
     /* 0x25 */ CAM_SET_CS_0, // Various cutscenes "DEMO0"
     /* 0x26 */ CAM_SET_CS_TWISTED_HALLWAY, // Never set to, but checked in twisting hallway (Forest Temple) "DEMO1"
@@ -1249,13 +1251,22 @@ typedef enum {
 
 #define ONEPOINT_CS_GET_ACTION(onePointCsFull) ((onePointCsFull)->actionFlags & 0x1F)
 
-/** initFlags
- * & 0x00FF = atInitFlags
- * & 0xFF00 = eyeInitFlags
+#define ONEPOINT_CS_INIT_FIELD_NONE 0xFF
+#define ONEPOINT_CS_INIT_FIELD_ACTORCAT(actorCat) (0x80 | ((actorCat) & 0x0F))
+#define ONEPOINT_CS_INIT_FIELD_HUD_VISIBILITY(camHudVisibility) (0xC0 | ((camHudVisibility) & 0x0F))
+#define ONEPOINT_CS_INIT_FIELD_PLAYER_CS(csAction) ((csAction) & 0x7F)
+
+#define ONEPOINT_CS_INIT_FIELD_IS_TYPE_ACTORCAT(field) ((field & 0xF0) == 0x80)
+#define ONEPOINT_CS_INIT_FIELD_IS_TYPE_HUD_VISIBILITY(field) ((field & 0xF0) == 0xC0)
+#define ONEPOINT_CS_INIT_FIELD_IS_TYPE_PLAYER_CS(field) !(field & 0x80)
+
+/** viewFlags
+ * & 0x00FF = atFlags
+ * & 0xFF00 = eyeFlags
  * 0x1: Direct Copy of atTargetInit
- *      if initFlags & 0x6060: use head for focus point
+ *      if viewFlags & 0x6060: use head for focus point
  * 0x2: Add atTargetInit to view's lookAt
- *      if initFlags & 0x6060: use world for focus point
+ *      if viewFlags & 0x6060: use world for focus point
  * 0x3: Add atTargetInit to camera's at
  * 0x4: Don't update targets?
  * 0x8: flag to use atTagetInit as f32 pitch, yaw, r
@@ -1264,8 +1275,8 @@ typedef enum {
 */
 typedef struct {
     /* 0x00 */ u8 actionFlags;
-    /* 0x01 */ u8 unk_01;
-    /* 0x02 */ s16 initFlags;
+    /* 0x01 */ u8 initField;
+    /* 0x02 */ s16 viewFlags;
     /* 0x04 */ s16 timerInit;
     /* 0x06 */ s16 rollTargetInit;
     /* 0x08 */ f32 fovTargetInit;
@@ -1567,7 +1578,7 @@ typedef struct Camera {
     /* 0x0D8 */ f32 xzSpeed;
     /* 0x0DC */ f32 dist;
     /* 0x0E0 */ f32 speedRatio;
-    /* 0x0E4 */ Vec3f posOffset;
+    /* 0x0E4 */ Vec3f playerToAtOffset;
     /* 0x0F0 */ Vec3f playerPosDelta;
     /* 0x0FC */ f32 fov;
     /* 0x100 */ f32 atLERPStepScale;
@@ -1628,7 +1639,7 @@ typedef struct {
     /* 0x1046 */ s16 demoCtrlActionIdx; // e (?), s (save), l (load), c (clear)
     /* 0x1048 */ s16 demoCtrlToggleSwitch;
     /* 0x104A */ Vec3s unk_104A;
-} DbCameraSub; // size = 0x1050
+} DebugCamSub; // size = 0x1050
 
 typedef struct {
     /* 0x00 */ s32 unk_00;
@@ -1650,8 +1661,8 @@ typedef struct {
     /* 0x6C */ Vec3f unk_6C;
     /* 0x78 */ s16 unk_78;
     /* 0x7A */ s16 unk_7A;
-    /* 0x7C */ DbCameraSub sub;
-} DbCamera; // size = 0x10CC
+    /* 0x7C */ DebugCamSub sub;
+} DebugCam; // size = 0x10CC
 
 typedef struct {
     /* 0x00 */ char letter;
@@ -1661,7 +1672,7 @@ typedef struct {
     /* 0x08 */ CutsceneCameraPoint* lookAt;
     /* 0x0C */ s16 nFrames;
     /* 0x0E */ s16 nPoints;
-} DbCameraCut; // size = 0x10
+} DebugCamCut; // size = 0x10
 
 typedef struct {
     /* 0x00 */ f32 curFrame;
@@ -1673,6 +1684,17 @@ typedef struct {
     /* 0x1C */ Vec3f lookAtPos;
     /* 0x28 */ f32 roll;
     /* 0x2C */ f32 fov;
-} DbCameraAnim; // size = 0x30
+} DebugCamAnim; // size = 0x30
+
+typedef enum {
+    /* 0 */ DEBUG_CAM_TEXT_YELLOW,
+    /* 1 */ DEBUG_CAM_TEXT_PEACH,
+    /* 2 */ DEBUG_CAM_TEXT_BROWN,
+    /* 3 */ DEBUG_CAM_TEXT_ORANGE,
+    /* 4 */ DEBUG_CAM_TEXT_GOLD,
+    /* 5 */ DEBUG_CAM_TEXT_WHITE,
+    /* 6 */ DEBUG_CAM_TEXT_BLUE,
+    /* 7 */ DEBUG_CAM_TEXT_GREEN
+} DebugCamTextColor;
 
 #endif

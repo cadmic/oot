@@ -50,15 +50,15 @@ void BossGoma_CeilingMoveToCenter(BossGoma* this, PlayState* play);
 void BossGoma_SpawnChildGohma(BossGoma* this, PlayState* play, s16 i);
 
 ActorInit Boss_Goma_InitVars = {
-    ACTOR_BOSS_GOMA,
-    ACTORCAT_BOSS,
-    FLAGS,
-    OBJECT_GOMA,
-    sizeof(BossGoma),
-    (ActorFunc)BossGoma_Init,
-    (ActorFunc)BossGoma_Destroy,
-    (ActorFunc)BossGoma_Update,
-    (ActorFunc)BossGoma_Draw,
+    /**/ ACTOR_BOSS_GOMA,
+    /**/ ACTORCAT_BOSS,
+    /**/ FLAGS,
+    /**/ OBJECT_GOMA,
+    /**/ sizeof(BossGoma),
+    /**/ BossGoma_Init,
+    /**/ BossGoma_Destroy,
+    /**/ BossGoma_Update,
+    /**/ BossGoma_Draw,
 };
 
 static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
@@ -67,8 +67,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK3,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_EYE, { { 0, 0, 1200 }, 20 }, 100 },
@@ -78,8 +78,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_TAIL4, { { 0, 0, 0 }, 20 }, 100 },
@@ -89,8 +89,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_TAIL3, { { 0, 0, 0 }, 15 }, 100 },
@@ -100,8 +100,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_TAIL2, { { 0, 0, 0 }, 12 }, 100 },
@@ -111,8 +111,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_TAIL1, { { 0, 0, 0 }, 25 }, 100 },
@@ -122,8 +122,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_R_FEET, { { 0, 0, 0 }, 30 }, 100 },
@@ -133,8 +133,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_R_SHIN, { { 0, 0, 0 }, 15 }, 100 },
@@ -144,8 +144,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_R_THIGH_SHELL, { { 0, 0, 0 }, 15 }, 100 },
@@ -155,8 +155,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_L_ANTENNA_CLAW, { { 0, 0, 0 }, 20 }, 100 },
@@ -166,8 +166,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_R_ANTENNA_CLAW, { { 0, 0, 0 }, 20 }, 100 },
@@ -177,8 +177,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_L_FEET, { { 0, 0, 0 }, 30 }, 100 },
@@ -188,8 +188,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_L_SHIN, { { 0, 0, 0 }, 15 }, 100 },
@@ -199,8 +199,8 @@ static ColliderJntSphElementInit sColliderJntSphElementInit[13] = {
             ELEMTYPE_UNK2,
             { 0xFFCFFFFF, 0x00, 0x08 },
             { 0xFFCFFFFF, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_ON,
             OCELEM_ON,
         },
         { BOSSGOMA_LIMB_L_THIGH_SHELL, { { 0, 0, 0 }, 15 }, 100 },
@@ -405,7 +405,7 @@ void BossGoma_SetupDefeated(BossGoma* this, PlayState* play) {
     this->framesUntilNextAction = 1200;
     this->actionState = 0;
     this->actor.flags &= ~(ACTOR_FLAG_0 | ACTOR_FLAG_2);
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.shape.shadowScale = 0.0f;
     SEQCMD_STOP_SEQUENCE(SEQ_PLAYER_BGM_MAIN, 1);
     Actor_PlaySfx(&this->actor, NA_SE_EN_GOMA_DEAD);
@@ -452,7 +452,7 @@ void BossGoma_SetupCeilingIdle(BossGoma* this) {
 void BossGoma_SetupFallJump(BossGoma* this) {
     Animation_Change(&this->skelanime, &gGohmaLandAnim, 1.0f, 0.0f, 0.0f, ANIMMODE_ONCE, -5.0f);
     this->actionFunc = BossGoma_FallJump;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.velocity.y = 0.0f;
     this->actor.gravity = -2.0f;
 }
@@ -463,7 +463,7 @@ void BossGoma_SetupFallJump(BossGoma* this) {
 void BossGoma_SetupFallStruckDown(BossGoma* this) {
     Animation_Change(&this->skelanime, &gGohmaCrashAnim, 1.0f, 0.0f, 0.0f, ANIMMODE_ONCE, -5.0f);
     this->actionFunc = BossGoma_FallStruckDown;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.velocity.y = 0.0f;
     this->actor.gravity = -2.0f;
 }
@@ -486,7 +486,7 @@ void BossGoma_SetupWallClimb(BossGoma* this) {
     Animation_Change(&this->skelanime, &gGohmaClimbAnim, 1.0f, 0.0f, Animation_GetLastFrame(&gGohmaClimbAnim),
                      ANIMMODE_LOOP, -10.0f);
     this->actionFunc = BossGoma_WallClimb;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.velocity.y = 0.0f;
     this->actor.gravity = 0.0f;
 }
@@ -498,7 +498,7 @@ void BossGoma_SetupCeilingMoveToCenter(BossGoma* this) {
     Animation_Change(&this->skelanime, &gGohmaWalkAnim, 1.0f, 0.0f, Animation_GetLastFrame(&gGohmaWalkAnim),
                      ANIMMODE_LOOP, -5.0f);
     this->actionFunc = BossGoma_CeilingMoveToCenter;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.velocity.y = 0.0f;
     this->actor.gravity = 0.0f;
     this->framesUntilNextAction = Rand_S16Offset(30, 60);
@@ -595,7 +595,7 @@ void BossGoma_UpdateCeilingMovement(BossGoma* this, PlayState* play, f32 dz, f32
 
     roomCenter.z += dz; // dz is always 0
     SkelAnime_Update(&this->skelanime);
-    Math_ApproachF(&this->actor.speedXZ, targetSpeedXZ, 0.5f, 2.0f);
+    Math_ApproachF(&this->actor.speed, targetSpeedXZ, 0.5f, 2.0f);
 
     if (rotateTowardsCenter) {
         Math_ApproachS(&this->actor.world.rot.y, Math_Vec3f_Yaw(&this->actor.world.pos, &roomCenter) + 0x8000, 3,
@@ -628,8 +628,8 @@ void BossGoma_SetupEncounterState4(BossGoma* this, PlayState* play) {
     player = GET_PLAYER(play);
     this->actionState = 4;
     this->actor.flags |= ACTOR_FLAG_0;
-    func_80064520(play, &play->csCtx);
-    func_8002DF54(play, &this->actor, PLAYER_CSMODE_1);
+    Cutscene_StartManual(play, &play->csCtx);
+    Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_1);
     this->subCamId = Play_CreateSubCamera(play);
     Play_ChangeCameraStatus(play, CAM_ID_MAIN, CAM_STAT_UNK3);
     Play_ChangeCameraStatus(play, this->subCamId, CAM_STAT_ACTIVE);
@@ -672,9 +672,10 @@ void BossGoma_SetupEncounterState4(BossGoma* this, PlayState* play) {
 void BossGoma_Encounter(BossGoma* this, PlayState* play) {
     Camera* mainCam;
     Player* player = GET_PLAYER(play);
-    s32 pad[2];
+    f32 s;
+    s32 pad;
 
-    Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+    Math_ApproachZeroF(&this->actor.speed, 0.5f, 2.0f);
 
     switch (this->actionState) {
         case 0: // wait for the player to enter the room
@@ -686,16 +687,16 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
                     Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_SHUTTER, 164.72f, -480.0f,
                                        397.68002f, 0, -0x705C, 0, DOORSHUTTER_PARAMS(SHUTTER_GOHMA_BLOCK, 0));
                 } else {
-                    func_8002DF54(play, &this->actor, PLAYER_CSMODE_8);
+                    Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_8);
                     this->actionState = 1;
                 }
             }
             break;
 
         case 1: // player entered the room
-            func_80064520(play, &play->csCtx);
+            Cutscene_StartManual(play, &play->csCtx);
             this->subCamId = Play_CreateSubCamera(play);
-            osSyncPrintf("MAKE CAMERA !!!   1   !!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+            PRINTF("MAKE CAMERA !!!   1   !!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             Play_ChangeCameraStatus(play, CAM_ID_MAIN, CAM_STAT_WAIT);
             Play_ChangeCameraStatus(play, this->subCamId, CAM_STAT_ACTIVE);
             this->actionState = 2;
@@ -725,7 +726,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
             player->actor.world.pos.x = 150.0f;
             player->actor.world.pos.z = 300.0f;
             player->actor.world.rot.y = player->actor.shape.rot.y;
-            player->actor.speedXZ = 0.0f;
+            player->actor.speed = 0.0f;
 
             if (this->framesUntilNextAction == 0) {
                 // (-20, 25, -65) is towards room center
@@ -757,18 +758,19 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
             }
 
             if (this->frameCount == 190) {
-                func_8002DF54(play, &this->actor, PLAYER_CSMODE_2);
+                Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_2);
             }
 
             if (this->frameCount >= 228) {
-                mainCam = Play_GetCamera(play, CAM_ID_MAIN);
+                Camera* mainCam = Play_GetCamera(play, CAM_ID_MAIN);
+
                 mainCam->eye = this->subCamEye;
                 mainCam->eyeNext = this->subCamEye;
                 mainCam->at = this->subCamAt;
                 Play_ReturnToMainCam(play, this->subCamId, 0);
                 this->subCamId = SUB_CAM_ID_DONE;
-                func_80064534(play, &play->csCtx);
-                func_8002DF54(play, &this->actor, PLAYER_CSMODE_7);
+                Cutscene_StopManual(play, &play->csCtx);
+                Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_7);
                 this->actionState = 3;
             }
             break;
@@ -777,7 +779,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
             if (fabsf(this->actor.projectedPos.x) < 150.0f && fabsf(this->actor.projectedPos.y) < 250.0f &&
                 this->actor.projectedPos.z < 800.0f && this->actor.projectedPos.z > 0.0f) {
                 this->lookedAtFrames++;
-                Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+                Math_ApproachZeroF(&this->actor.speed, 0.5f, 2.0f);
                 Math_ApproachS(&this->actor.world.rot.y,
                                Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor) + 0x8000, 2, 0xBB8);
                 this->eyeLidBottomRotX = this->eyeLidTopRotX = this->eyeIrisRotX = this->eyeIrisRotY = 0;
@@ -845,7 +847,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
             if (this->framesUntilNextAction < 0) {
                 //! @bug ? unreachable, timer is >= 0
                 SkelAnime_Update(&this->skelanime);
-                Math_ApproachZeroF(&this->actor.speedXZ, 1.0f, 2.0f);
+                Math_ApproachZeroF(&this->actor.speed, 1.0f, 2.0f);
             } else {
                 BossGoma_UpdateCeilingMovement(this, play, 0.0f, -7.5f, false);
             }
@@ -857,7 +859,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
 
             if (this->framesUntilNextAction == 0) {
                 this->actionState = 9;
-                this->actor.speedXZ = 0.0f;
+                this->actor.speed = 0.0f;
                 this->actor.velocity.y = 0.0f;
                 this->actor.gravity = -2.0f;
                 Animation_Change(&this->skelanime, &gGohmaInitialLandingAnim, 1.0f, 0.0f,
@@ -909,8 +911,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
             this->subCamAt.z = this->actor.world.pos.z;
 
             if (this->framesUntilNextAction != 0) {
-                f32 s = sinf(this->framesUntilNextAction * 3.1415f * 0.5f);
-
+                s = sinf(this->framesUntilNextAction * 3.1415f * 0.5f);
                 this->subCamAt.y = this->framesUntilNextAction * s * 0.7f + this->actor.world.pos.y;
             } else {
                 Math_ApproachF(&this->subCamAt.y, this->actor.focus.pos.y, 0.1f, 10.0f);
@@ -921,7 +922,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
 
                 if (!GET_EVENTCHKINF(EVENTCHKINF_70)) {
                     TitleCard_InitBossName(play, &play->actorCtx.titleCtx, SEGMENTED_TO_VIRTUAL(gGohmaTitleCardTex),
-                                           0xA0, 0xB4, 0x80, 0x28);
+                                           160, 180, 128, 40);
                 }
 
                 SEQCMD_PLAY_SEQUENCE(SEQ_PLAYER_BGM_MAIN, 0, 0, NA_BGM_BOSS);
@@ -963,8 +964,8 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
                 BossGoma_SetupFloorMain(this);
                 this->disableGameplayLogic = false;
                 this->patienceTimer = 200;
-                func_80064534(play, &play->csCtx);
-                func_8002DF54(play, &this->actor, PLAYER_CSMODE_7);
+                Cutscene_StopManual(play, &play->csCtx);
+                Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_7);
             }
             break;
     }
@@ -1052,8 +1053,8 @@ void BossGoma_Defeated(BossGoma* this, PlayState* play) {
     switch (this->actionState) {
         case 0:
             this->actionState = 1;
-            func_80064520(play, &play->csCtx);
-            func_8002DF54(play, &this->actor, PLAYER_CSMODE_1);
+            Cutscene_StartManual(play, &play->csCtx);
+            Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_1);
             this->subCamId = Play_CreateSubCamera(play);
             Play_ChangeCameraStatus(play, CAM_ID_MAIN, CAM_STAT_UNK3);
             Play_ChangeCameraStatus(play, this->subCamId, CAM_STAT_ACTIVE);
@@ -1180,8 +1181,8 @@ void BossGoma_Defeated(BossGoma* this, PlayState* play) {
                     mainCam->at = this->subCamAt;
                     Play_ReturnToMainCam(play, this->subCamId, 0);
                     this->subCamId = SUB_CAM_ID_DONE;
-                    func_80064534(play, &play->csCtx);
-                    func_8002DF54(play, &this->actor, PLAYER_CSMODE_7);
+                    Cutscene_StopManual(play, &play->csCtx);
+                    Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_7);
                     Actor_Kill(&this->actor);
                 }
 
@@ -1255,7 +1256,7 @@ void BossGoma_Defeated(BossGoma* this, PlayState* play) {
  */
 void BossGoma_FloorAttackPosture(BossGoma* this, PlayState* play) {
     SkelAnime_Update(&this->skelanime);
-    Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+    Math_ApproachZeroF(&this->actor.speed, 0.5f, 2.0f);
 
     if (this->skelanime.curFrame >= (19.0f + 1.0f / 3.0f) && this->skelanime.curFrame <= 30.0f) {
         Math_ApproachS(&this->actor.world.rot.y, Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor), 3,
@@ -1301,7 +1302,7 @@ void BossGoma_FloorAttack(BossGoma* this, PlayState* play) {
     switch (this->actionState) {
         case 0:
             for (i = 0; i < this->collider.count; i++) {
-                if (this->collider.elements[i].info.toucherFlags & TOUCH_HIT) {
+                if (this->collider.elements[i].base.atElemFlags & ATELEM_HIT) {
                     this->framesUntilNextAction = 10;
                     break;
                 }
@@ -1406,7 +1407,7 @@ void BossGoma_FloorStunned(BossGoma* this, PlayState* play) {
         Actor_SpawnFloorDustRing(play, &this->actor, &this->actor.world.pos, 55.0f, 4, 8.0f, 500, 10, true);
     }
 
-    Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 1.0f);
+    Math_ApproachZeroF(&this->actor.speed, 0.5f, 1.0f);
 
     if (this->framesUntilNextAction == 0) {
         BossGoma_SetupFloorMain(this);
@@ -1468,7 +1469,7 @@ void BossGoma_CeilingSpawnGohmas(BossGoma* this, PlayState* play) {
         Actor_PlaySfx(&this->actor, NA_SE_EN_GOMA_UNARI);
     }
 
-    Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+    Math_ApproachZeroF(&this->actor.speed, 0.5f, 2.0f);
     this->spawnGohmasActionTimer++;
 
     switch (this->spawnGohmasActionTimer) {
@@ -1530,7 +1531,7 @@ void BossGoma_CeilingPrepareSpawnGohmas(BossGoma* this, PlayState* play) {
  */
 void BossGoma_FloorIdle(BossGoma* this, PlayState* play) {
     SkelAnime_Update(&this->skelanime);
-    Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+    Math_ApproachZeroF(&this->actor.speed, 0.5f, 2.0f);
     Math_ApproachS(&this->actor.shape.rot.x, 0, 2, 0xBB8);
 
     if (this->framesUntilNextAction == 0) {
@@ -1547,7 +1548,7 @@ void BossGoma_CeilingIdle(BossGoma* this, PlayState* play) {
     s16 i;
 
     SkelAnime_Update(&this->skelanime);
-    Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+    Math_ApproachZeroF(&this->actor.speed, 0.5f, 2.0f);
 
     if (this->framesUntilNextAction == 0) {
         if (this->childrenGohmaState[0] == 0 && this->childrenGohmaState[1] == 0 && this->childrenGohmaState[2] == 0) {
@@ -1613,19 +1614,19 @@ void BossGoma_FloorMain(BossGoma* this, PlayState* play) {
                 BossGoma_SetupFloorAttackPosture(this);
             }
 
-            Math_ApproachF(&this->actor.speedXZ, 10.0f / 3.0f, 0.5f, 2.0f);
+            Math_ApproachF(&this->actor.speed, 10.0f / 3.0f, 0.5f, 2.0f);
             Math_ApproachS(&this->actor.world.rot.y, rot, 5, 0x3E8);
         } else {
             if (this->timer != 0) {
                 // move away from the player, walking backwards
-                Math_ApproachF(&this->actor.speedXZ, -10.0f, 0.5f, 2.0f);
+                Math_ApproachF(&this->actor.speed, -10.0f, 0.5f, 2.0f);
                 this->skelanime.playSpeed = -3.0f;
                 if (this->timer == 1) {
-                    this->actor.speedXZ = 0.0f;
+                    this->actor.speed = 0.0f;
                 }
             } else {
                 // move away from the player, walking forwards
-                Math_ApproachF(&this->actor.speedXZ, 20.0f / 3.0f, 0.5f, 2.0f);
+                Math_ApproachF(&this->actor.speed, 20.0f / 3.0f, 0.5f, 2.0f);
                 this->skelanime.playSpeed = 2.0f;
                 rot += 0x8000;
             }
@@ -1807,19 +1808,19 @@ void BossGoma_UpdateHit(BossGoma* this, PlayState* play) {
     if (this->invincibilityFrames != 0) {
         this->invincibilityFrames--;
     } else {
-        ColliderInfo* acHitInfo = this->collider.elements[0].info.acHitInfo;
+        ColliderElement* acHitElem = this->collider.elements[0].base.acHitElem;
         s32 damage;
 
         if (this->eyeClosedTimer == 0 && this->actionFunc != BossGoma_CeilingSpawnGohmas &&
-            (this->collider.elements[0].info.bumperFlags & BUMP_HIT)) {
-            this->collider.elements[0].info.bumperFlags &= ~BUMP_HIT;
+            (this->collider.elements[0].base.acElemFlags & ACELEM_HIT)) {
+            this->collider.elements[0].base.acElemFlags &= ~ACELEM_HIT;
 
             if (this->actionFunc == BossGoma_CeilingMoveToCenter || this->actionFunc == BossGoma_CeilingIdle ||
                 this->actionFunc == BossGoma_CeilingPrepareSpawnGohmas) {
                 BossGoma_SetupFallStruckDown(this);
                 Actor_PlaySfx(&this->actor, NA_SE_EN_GOMA_DAM2);
             } else if (this->actionFunc == BossGoma_FloorStunned &&
-                       (damage = CollisionCheck_GetSwordDamage(acHitInfo->toucher.dmgFlags)) != 0) {
+                       (damage = CollisionCheck_GetSwordDamage(acHitElem->atDmgInfo.dmgFlags)) != 0) {
                 this->actor.colChkInfo.health -= damage;
 
                 if ((s8)this->actor.colChkInfo.health > 0) {
@@ -1833,14 +1834,14 @@ void BossGoma_UpdateHit(BossGoma* this, PlayState* play) {
 
                 this->invincibilityFrames = 10;
             } else if (this->actionFunc != BossGoma_FloorStunned && this->patienceTimer != 0 &&
-                       (acHitInfo->toucher.dmgFlags & (DMG_SLINGSHOT | DMG_DEKU_NUT))) {
+                       (acHitElem->atDmgInfo.dmgFlags & (DMG_SLINGSHOT | DMG_DEKU_NUT))) {
                 Actor_PlaySfx(&this->actor, NA_SE_EN_GOMA_DAM2);
                 Audio_StopSfxById(NA_SE_EN_GOMA_CRY1);
                 this->invincibilityFrames = 10;
                 BossGoma_SetupFloorStunned(this);
                 this->sfxFaintTimer = 100;
 
-                if (acHitInfo->toucher.dmgFlags & DMG_DEKU_NUT) {
+                if (acHitElem->atDmgInfo.dmgFlags & DMG_DEKU_NUT) {
                     this->framesUntilNextAction = 40;
                 } else {
                     this->framesUntilNextAction = 90;
@@ -1914,14 +1915,12 @@ void BossGoma_Update(Actor* thisx, PlayState* play) {
         this->sfxFaintTimer--;
     }
 
-    if (1) {}
-
     this->eyeState = EYESTATE_IRIS_FOLLOW_BONUS_IFRAMES;
     this->actionFunc(this, play);
     this->actor.shape.rot.y = this->actor.world.rot.y;
 
     if (!this->doNotMoveThisFrame) {
-        Actor_MoveForward(&this->actor);
+        Actor_MoveXZGravity(&this->actor);
     } else {
         this->doNotMoveThisFrame = false;
     }
@@ -1937,15 +1936,17 @@ void BossGoma_Update(Actor* thisx, PlayState* play) {
     BossGoma_UpdateEyeEnvColor(this);
     BossGoma_UpdateTailLimbsScale(this);
 
-    if (!this->disableGameplayLogic) {
-        BossGoma_UpdateHit(this, play);
-        CollisionCheck_SetAC(play, &play->colChkCtx, &this->collider.base);
-        CollisionCheck_SetOC(play, &play->colChkCtx, &this->collider.base);
+    if (this->disableGameplayLogic) {
+        return;
+    }
 
-        if (this->actionFunc != BossGoma_FloorStunned && this->actionFunc != BossGoma_FloorDamaged &&
-            (this->actionFunc != BossGoma_FloorMain || this->timer == 0)) {
-            CollisionCheck_SetAT(play, &play->colChkCtx, &this->collider.base);
-        }
+    BossGoma_UpdateHit(this, play);
+    CollisionCheck_SetAC(play, &play->colChkCtx, &this->collider.base);
+    CollisionCheck_SetOC(play, &play->colChkCtx, &this->collider.base);
+
+    if (this->actionFunc != BossGoma_FloorStunned && this->actionFunc != BossGoma_FloorDamaged &&
+        (this->actionFunc != BossGoma_FloorMain || this->timer == 0)) {
+        CollisionCheck_SetAT(play, &play->colChkCtx, &this->collider.base);
     }
 }
 
@@ -2004,7 +2005,7 @@ s32 BossGoma_OverrideLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f
                 if (*dList != NULL) {
                     Matrix_Push();
                     Matrix_Scale(this->eyeIrisScaleX, this->eyeIrisScaleY, 1.0f, MTXMODE_APPLY);
-                    gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_boss_goma.c", 4815),
+                    gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_boss_goma.c", 4815),
                               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
                     gSPDisplayList(POLY_OPA_DISP++, *dList);
                     Matrix_Pop();
@@ -2025,7 +2026,7 @@ s32 BossGoma_OverrideLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f
                 Matrix_Scale(this->tailLimbsScale[limbIndex - BOSSGOMA_LIMB_TAIL4],
                              this->tailLimbsScale[limbIndex - BOSSGOMA_LIMB_TAIL4],
                              this->tailLimbsScale[limbIndex - BOSSGOMA_LIMB_TAIL4], MTXMODE_APPLY);
-                gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_boss_goma.c", 4836),
+                gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_boss_goma.c", 4836),
                           G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
                 gSPDisplayList(POLY_OPA_DISP++, *dList);
                 Matrix_Pop();
@@ -2047,9 +2048,8 @@ void BossGoma_PostLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3s* r
     static Vec3f zero = { 0.0f, 0.0f, 0.0f };
     Vec3f childPos;
     Vec3s childRot;
-    EnGoma* babyGohma;
     BossGoma* this = (BossGoma*)thisx;
-    s32 pad;
+    s32 pad[2];
     MtxF mtx;
 
     if (limbIndex == BOSSGOMA_LIMB_TAIL4) { // tail end/last part
@@ -2073,6 +2073,8 @@ void BossGoma_PostLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3s* r
     }
 
     if (this->deadLimbsState[limbIndex] == 1) {
+        EnGoma* babyGohma;
+
         this->deadLimbsState[limbIndex] = 2;
         Matrix_MultVec3f(&zero, &childPos);
         Matrix_Get(&mtx);
@@ -2083,7 +2085,7 @@ void BossGoma_PostLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3s* r
                                                 sDeadLimbLifetime[limbIndex] + 100);
         if (babyGohma != NULL) {
             babyGohma->bossLimbDL = *dList;
-            babyGohma->actor.objBankIndex = this->actor.objBankIndex;
+            babyGohma->actor.objectSlot = this->actor.objectSlot;
         }
     }
 
@@ -2094,7 +2096,7 @@ Gfx* BossGoma_EmptyDlist(GraphicsContext* gfxCtx) {
     Gfx* dListHead;
     Gfx* dList;
 
-    dList = dListHead = Graph_Alloc(gfxCtx, sizeof(Gfx) * 1);
+    dList = dListHead = GRAPH_ALLOC(gfxCtx, sizeof(Gfx) * 1);
 
     gSPEndDisplayList(dListHead++);
 
@@ -2105,7 +2107,7 @@ Gfx* BossGoma_NoBackfaceCullingDlist(GraphicsContext* gfxCtx) {
     Gfx* dListHead;
     Gfx* dList;
 
-    dList = dListHead = Graph_Alloc(gfxCtx, sizeof(Gfx) * 4);
+    dList = dListHead = GRAPH_ALLOC(gfxCtx, sizeof(Gfx) * 4);
 
     gDPPipeSync(dListHead++);
     gDPSetRenderMode(dListHead++, G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2);

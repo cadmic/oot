@@ -24,15 +24,15 @@ void BgJyaGoroiwa_UpdateRotation(BgJyaGoroiwa* this);
 void BgJyaGoroiwa_UpdateCollider(BgJyaGoroiwa* this);
 
 ActorInit Bg_Jya_Goroiwa_InitVars = {
-    ACTOR_BG_JYA_GOROIWA,
-    ACTORCAT_PROP,
-    FLAGS,
-    OBJECT_GOROIWA,
-    sizeof(BgJyaGoroiwa),
-    (ActorFunc)BgJyaGoroiwa_Init,
-    (ActorFunc)BgJyaGoroiwa_Destroy,
-    (ActorFunc)BgJyaGoroiwa_Update,
-    (ActorFunc)BgJyaGoroiwa_Draw,
+    /**/ ACTOR_BG_JYA_GOROIWA,
+    /**/ ACTORCAT_PROP,
+    /**/ FLAGS,
+    /**/ OBJECT_GOROIWA,
+    /**/ sizeof(BgJyaGoroiwa),
+    /**/ BgJyaGoroiwa_Init,
+    /**/ BgJyaGoroiwa_Destroy,
+    /**/ BgJyaGoroiwa_Update,
+    /**/ BgJyaGoroiwa_Draw,
 };
 
 static ColliderJntSphElementInit sJntSphElementsInit[] = {
@@ -41,8 +41,8 @@ static ColliderJntSphElementInit sJntSphElementsInit[] = {
             ELEMTYPE_UNK0,
             { 0x20000000, 0x00, 0x04 },
             { 0x00000000, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_NORMAL,
-            BUMP_NONE,
+            ATELEM_ON | ATELEM_SFX_NORMAL,
+            ACELEM_NONE,
             OCELEM_ON,
         },
         { 0, { { 0, 0, 0 }, 58 }, 100 },
@@ -122,19 +122,19 @@ void BgJyaGoroiwa_SetupMove(BgJyaGoroiwa* this) {
 void BgJyaGoroiwa_Move(BgJyaGoroiwa* this, PlayState* play) {
     Actor* thisx = &this->actor;
     s16 relYawTowardsPlayer;
-    f32 speedXZsqBase = (-100.0f - thisx->world.pos.y) * 2.5f;
+    f32 speedXZBaseSq = (-100.0f - thisx->world.pos.y) * 2.5f;
     f32 posYfac;
 
-    if (speedXZsqBase < 0.01f) {
-        speedXZsqBase = 0.01f;
+    if (speedXZBaseSq < 0.01f) {
+        speedXZBaseSq = 0.01f;
     }
 
-    thisx->speedXZ = sqrtf(speedXZsqBase) * this->speedFactor;
-    thisx->velocity.x = Math_SinS(thisx->world.rot.y) * thisx->speedXZ;
-    thisx->velocity.z = Math_CosS(thisx->world.rot.y) * thisx->speedXZ;
+    thisx->speed = sqrtf(speedXZBaseSq) * this->speedFactor;
+    thisx->velocity.x = Math_SinS(thisx->world.rot.y) * thisx->speed;
+    thisx->velocity.z = Math_CosS(thisx->world.rot.y) * thisx->speed;
 
-    thisx->world.pos.x = thisx->world.pos.x + thisx->velocity.x;
-    thisx->world.pos.z = thisx->world.pos.z + thisx->velocity.z;
+    thisx->world.pos.x += thisx->velocity.x;
+    thisx->world.pos.z += thisx->velocity.z;
 
     if ((thisx->world.pos.x > 1466.0f) && (thisx->world.pos.x < 1673.0f)) {
         thisx->world.pos.y = -129.5f;

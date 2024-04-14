@@ -23,15 +23,15 @@ void EnKz_SetupGetItem(EnKz* this, PlayState* play);
 void EnKz_StartTimer(EnKz* this, PlayState* play);
 
 ActorInit En_Kz_InitVars = {
-    ACTOR_EN_KZ,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_KZ,
-    sizeof(EnKz),
-    (ActorFunc)EnKz_Init,
-    (ActorFunc)EnKz_Destroy,
-    (ActorFunc)EnKz_Update,
-    (ActorFunc)EnKz_Draw,
+    /**/ ACTOR_EN_KZ,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_KZ,
+    /**/ sizeof(EnKz),
+    /**/ EnKz_Init,
+    /**/ EnKz_Destroy,
+    /**/ EnKz_Update,
+    /**/ EnKz_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -47,8 +47,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 80, 120, 0, { 0, 0, 0 } },
@@ -102,10 +102,10 @@ u16 EnKz_GetTextIdAdult(PlayState* play, EnKz* this) {
 
 u16 EnKz_GetTextId(PlayState* play, Actor* thisx) {
     EnKz* this = (EnKz*)thisx;
-    u16 reactionText = Text_GetFaceReaction(play, 0x1E);
+    u16 textId = MaskReaction_GetTextId(play, MASK_REACTION_SET_KING_ZORA);
 
-    if (reactionText != 0) {
-        return reactionText;
+    if (textId != 0) {
+        return textId;
     }
 
     if (LINK_IS_ADULT) {
@@ -180,7 +180,7 @@ s16 EnKz_UpdateTalkState(PlayState* play, Actor* thisx) {
 
 void EnKz_UpdateEyes(EnKz* this) {
     if (DECR(this->blinkTimer) == 0) {
-        this->eyeIdx += 1;
+        this->eyeIdx++;
         if (this->eyeIdx >= 3) {
             this->blinkTimer = Rand_S16Offset(30, 30);
             this->eyeIdx = 0;
@@ -201,7 +201,7 @@ s32 EnKz_UpdateTalking(PlayState* play, Actor* thisx, s16* talkState, f32 intera
     f32 xzDistToPlayer;
     f32 yaw;
 
-    if (Actor_ProcessTalkRequest(thisx, play)) {
+    if (Actor_TalkOfferAccepted(thisx, play)) {
         *talkState = NPC_TALK_STATE_TALKING;
         return true;
     }
@@ -227,7 +227,7 @@ s32 EnKz_UpdateTalking(PlayState* play, Actor* thisx, s16* talkState, f32 intera
 
     xzDistToPlayer = thisx->xzDistToPlayer;
     thisx->xzDistToPlayer = Math_Vec3f_DistXZ(&thisx->home.pos, &player->actor.world.pos);
-    if (func_8002F2CC(thisx, play, interactRange) == 0) {
+    if (Actor_OfferTalk(thisx, play, interactRange) == 0) {
         thisx->xzDistToPlayer = xzDistToPlayer;
         return false;
     }
@@ -382,8 +382,8 @@ void EnKz_SetupMweep(EnKz* this, PlayState* play) {
     subCamEye.y += -100.0f;
     subCamEye.z += 260.0f;
     Play_SetCameraAtEye(play, this->subCamId, &subCamAt, &subCamEye);
-    func_8002DF54(play, &this->actor, PLAYER_CSMODE_8);
-    this->actor.speedXZ = 0.1f;
+    Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_8);
+    this->actor.speed = 0.1f;
     this->actionFunc = EnKz_Mweep;
 }
 
@@ -403,7 +403,7 @@ void EnKz_Mweep(EnKz* this, PlayState* play) {
         Inventory_ReplaceItem(play, ITEM_BOTTLE_RUTOS_LETTER, ITEM_BOTTLE_EMPTY);
         EnKz_SetMovedPos(this, play);
         SET_EVENTCHKINF(EVENTCHKINF_33);
-        this->actor.speedXZ = 0.0;
+        this->actor.speed = 0.0;
         this->actionFunc = EnKz_StopMweep;
     }
     if (this->skelanime.curFrame == 13.0f) {
@@ -414,7 +414,7 @@ void EnKz_Mweep(EnKz* this, PlayState* play) {
 void EnKz_StopMweep(EnKz* this, PlayState* play) {
     Play_ChangeCameraStatus(play, this->returnToCamId, CAM_STAT_ACTIVE);
     Play_ClearCamera(play, this->subCamId);
-    func_8002DF54(play, &this->actor, PLAYER_CSMODE_7);
+    Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_7);
     this->actionFunc = EnKz_Wait;
 }
 
@@ -466,7 +466,7 @@ void EnKz_Update(Actor* thisx, PlayState* play) {
     CollisionCheck_SetOC(play, &play->colChkCtx, &this->collider.base);
     SkelAnime_Update(&this->skelanime);
     EnKz_UpdateEyes(this);
-    Actor_MoveForward(&this->actor);
+    Actor_MoveXZGravity(&this->actor);
     if (this->actionFunc != EnKz_StartTimer) {
         func_80A9CB18(this, play);
     }

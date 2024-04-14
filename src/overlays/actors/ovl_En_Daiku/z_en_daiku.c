@@ -42,15 +42,15 @@ s32 EnDaiku_OverrideLimbDraw(PlayState* play, s32 limb, Gfx** dList, Vec3f* pos,
 void EnDaiku_PostLimbDraw(PlayState* play, s32 limb, Gfx** dList, Vec3s* rot, void* thisx);
 
 ActorInit En_Daiku_InitVars = {
-    ACTOR_EN_DAIKU,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_DAIKU,
-    sizeof(EnDaiku),
-    (ActorFunc)EnDaiku_Init,
-    (ActorFunc)EnDaiku_Destroy,
-    (ActorFunc)EnDaiku_Update,
-    (ActorFunc)EnDaiku_Draw,
+    /**/ ACTOR_EN_DAIKU,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_DAIKU,
+    /**/ sizeof(EnDaiku),
+    /**/ EnDaiku_Init,
+    /**/ EnDaiku_Destroy,
+    /**/ EnDaiku_Update,
+    /**/ EnDaiku_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -66,8 +66,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 18, 66, 0, { 0, 0, 0 } },
@@ -164,7 +164,7 @@ void EnDaiku_Init(Actor* thisx, PlayState* play) {
 
     if (isFree == true && play->sceneId == SCENE_THIEVES_HIDEOUT) {
         noKill = false;
-    } else if (isFree == false && play->sceneId == SCENE_CARPENTERS_TENT) {
+    } else if (!isFree && play->sceneId == SCENE_CARPENTERS_TENT) {
         noKill = false;
     }
 
@@ -260,17 +260,17 @@ void EnDaiku_UpdateText(EnDaiku* this, PlayState* play) {
 
     if (this->talkState == ENDAIKU_STATE_TALKING) {
         this->talkState = EnDaiku_UpdateTalking(this, play);
-    } else if (Actor_ProcessTalkRequest(&this->actor, play)) {
+    } else if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->talkState = ENDAIKU_STATE_TALKING;
     } else {
         Actor_GetScreenPos(play, &this->actor, &sp2E, &sp2C);
         if (sp2E >= 0 && sp2E <= 320 && sp2C >= 0 && sp2C <= 240 && this->talkState == ENDAIKU_STATE_CAN_TALK &&
-            func_8002F2CC(&this->actor, play, 100.0f) == 1) {
+            Actor_OfferTalk(&this->actor, play, 100.0f) == 1) {
             if (play->sceneId == SCENE_THIEVES_HIDEOUT) {
                 if (this->stateFlags & ENDAIKU_STATEFLAG_GERUDODEFEATED) {
                     freedCount = 0;
                     for (carpenterType = 0; carpenterType < 4; carpenterType++) {
-                        if (gSaveContext.eventChkInf[EVENTCHKINF_CARPENTERS_FREE_INDEX] &
+                        if (gSaveContext.save.info.eventChkInf[EVENTCHKINF_CARPENTERS_FREE_INDEX] &
                             EVENTCHKINF_CARPENTERS_FREE_MASK(carpenterType)) {
                             freedCount++;
                         }
@@ -399,7 +399,7 @@ void EnDaiku_InitEscape(EnDaiku* this, PlayState* play) {
     EnDaiku_ChangeAnim(this, ENDAIKU_ANIM_RUN, &this->currentAnimIndex);
     this->stateFlags &= ~(ENDAIKU_STATEFLAG_1 | ENDAIKU_STATEFLAG_2);
 
-    gSaveContext.eventChkInf[EVENTCHKINF_CARPENTERS_FREE_INDEX] |=
+    gSaveContext.save.info.eventChkInf[EVENTCHKINF_CARPENTERS_FREE_INDEX] |=
         EVENTCHKINF_CARPENTERS_FREE_MASK(this->actor.params & 3);
 
     this->actor.gravity = -1.0f;
@@ -469,7 +469,7 @@ void EnDaiku_InitSubCamera(EnDaiku* this, PlayState* play) {
 
     Play_SetCameraAtEye(play, this->subCamId, &this->subCamAt, &this->subCamEye);
     Play_SetCameraFov(play, this->subCamId, play->mainCamera.fov);
-    func_8002DF54(play, &this->actor, PLAYER_CSMODE_1);
+    Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_1);
 }
 
 void EnDaiku_UpdateSubCamera(EnDaiku* this, PlayState* play) {
@@ -488,14 +488,15 @@ void EnDaiku_UpdateSubCamera(EnDaiku* this, PlayState* play) {
 
 void EnDaiku_EscapeSuccess(EnDaiku* this, PlayState* play) {
     static Vec3f D_809E4148 = { 0.0f, 0.0f, 120.0f };
-    Actor* gerudoGuard;
-    Vec3f vec;
 
     Play_ClearCamera(play, this->subCamId);
     Play_ChangeCameraStatus(play, CAM_ID_MAIN, CAM_STAT_ACTIVE);
     this->subCamActive = false;
 
     if (GET_EVENTCHKINF_CARPENTERS_FREE_ALL()) {
+        Actor* gerudoGuard;
+        Vec3f vec;
+
         Matrix_RotateY(BINANG_TO_RAD(this->initRot.y), MTXMODE_NEW);
         Matrix_MultVec3f(&D_809E4148, &vec);
         gerudoGuard = Actor_Spawn(&play->actorCtx, play, ACTOR_EN_GE3, this->initPos.x + vec.x, this->initPos.y + vec.y,
@@ -504,9 +505,10 @@ void EnDaiku_EscapeSuccess(EnDaiku* this, PlayState* play) {
         if (gerudoGuard == NULL) {
             Actor_Kill(&this->actor);
         }
-    } else {
-        func_8002DF54(play, &this->actor, PLAYER_CSMODE_7);
+        return;
     }
+
+    Player_SetCsActionWithHaltedActors(play, &this->actor, PLAYER_CSACTION_7);
 }
 
 /**
@@ -541,8 +543,8 @@ void EnDaiku_EscapeRun(EnDaiku* this, PlayState* play) {
 
     Math_SmoothStepToS(&this->actor.shape.rot.y, ry, 1, 0xFA0, 0);
     this->actor.world.rot.y = this->actor.shape.rot.y;
-    Math_SmoothStepToF(&this->actor.speedXZ, this->runSpeed, 0.6f, dxz, 0.0f);
-    Actor_MoveForward(&this->actor);
+    Math_SmoothStepToF(&this->actor.speed, this->runSpeed, 0.6f, dxz, 0.0f);
+    Actor_MoveXZGravity(&this->actor);
     Actor_UpdateBgCheckInfo(play, &this->actor, 0.0f, 0.0f, 0.0f, UPDBGCHECKINFO_FLAG_2);
 
     if (this->subCamActive) {
@@ -604,6 +606,8 @@ void EnDaiku_Draw(Actor* thisx, PlayState* play) {
 
     SkelAnime_DrawFlexOpa(play, this->skelAnime.skeleton, this->skelAnime.jointTable, this->skelAnime.dListCount,
                           EnDaiku_OverrideLimbDraw, EnDaiku_PostLimbDraw, this);
+
+    if (1) {}
 
     CLOSE_DISPS(play->state.gfxCtx, "../z_en_daiku.c", 1255);
 }

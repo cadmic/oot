@@ -20,15 +20,15 @@ void EnOkuta_Freeze(EnOkuta* this, PlayState* play);
 void EnOkuta_ProjectileFly(EnOkuta* this, PlayState* play);
 
 ActorInit En_Okuta_InitVars = {
-    ACTOR_EN_OKUTA,
-    ACTORCAT_ENEMY,
-    FLAGS,
-    OBJECT_OKUTA,
-    sizeof(EnOkuta),
-    (ActorFunc)EnOkuta_Init,
-    (ActorFunc)EnOkuta_Destroy,
-    (ActorFunc)EnOkuta_Update,
-    (ActorFunc)EnOkuta_Draw,
+    /**/ ACTOR_EN_OKUTA,
+    /**/ ACTORCAT_ENEMY,
+    /**/ FLAGS,
+    /**/ OBJECT_OKUTA,
+    /**/ sizeof(EnOkuta),
+    /**/ EnOkuta_Init,
+    /**/ EnOkuta_Destroy,
+    /**/ EnOkuta_Update,
+    /**/ EnOkuta_Draw,
 };
 
 static ColliderCylinderInit sProjectileColliderInit = {
@@ -44,8 +44,8 @@ static ColliderCylinderInit sProjectileColliderInit = {
         ELEMTYPE_UNK0,
         { 0xFFCFFFFF, 0x00, 0x08 },
         { 0xFFCFFFFF, 0x00, 0x00 },
-        TOUCH_ON | TOUCH_SFX_HARD,
-        BUMP_ON,
+        ATELEM_ON | ATELEM_SFX_HARD,
+        ACELEM_ON,
         OCELEM_ON,
     },
     { 13, 20, 0, { 0, 0, 0 } },
@@ -64,8 +64,8 @@ static ColliderCylinderInit sOctorockColliderInit = {
         ELEMTYPE_UNK1,
         { 0x00000000, 0x00, 0x00 },
         { 0xFFCFFFFF, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_ON,
+        ATELEM_NONE,
+        ACELEM_ON,
         OCELEM_ON,
     },
     { 20, 40, -30, { 0, 0, 0 } },
@@ -153,7 +153,7 @@ void EnOkuta_Init(Actor* thisx, PlayState* play) {
         this->timer = 30;
         thisx->shape.rot.y = 0;
         this->actionFunc = EnOkuta_ProjectileFly;
-        thisx->speedXZ = 10.0f;
+        thisx->speed = 10.0f;
     }
 }
 
@@ -478,8 +478,8 @@ void EnOkuta_ProjectileFly(EnOkuta* this, PlayState* play) {
     this->actor.home.rot.z += 0x1554;
     if (this->actor.bgCheckFlags & BGCHECKFLAG_WATER) {
         this->actor.gravity = -1.0f;
-        this->actor.speedXZ -= 0.1f;
-        this->actor.speedXZ = CLAMP_MIN(this->actor.speedXZ, 1.0f);
+        this->actor.speed -= 0.1f;
+        this->actor.speed = CLAMP_MIN(this->actor.speed, 1.0f);
     }
     if ((this->actor.bgCheckFlags & BGCHECKFLAG_WALL) || (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
         (this->collider.base.atFlags & AT_HIT) || this->collider.base.acFlags & AC_HIT ||
@@ -490,7 +490,7 @@ void EnOkuta_ProjectileFly(EnOkuta* this, PlayState* play) {
             this->collider.base.atFlags & AT_BOUNCED) {
             this->collider.base.atFlags &= ~(AT_HIT | AT_BOUNCED | AT_TYPE_ENEMY);
             this->collider.base.atFlags |= AT_TYPE_PLAYER;
-            this->collider.info.toucher.dmgFlags = DMG_DEKU_STICK;
+            this->collider.elem.atDmgInfo.dmgFlags = DMG_DEKU_STICK;
             Matrix_MtxFToYXZRotS(&player->shieldMf, &shieldRot, 0);
             this->actor.world.rot.y = shieldRot.y + 0x8000;
             this->timer = 30;
@@ -555,7 +555,7 @@ void EnOkuta_UpdateHeadScale(EnOkuta* this) {
 void EnOkuta_ColliderCheck(EnOkuta* this, PlayState* play) {
     if (this->collider.base.acFlags & AC_HIT) {
         this->collider.base.acFlags &= ~AC_HIT;
-        Actor_SetDropFlag(&this->actor, &this->collider.info, true);
+        Actor_SetDropFlag(&this->actor, &this->collider.elem, true);
         if ((this->actor.colChkInfo.damageEffect != 0) || (this->actor.colChkInfo.damage != 0)) {
             Enemy_StartFinishingBlow(play, &this->actor);
             this->actor.colChkInfo.health = 0;
@@ -600,7 +600,7 @@ void EnOkuta_Update(Actor* thisx, PlayState* play2) {
                  this->actor.scale.y * 100.0f);
         } else {
             canRestorePrevPos = false;
-            Actor_MoveForward(&this->actor);
+            Actor_MoveXZGravity(&this->actor);
             Math_Vec3f_Copy(&prevPos, &this->actor.world.pos);
             Actor_UpdateBgCheckInfo(play, &this->actor, 10.0f, 15.0f, 30.0f,
                                     UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2);
@@ -679,10 +679,11 @@ s32 EnOkuta_GetSnoutScale(EnOkuta* this, f32 curFrame, Vec3f* scale) {
 
 s32 EnOkuta_OverrideLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f* pos, Vec3s* rot, void* thisx) {
     EnOkuta* this = (EnOkuta*)thisx;
-    f32 curFrame = this->skelAnime.curFrame;
+    f32 curFrame;
     Vec3f scale;
     s32 doScale = false;
 
+    curFrame = this->skelAnime.curFrame;
     if (this->actionFunc == EnOkuta_Die) {
         curFrame += this->timer;
     }
@@ -714,7 +715,7 @@ void EnOkuta_Draw(Actor* thisx, PlayState* play) {
 
         Matrix_Mult(&play->billboardMtxF, MTXMODE_APPLY);
         Matrix_RotateZ(BINANG_TO_RAD(this->actor.home.rot.z), MTXMODE_APPLY);
-        gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_en_okuta.c", 1657),
+        gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_en_okuta.c", 1657),
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(POLY_OPA_DISP++, gOctorokProjectileDL);
 

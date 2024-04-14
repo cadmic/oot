@@ -48,6 +48,7 @@
 #define R_ENV_TIME_SPEED_OLD                     REG(15) // Most likely used during development. Unused in the final game.
 #define R_RUN_SPEED_LIMIT                        REG(45)
 #define R_ENABLE_ARENA_DBG                       SREG(0)
+#define R_AUDIOMGR_DEBUG_LEVEL                   SREG(20)
 #define R_ROOM_IMAGE_NODRAW_FLAGS                SREG(25)
 #define R_ROOM_BG2D_FORCE_SCALEBG                SREG(26)
 #define R_UPDATE_RATE                            SREG(30)
@@ -90,7 +91,8 @@
 #define R_CAM_AT_LERP_STEP_SCALE_FAC             OREG(42)
 #define R_CAM_YOFFSET_NORM                       OREG(46)
 #define R_CAM_DATA(type)                         PREG(0 + (type))
-#define R_DBG_CAM_UPDATE                         PREG(80)
+#define R_CAM_PARALLEL_LOCKON_CALC_SLOPE_Y_ADJ   PREG(76)
+#define R_DEBUG_CAM_UPDATE                       PREG(80)
 #define R_DBG_REG_UPDATE                         PREG(82)
 #define R_RELOAD_CAM_PARAMS                      QREG(0)
 #define R_SCENE_CAM_TYPE                         YREG(15)
@@ -105,6 +107,7 @@
 #define R_MESSAGE_DEBUGGER_TEXTID                YREG(79)
 #define R_C_UP_ICON_X                            YREG(88)
 #define R_C_UP_ICON_Y                            YREG(89)
+#define R_EPONAS_SONG_PLAYED                     DREG(53)
 #define R_MAGIC_FILL_COLOR(i)                    ZREG(0 + (i))
 #define R_C_BTN_COLOR(i)                         ZREG(39 + (i))
 #define R_B_BTN_COLOR(i)                         ZREG(43 + (i))
@@ -154,6 +157,7 @@
 #define R_TEXTBOX_TEXHEIGHT_TARGET               XREG(77)
 #define R_ENV_LIGHT1_DIR(i)                      cREG(3 + (i))
 #define R_ENV_LIGHT2_DIR(i)                      cREG(6 + (i))
+#define R_TRANS_FADE_FLASH_ALPHA_STEP            iREG(50) // Set to a negative number to start the flash
 #define R_ROOM_CULL_DEBUG_MODE                   iREG(86)
 #define R_ROOM_CULL_NUM_ENTRIES                  iREG(87)
 #define R_ROOM_CULL_USED_ENTRIES                 iREG(88)
@@ -195,10 +199,12 @@
 #define R_GAME_OVER_RUMBLE_STRENGTH              VREG(90)
 #define R_GAME_OVER_RUMBLE_DURATION              VREG(91)
 #define R_GAME_OVER_RUMBLE_DECREASE_RATE         VREG(92)
+#define R_ENABLE_ACTOR_DEBUG_PRINTF              HREG(20)
 #define R_DISABLE_INPUT_DISPLAY                  HREG(47)
 #define R_ENABLE_PLAY_LOGS                       HREG(63)
 #define R_EN_GOROIWA_SPEED                       mREG(12)
 #define R_NAVI_MSG_REGION_ALPHA                  nREG(87)
+#define R_USE_DEBUG_CUTSCENE                     dREG(95)
 
 
 #define R_HREG_MODE  HREG(80) // see `HRegMode` for mode options

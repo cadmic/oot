@@ -4,56 +4,12 @@ import sys
 from pathlib import Path
 
 
-sys.path.insert(0, "/home/dragorn421/Documents/n64texconv/")
-import n64texconv
-
-from png2raw import png2raw
-
-
 VERBOSE = False
 
 
-def png_to_data(file):
-    with png2raw.Instance(file) as inst:
-        width, height = inst.get_dimensions()
-        if inst.is_paletted():
-            palette_data = inst.get_palette_rgba32()
-            image_data = inst.read_palette_indices()
-
-            row_len = width
-        else:
-            palette_data = None
-            image_data = inst.read_to_rgba32()
-
-            row_len = width * 4
-
-    image_data = image_data
-    rows = [image_data[row * row_len :][:row_len] for row in range(height)]
-
-    png_data = width, height, rows
-
-    if palette_data is None:
-        palette_vals = None
-    else:
-        palette_vals = []
-        for i in range(0, len(palette_data), 4):
-            # must be a tuple for n64texconv to work
-            palette_vals.append(tuple(palette_data[i : i + 4]))
-
-    if VERBOSE:
-        print("png_data:", len(png_data), png_data)
-        print(
-            "palette:",
-            *((len(palette_vals),) if palette_vals is not None else ()),
-            palette_vals,
-        )
-
-    return png_data, palette_vals
-
-
-n64texconv.png_to_data = png_to_data
-
 from n64 import G_IM_FMT, G_IM_SIZ
+import n64yatc
+from png2raw import png2raw
 
 
 def main():
@@ -85,8 +41,9 @@ def main():
     assert fmt is not None and siz is not None, fmtsiz_str
 
     if fmt != G_IM_FMT.CI:
-        tex = n64texconv.Image.from_png(png_path, fmt=fmt.i, siz=siz.i)
-        tex_bin = tex.to_bin()
+        with png2raw.Instance(png_path) as png:
+            data_rgba32 = png.read_to_rgba32()
+        tex_bin = n64yatc.convert(data_rgba32, G_IM_FMT.RGBA, G_IM_SIZ._32b, fmt, siz)
         # print(len(tex_bin), tex_bin[:0x10], tex_bin[-0x10:], file=sys.stderr)
         # sys.stdout.buffer.write(tex_bin) # for some reason the *string* "None." is also written to stdout???
         out_bin_path.write_bytes(tex_bin)
@@ -127,9 +84,13 @@ def main():
         if VERBOSE:
             print(all_pngs_using_tlut)
 
-        tex = n64texconv.Image.from_png(png_path, fmt=fmt.i, siz=siz.i)
-        tex_bin = tex.to_bin()
-        tlut_bin = tex.pal.to_bin()
+        with png2raw.Instance(png_path) as png:
+            palette_rgba32 = png.get_palette_rgba32()
+            data_ci8 = png.read_palette_indices()
+        tex_bin = n64yatc.convert(data_ci8, G_IM_FMT.CI, G_IM_SIZ._8b, fmt, siz)
+        tlut_bin = n64yatc.convert(
+            palette_rgba32, G_IM_FMT.RGBA, G_IM_SIZ._32b, G_IM_FMT.RGBA, G_IM_SIZ._16b
+        )
         out_bin_path.write_bytes(tex_bin)
         tlut_out_bin_path.write_bytes(tlut_bin)
 

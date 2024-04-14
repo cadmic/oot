@@ -32,15 +32,15 @@ void EnDodojr_WaitFreezeFrames(EnDodojr* this, PlayState* play);
 void EnDodojr_EatBomb(EnDodojr* this, PlayState* play);
 
 ActorInit En_Dodojr_InitVars = {
-    ACTOR_EN_DODOJR,
-    ACTORCAT_ENEMY,
-    FLAGS,
-    OBJECT_DODOJR,
-    sizeof(EnDodojr),
-    (ActorFunc)EnDodojr_Init,
-    (ActorFunc)EnDodojr_Destroy,
-    (ActorFunc)EnDodojr_Update,
-    (ActorFunc)EnDodojr_Draw,
+    /**/ ACTOR_EN_DODOJR,
+    /**/ ACTORCAT_ENEMY,
+    /**/ FLAGS,
+    /**/ OBJECT_DODOJR,
+    /**/ sizeof(EnDodojr),
+    /**/ EnDodojr_Init,
+    /**/ EnDodojr_Destroy,
+    /**/ EnDodojr_Update,
+    /**/ EnDodojr_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -56,8 +56,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0xFFCFFFFF, 0x00, 0x08 },
         { 0xFFC5FFFF, 0x00, 0x00 },
-        TOUCH_ON | TOUCH_SFX_NORMAL,
-        BUMP_ON,
+        ATELEM_ON | ATELEM_SFX_NORMAL,
+        ACELEM_ON,
         OCELEM_ON,
     },
     { 18, 20, 0, { 0, 0, 0 } },
@@ -165,7 +165,7 @@ void EnDodojr_SetupCrawlTowardsTarget(EnDodojr* this) {
 
     Animation_Change(&this->skelAnime, &object_dodojr_Anim_000860, 1.8f, 0.0f, lastFrame, ANIMMODE_LOOP_INTERP, -10.0f);
     this->actor.velocity.y = 0.0f;
-    this->actor.speedXZ = 2.6f;
+    this->actor.speed = 2.6f;
     this->actor.gravity = -0.8f;
 }
 
@@ -173,7 +173,7 @@ void EnDodojr_SetupFlipBounce(EnDodojr* this) {
     f32 lastFrame = Animation_GetLastFrame(&object_dodojr_Anim_0004A0);
 
     Animation_Change(&this->skelAnime, &object_dodojr_Anim_0004A0, 1.0f, 0.0f, lastFrame, ANIMMODE_ONCE, -10.0f);
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.velocity.x = 0.0f;
     this->actor.velocity.z = 0.0f;
     this->actor.gravity = -0.8f;
@@ -205,7 +205,7 @@ void EnDodojr_SetupDespawn(EnDodojr* this) {
     this->actor.shape.shadowDraw = NULL;
     this->actor.flags &= ~ACTOR_FLAG_0;
     this->actor.home.pos = this->actor.world.pos;
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.gravity = -0.8f;
     this->timer = 30;
     this->dustPos = this->actor.world.pos;
@@ -214,7 +214,7 @@ void EnDodojr_SetupDespawn(EnDodojr* this) {
 void EnDodojr_SetupEatBomb(EnDodojr* this) {
     Animation_Change(&this->skelAnime, &object_dodojr_Anim_000724, 1.0f, 8.0f, 12.0f, ANIMMODE_ONCE, 0.0f);
     Actor_PlaySfx(&this->actor, NA_SE_EN_DODO_M_EAT);
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.velocity.x = 0.0f;
     this->actor.velocity.z = 0.0f;
     this->actor.gravity = -0.8f;
@@ -423,13 +423,13 @@ void EnDodojr_EmergeFromGround(EnDodojr* this, PlayState* play) {
     if (sp2C == 0.0f) {
         this->actor.shape.shadowDraw = ActorShadow_DrawCircle;
         this->actor.world.rot.x = this->actor.shape.rot.x;
-        this->actor.speedXZ = 2.6f;
+        this->actor.speed = 2.6f;
         this->actionFunc = EnDodojr_CrawlTowardsTarget;
     }
 }
 
 void EnDodojr_CrawlTowardsTarget(EnDodojr* this, PlayState* play) {
-    func_8002D868(&this->actor);
+    Actor_UpdateVelocityXZGravity(&this->actor);
     EnDodojr_SpawnSmallDust(this, play, &this->actor.world.pos);
 
     if (DECR(this->crawlSfxTimer) == 0) {
@@ -487,7 +487,7 @@ void EnDodojr_SwallowedBombDeathBounce(EnDodojr* this, PlayState* play) {
     // Scale up briefly to expand from the swallowed bomb exploding.
     this->rootScale = 1.2f;
     this->rootScale *= ((f32)this->actor.colorFilterTimer / 8);
-    func_8002D868(&this->actor);
+    Actor_UpdateVelocityXZGravity(&this->actor);
 
     if (EnDodojr_UpdateBounces(this, play)) {
         this->timer = 60;
@@ -502,7 +502,7 @@ void EnDodojr_SwallowedBombDeathSequence(EnDodojr* this, PlayState* play) {
 }
 
 void EnDodojr_StunnedBounce(EnDodojr* this, PlayState* play) {
-    func_8002D868(&this->actor);
+    Actor_UpdateVelocityXZGravity(&this->actor);
 
     if (EnDodojr_UpdateBounces(this, play)) {
         EnDodojr_SetupSwallowedBombDeathSequence(this);
@@ -536,7 +536,7 @@ void EnDodojr_Stunned(EnDodojr* this, PlayState* play) {
 
 void EnDodojr_JumpAttackBounce(EnDodojr* this, PlayState* play) {
     this->actor.flags |= ACTOR_FLAG_24;
-    func_8002D868(&this->actor);
+    Actor_UpdateVelocityXZGravity(&this->actor);
 
     if (EnDodojr_UpdateBounces(this, play)) {
         EnDodojr_SetupCrawlTowardsTarget(this);
@@ -560,7 +560,7 @@ void EnDodojr_Despawn(EnDodojr* this, PlayState* play) {
 }
 
 void EnDodojr_StandardDeathBounce(EnDodojr* this, PlayState* play) {
-    func_8002D868(&this->actor);
+    Actor_UpdateVelocityXZGravity(&this->actor);
     Math_SmoothStepToS(&this->actor.shape.rot.y, 0, 4, 1000, 10);
     this->actor.world.rot.x = this->actor.shape.rot.x;
 
@@ -610,7 +610,7 @@ void EnDodojr_Update(Actor* thisx, PlayState* play) {
     EnDodojr* this = (EnDodojr*)thisx;
 
     SkelAnime_Update(&this->skelAnime);
-    Actor_MoveForward(&this->actor);
+    Actor_MoveXZGravity(&this->actor);
     EnDodojr_CheckDamaged(this, play);
 
     if (this->actionFunc != EnDodojr_WaitUnderground) {
