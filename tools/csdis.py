@@ -2,6 +2,8 @@
 
 # Disassemble a cutscene script
 
+from __future__ import annotations
+
 import argparse, os, struct
 import math
 

@@ -556,7 +556,7 @@ def gfxdis(
 
     pygfxd.gfxd_input_buffer(bytes(input_buffer))
 
-    exceptions = []
+    uncaught_exc_infos = []
 
     # output_callback
 
@@ -568,8 +568,8 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
             return count
 
     else:
@@ -589,8 +589,8 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
 
                 ret = 0
             return ret
@@ -612,8 +612,8 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
 
                 ret = 0
             return ret
@@ -635,8 +635,8 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
 
                 ret = 0
             return ret
@@ -658,8 +658,8 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
 
                 ret = 0
             return ret
@@ -681,8 +681,8 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
 
                 ret = 0
             return ret
@@ -704,13 +704,13 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
 
                 ret = 0
 
             # TODO consider:
-            if exceptions:
+            if uncaught_exc_infos:
                 pygfxd.gfxd_input_buffer(
                     b""
                 )  # interrupt current execution TODO check if this is safe and if it works
@@ -724,7 +724,7 @@ def gfxdis(
             ret = pygfxd.gfxd_macro_dflt()
 
             # TODO consider:
-            if exceptions:
+            if uncaught_exc_infos:
                 pygfxd.gfxd_input_buffer(b"")  # TODO see same line above
                 ret = 1
 
@@ -742,8 +742,8 @@ def gfxdis(
             except:
                 import sys
 
-                e = sys.exc_info()[1]
-                exceptions.append(e)
+                exc_info = sys.exc_info()
+                uncaught_exc_infos.append(exc_info)
 
         pygfxd.gfxd_arg_fn(arg_fn_wrapper)
     else:
@@ -757,7 +757,7 @@ def gfxdis(
     # so add 8 (sizeof(Gfx))
     size = pygfxd.gfxd_macro_offset() + 8
 
-    if exceptions:
+    if uncaught_exc_infos:
         import traceback
 
         msg = "There were uncaught python errors in callbacks during gfxd execution."
@@ -766,9 +766,9 @@ def gfxdis(
         print(msg)
         print("vvv See below for a list of the traces of the uncaught errors:")
 
-        for e in exceptions:
+        for exc_info in uncaught_exc_infos:
             print()
-            traceback.print_exception(e)
+            traceback.print_exception(*exc_info)
 
         print()
         print(msg)
@@ -777,7 +777,7 @@ def gfxdis(
         raise Exception(
             msg,
             "See the standard output for a list of the traces of the uncaught errors.",
-            exceptions,
+            uncaught_exc_infos,
         )
 
     return size
