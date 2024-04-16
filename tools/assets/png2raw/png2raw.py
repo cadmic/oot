@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ctypes
 import enum
 from pathlib import Path

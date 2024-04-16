@@ -61,92 +61,92 @@ def convert(
             i += 1
             _i[0] = i
 
-        match (from_fmt, from_siz):
-            case G_IM_FMT.RGBA, G_IM_SIZ._32b:
-                data_rgba32[:] = data
-            case G_IM_FMT.RGBA, G_IM_SIZ._16b:
-                while (i := _i[0]) < n_pixels:
-                    d1, d2 = data[i * 2 : i * 2 + 2]
+        f = (from_fmt, from_siz)
+        if f == (G_IM_FMT.RGBA, G_IM_SIZ._32b):
+            data_rgba32[:] = data
+        elif f == (G_IM_FMT.RGBA, G_IM_SIZ._16b):
+            while (i := _i[0]) < n_pixels:
+                d1, d2 = data[i * 2 : i * 2 + 2]
 
-                    r = (d1 & 0b1111_1000) >> 3
-                    g = ((d1 & 0b0000_0111) << 2) | ((d2 & 0b1100_0000) >> 6)
-                    b = (d2 & 0b0011_1110) >> 1
-                    a = d2 & 1
+                r = (d1 & 0b1111_1000) >> 3
+                g = ((d1 & 0b0000_0111) << 2) | ((d2 & 0b1100_0000) >> 6)
+                b = (d2 & 0b0011_1110) >> 1
+                a = d2 & 1
 
-                    r = (r << 3) | (r >> 2)
-                    g = (g << 3) | (g >> 2)
-                    b = (b << 3) | (b >> 2)
+                r = (r << 3) | (r >> 2)
+                g = (g << 3) | (g >> 2)
+                b = (b << 3) | (b >> 2)
+                a = a * 255
+                push()
+        elif f == (G_IM_FMT.IA, G_IM_SIZ._16b):
+            while (i := _i[0]) < n_pixels:
+                d1, d2 = data[i * 2 : i * 2 + 2]
+
+                i = d1
+                a = d2
+
+                r = i
+                g = i
+                b = i
+                a = a
+                push()
+        elif f == (G_IM_FMT.IA, G_IM_SIZ._8b):
+            while (i := _i[0]) < n_pixels:
+                d = data[i]
+
+                i = d >> 4
+                a = d & 0x0F
+
+                i = (i << 4) | i
+                a = (a << 4) | a
+
+                r = i
+                g = i
+                b = i
+                a = a
+                push()
+        elif f == (G_IM_FMT.IA, G_IM_SIZ._4b):
+            while (i := _i[0]) < n_pixels:
+                assert i % 2 == 0
+                d = data[i // 2]
+                for dh in (d >> 4, d & 0xF):
+                    i = dh >> 1
+                    a = dh & 1
+
+                    i = (i << 5) | (i << 2) | (i >> 1)
                     a = a * 255
-                    push()
-            case G_IM_FMT.IA, G_IM_SIZ._16b:
-                while (i := _i[0]) < n_pixels:
-                    d1, d2 = data[i * 2 : i * 2 + 2]
-
-                    i = d1
-                    a = d2
 
                     r = i
                     g = i
                     b = i
                     a = a
                     push()
-            case G_IM_FMT.IA, G_IM_SIZ._8b:
-                while (i := _i[0]) < n_pixels:
-                    d = data[i]
+        elif f == (G_IM_FMT.I, G_IM_SIZ._8b):
+            while (i := _i[0]) < n_pixels:
+                d = data[i]
+                i = d
 
-                    i = d >> 4
-                    a = d & 0x0F
+                r = i
+                g = i
+                b = i
+                a = i
+                push()
+        elif f == (G_IM_FMT.I, G_IM_SIZ._4b):
+            while (i := _i[0]) < n_pixels:
+                assert i % 2 == 0
+                d = data[i // 2]
+                for dh in (d >> 4, d & 0xF):
+                    i = dh
 
                     i = (i << 4) | i
-                    a = (a << 4) | a
-
-                    r = i
-                    g = i
-                    b = i
-                    a = a
-                    push()
-            case G_IM_FMT.IA, G_IM_SIZ._4b:
-                while (i := _i[0]) < n_pixels:
-                    assert i % 2 == 0
-                    d = data[i // 2]
-                    for dh in (d >> 4, d & 0xF):
-                        i = dh >> 1
-                        a = dh & 1
-
-                        i = (i << 5) | (i << 2) | (i >> 1)
-                        a = a * 255
-
-                        r = i
-                        g = i
-                        b = i
-                        a = a
-                        push()
-            case G_IM_FMT.I, G_IM_SIZ._8b:
-                while (i := _i[0]) < n_pixels:
-                    d = data[i]
-                    i = d
 
                     r = i
                     g = i
                     b = i
                     a = i
                     push()
-            case G_IM_FMT.I, G_IM_SIZ._4b:
-                while (i := _i[0]) < n_pixels:
-                    assert i % 2 == 0
-                    d = data[i // 2]
-                    for dh in (d >> 4, d & 0xF):
-                        i = dh
-
-                        i = (i << 4) | i
-
-                        r = i
-                        g = i
-                        b = i
-                        a = i
-                        push()
-            case _:
-                raise NotImplementedError("from", from_fmt, from_siz)
+        else:
+            raise NotImplementedError("from", from_fmt, from_siz)
 
         assert n_pixels * to_siz.bpp % 8 == 0
         data_to = bytearray(n_pixels * to_siz.bpp // 8)
@@ -154,50 +154,50 @@ def convert(
         for i in range(n_pixels):
             r, g, b, a = data_rgba32[i * 4 : i * 4 + 4]
             y = round(sum((r, g, b)) / 3)  # bad but w/e
-            match (to_fmt, to_siz):
-                case G_IM_FMT.RGBA, G_IM_SIZ._32b:
-                    data_to[4 * i : 4 * i + 4] = r, g, b, a
-                case G_IM_FMT.RGBA, G_IM_SIZ._16b:
-                    r = r >> 3
-                    g = g >> 3
-                    b = b >> 3
-                    a = round(a / 255)
+            t = (to_fmt, to_siz)
+            if t == (G_IM_FMT.RGBA, G_IM_SIZ._32b):
+                data_to[4 * i : 4 * i + 4] = r, g, b, a
+            elif t == (G_IM_FMT.RGBA, G_IM_SIZ._16b):
+                r = r >> 3
+                g = g >> 3
+                b = b >> 3
+                a = round(a / 255)
 
-                    d1 = (r << 3) | (g >> 2)
-                    d2 = ((g & 0b11) << 6) | (b << 1) | a
-                    data_to[2 * i : 2 * i + 2] = d1, d2
-                case G_IM_FMT.IA, G_IM_SIZ._16b:
-                    a = a
+                d1 = (r << 3) | (g >> 2)
+                d2 = ((g & 0b11) << 6) | (b << 1) | a
+                data_to[2 * i : 2 * i + 2] = d1, d2
+            elif t == (G_IM_FMT.IA, G_IM_SIZ._16b):
+                a = a
 
-                    d1 = y
-                    d2 = a
+                d1 = y
+                d2 = a
 
-                    data_to[i * 2 : i * 2 + 2] = d1, d2
-                case G_IM_FMT.IA, G_IM_SIZ._8b:
-                    y = y >> 4
-                    a = a >> 4
+                data_to[i * 2 : i * 2 + 2] = d1, d2
+            elif t == (G_IM_FMT.IA, G_IM_SIZ._8b):
+                y = y >> 4
+                a = a >> 4
 
-                    d = (y << 4) | a
+                d = (y << 4) | a
 
-                    data_to[i] = d
-                case G_IM_FMT.IA, G_IM_SIZ._4b:
-                    y = y >> 5
-                    a = round(a / 255)
+                data_to[i] = d
+            elif t == (G_IM_FMT.IA, G_IM_SIZ._4b):
+                y = y >> 5
+                a = round(a / 255)
 
-                    d = (y << 1) | a
+                d = (y << 1) | a
 
-                    data_to[i // 2] |= (d << 4) if i % 2 == 0 else d
-                case G_IM_FMT.I, G_IM_SIZ._8b:
-                    d = y
+                data_to[i // 2] |= (d << 4) if i % 2 == 0 else d
+            elif t == (G_IM_FMT.I, G_IM_SIZ._8b):
+                d = y
 
-                    data_to[i] = d
-                case G_IM_FMT.I, G_IM_SIZ._4b:
-                    y = y >> 4
+                data_to[i] = d
+            elif t == (G_IM_FMT.I, G_IM_SIZ._4b):
+                y = y >> 4
 
-                    d = y
+                d = y
 
-                    data_to[i // 2] |= (d << 4) if i % 2 == 0 else d
-                case _:
-                    raise NotImplementedError("to", to_fmt, to_siz)
+                data_to[i // 2] |= (d << 4) if i % 2 == 0 else d
+            else:
+                raise NotImplementedError("to", to_fmt, to_siz)
 
         return data_to
