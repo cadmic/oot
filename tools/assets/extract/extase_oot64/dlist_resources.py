@@ -24,6 +24,8 @@ from ..extase.cdata_resources import (
     INDENT,
 )
 
+from ...utils import str_removesuffix
+
 
 BEST_EFFORT = True
 
@@ -445,7 +447,7 @@ class TextureResource(Resource):
 
     @reprlib.recursive_repr()
     def __repr__(self):
-        return super().__repr__().removesuffix(")") + (
+        return str_removesuffix(super().__repr__(), ")") + (
             f", fmt={self.fmt}, siz={self.siz}"
             f", width={self.width}, height={self.height}"
             f", elem_type={self.elem_type}"

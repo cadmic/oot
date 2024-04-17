@@ -7,10 +7,10 @@ from pathlib import Path
 
 VERBOSE = False
 
-
 from n64 import G_IM_FMT, G_IM_SIZ
 import n64yatc
 from png2raw import png2raw
+from utils import str_removeprefix, str_removesuffix
 
 
 def main():
@@ -25,11 +25,11 @@ def main():
         suffixes.pop()
     assert len(suffixes) > 0
     if suffixes[-1].startswith(".tlut_"):
-        tlut_info = suffixes.pop().removeprefix(".")
+        tlut_info = str_removeprefix(suffixes.pop(), ".")
     else:
         tlut_info = None
     assert len(suffixes) > 0
-    fmtsiz_str = suffixes[-1].removeprefix(".")
+    fmtsiz_str = str_removeprefix(suffixes[-1], ".")
 
     fmt, siz = None, None
     for candidate_fmt in G_IM_FMT:
@@ -54,22 +54,28 @@ def main():
         if tlut_info is None:
             tlut_elem_type = "u64"
             tlut_out_bin_path_base_str = str(out_bin_path)
-            tlut_out_bin_path_base_str = tlut_out_bin_path_base_str.removesuffix(".bin")
+            tlut_out_bin_path_base_str = str_removesuffix(
+                tlut_out_bin_path_base_str, ".bin"
+            )
             if tlut_out_bin_path_base_str.endswith(".u64"):
-                tlut_out_bin_path_base_str = tlut_out_bin_path_base_str.removesuffix(
-                    ".u64"
+                tlut_out_bin_path_base_str = str_removesuffix(
+                    tlut_out_bin_path_base_str, ".u64"
                 )
             all_pngs_using_tlut = [png_path]
         else:
             tlut_elem_type = "u64"
             if tlut_info.endswith("_u64"):
                 tlut_elem_type = "u64"
-                tlut_name = tlut_info.removeprefix("tlut_").removesuffix("_u64")
+                tlut_name = str_removesuffix(
+                    str_removeprefix(tlut_info, "tlut_"), "_u64"
+                )
             elif tlut_info.endswith("_u32"):
                 tlut_elem_type = "u32"
-                tlut_name = tlut_info.removeprefix("tlut_").removesuffix("_u32")
+                tlut_name = str_removesuffix(
+                    str_removeprefix(tlut_info, "tlut_"), "_u32"
+                )
             else:
-                tlut_name = tlut_info.removeprefix("tlut_")
+                tlut_name = str_removeprefix(tlut_info, "tlut_")
             tlut_out_bin_path_base_str = str(out_bin_path.parent / tlut_name)
 
             # TODO this is far from perfect.

@@ -17,11 +17,13 @@ from ..extase.cdata_resources import (
     CDataExt_Array,
 )
 
+from ...utils import str_removeprefix
+
 
 class AnimationFrameDataResource(CDataResource, can_size_be_unknown=True):
     def write_binang(resource, memory_context, v, f: io.TextIOBase, line_prefix):
         f.write(line_prefix)
-        f.write(f" 0x{v:04X}" if v >= 0 else "-0x" + f"{v:04X}".removeprefix("-"))
+        f.write(f" 0x{v:04X}" if v >= 0 else "-0x" + str_removeprefix(f"{v:04X}", "-"))
         return True
 
     elem_cdata_ext = CDataExt_Value("h").set_write(write_binang)

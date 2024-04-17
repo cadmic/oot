@@ -12,6 +12,9 @@ from .extase.cdata_resources import Vec3sArrayResource
 
 from . import xml_errors
 
+from ..utils import str_removesuffix
+
+
 #
 # resource handlers
 #
@@ -34,7 +37,7 @@ class ResourceNeedsPostProcessException(ResourceHandlerException):
 
     def __repr__(self) -> str:
         return (
-            super().__repr__().removesuffix(")")
+            str_removesuffix(super().__repr__(), ")")
             + f", resource={self.resource!r}"
             + f", callback={self.callback!r})"
         )
@@ -53,7 +56,7 @@ class ResourceNeedsPostProcessWithFilesException(ResourceHandlerException):
 
     def __repr__(self) -> str:
         return (
-            super().__repr__().removesuffix(")")
+            str_removesuffix(super().__repr__(), ")")
             + f", resource={self.resource!r}"
             + f", callback={self.callback!r})"
         )
@@ -77,7 +80,7 @@ class ResourceNeedsPostProcessWithFileRangeStartException(ResourceHandlerExcepti
 
     def __repr__(self) -> str:
         return (
-            super().__repr__().removesuffix(")")
+            str_removesuffix(super().__repr__(), ")")
             + f", resource={self.resource!r}"
             + f", callback={self.callback!r})"
         )

@@ -13,6 +13,8 @@ from pprint import pprint
 if TYPE_CHECKING:
     from .memorymap import MemoryContext
 
+from ...utils import str_removesuffix
+
 
 # 0: nothing, 1: in progress & waiting, 2: all
 VERBOSE_FILE_TRY_PARSE_DATA = 0
@@ -407,7 +409,7 @@ class File:
                 users.update(rbm.users)
             resource_buffer_markers[i_start:i_end] = [
                 ResourceBufferMarker(
-                    fused[0].name.removesuffix("_fused_") + "_fused_",  # TODO
+                    str_removesuffix(fused[0].name, "_fused_") + "_fused_",  # TODO
                     fused[0].file_start,
                     fused[-1].file_end,
                     users,

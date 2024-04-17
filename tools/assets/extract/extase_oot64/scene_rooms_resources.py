@@ -24,6 +24,8 @@ from ..extase.cdata_resources import (
 
 from .. import oot64_data
 
+from ...utils import str_removeprefix
+
 
 VERBOSE_SPAWN_LIST_LENGTH_GUESSING = False
 
@@ -40,7 +42,7 @@ def fmt_hex_s(v: int, nibbles: int = 0):
     """
     v_str = f"{v:0{nibbles}X}"
     if v < 0:
-        v_str = v_str.removeprefix("-")
+        v_str = str_removeprefix(v_str, "-")
         return f"-0x{v_str}"
     else:
         return f" 0x{v_str}"
@@ -58,7 +60,7 @@ def fmt_hex_u(v: int, nibbles: int = 0):
     if v < 0:
         # Also handle v being negative just in case,
         # it will only mean the output isn't aligned as expected
-        v_str = v_str.removeprefix("-")
+        v_str = str_removeprefix(v_str, "-")
         return f"-0x{v_str}"
     else:
         return f"0x{v_str}"

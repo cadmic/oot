@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..extase.memorymap import MemoryContext
 
+from ...utils import str_removesuffix
+
 from ..extase import (
     Resource,
     File,
@@ -39,7 +41,7 @@ def report_room_shape_at_segmented(
 ):
     def new_resource_pointed_to(file: File, offset: int):
         resource_type = get_room_shape_resource_type(file, offset)
-        name_suffix = resource_type.__name__.removesuffix("Resource")
+        name_suffix = str_removesuffix(resource_type.__name__, "Resource")
         return resource_type(
             file,
             offset,
