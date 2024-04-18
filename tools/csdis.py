@@ -6,6 +6,7 @@ from overlayhelpers import filemap
 
 import argparse, os, struct
 import math
+import sys
 
 """
 Enumerations
@@ -675,7 +676,7 @@ def format_arg(arg, words):
         elif enum_no == 7:
             result = fade_out_seq_player[unsigned_value]
     elif format_type == "u":
-        result = str(value)
+        result = str(unsigned_value)
     elif format_type == "s":
         result = str(value)
     elif format_type == "x":
@@ -695,11 +696,11 @@ def format_cmd(cmd, words):
         # special handling for textbox list macros, as there are multiple dependent on particular values
         if "CS_TEXT_LIST" in cmd:
             if get_short_unsigned(words[1], 0) == 0xFFFF:
-                cmd = "CS_TEXT_NONE(%h1:1:s, %h2:2:s)"
+                cmd = "CS_TEXT_NONE(%h1:1:u, %h2:2:u)"
             elif get_short(words[2], 1) == 2:
-                cmd = "CS_TEXT_OCARINA_ACTION(%h2:1:e2, %h1:1:s, %h2:2:s, %h2:3:x)"
+                cmd = "CS_TEXT_OCARINA_ACTION(%h2:1:e2, %h1:1:u, %h2:2:u, %h2:3:x)"
             else:
-                cmd = "CS_TEXT(%h2:1:x, %h1:1:s, %h2:2:s, %h1:2:x, %h2:3:x, %h1:3:x)"
+                cmd = "CS_TEXT(%h2:1:x, %h1:1:u, %h2:2:u, %h1:2:x, %h2:3:x, %h1:3:x)"
     for arg in args_list(cmd):
         cmd = cmd.replace(arg, format_arg(arg, words))
     return cmd
@@ -728,7 +729,14 @@ def disassemble_cutscene(cs_in):
             return macros + multi_key(-1)[0]+line_end
         entry = multi_key(cmd_type)
         if entry is None:
-            entry = unk_data_entry
+            num_entries = cs_in[i+1]
+            if num_entries >= 0x80000000:
+                num_entries = num_entries - 0x100000000
+            macros += f'SKIP({num_entries}),\n'
+            i += 2
+            if num_entries >= 0:
+                i += num_entries * 12
+            continue
         cmd_macro = entry[0]
         n_words = entry[1]
         macros += format_cmd(cmd_macro, [cs_in[i+j] for j in range(0, n_words)])+line_end
@@ -788,4 +796,7 @@ def main():
         print("static CutsceneData D_" + hex(args.address).replace("0x","").upper() + "[] = {\n" + indent+disassemble_cutscene(cs_data).replace(linesep,linesep+indent).rstrip()+"\n};")
 
 if __name__ == "__main__":
-    main()
+    filename = sys.argv[1]
+    with open(filename, 'rb') as f:
+        cs_data = [i[0] for i in struct.iter_unpack(">I",  bytearray(f.read()))]
+    print(disassemble_cutscene(cs_data))
