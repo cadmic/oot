@@ -25,6 +25,8 @@ Use this interface to select the latest version for all of the following package
 * libiconv
 * dos2unix
 * python3
+* python3-pip
+* python3-virtualenv
 * libpng-devel
 * binutils (Make sure to check the "Src?" checkbox since we're interested in the source code)
 
