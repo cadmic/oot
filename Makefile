@@ -212,8 +212,8 @@ O_FILES       := $(foreach f,$(S_FILES:.s=.o),$(BUILD_DIR)/$f) \
 
 OVL_RELOC_FILES := $(shell $(CPP) $(CPPFLAGS) $(SPEC) | $(SPEC_REPLACE_VARS) | grep -o '[^"]*_reloc.o' )
 
-# find all .c files in assets/ (except assets/overlays/), excluding .inc.c files
-DRAGONEW_C_FILES := $(shell find assets/ -path assets/overlays -prune -o -name '*.c' \! -name '*.inc.c' -print)
+# find all .c files in assets (except assets/overlays), excluding .inc.c files
+DRAGONEW_C_FILES := $(shell find assets -path assets/overlays -prune -o -name '*.c' \! -name '*.inc.c' -print)
 DRAGONEW_O_FILES := $(foreach f,$(DRAGONEW_C_FILES:.c=.o),$(BUILD_DIR)/$f)
 ifneq ($(wildcard $(EXTRACTED_DIR)),)
   DRAGONEW_BIN_FILES := $(shell find $(EXTRACTED_DIR) -name '*.bin')
@@ -227,9 +227,9 @@ endif
 DRAGONEW_INC_C_FILES := $(foreach f,$(DRAGONEW_BIN_FILES:.bin=.inc.c) $(DRAGONEW_PNG_FILES:.png=.inc.c) $(DRAGONEW_csdata_f32_FILES:.csdata.f32.inc.c=.csdata.inc.c),$(BUILD_DIR)/$f)
 DRAGONEW_DEPS := $(DRAGONEW_O_FILES:.o=.d)
 
-_ := $(shell mkdir --parents $(BUILD_DIR))
+_ := $(shell mkdir -p $(BUILD_DIR))
 $(file > $(BUILD_DIR)/mkdir.txt,$(sort $(dir $(DRAGONEW_O_FILES) $(DRAGONEW_INC_C_FILES))))
-$(shell xargs mkdir --parents < $(BUILD_DIR)/mkdir.txt)
+$(shell xargs mkdir -p < $(BUILD_DIR)/mkdir.txt)
 
 # Automatic dependency files
 # (Only partially handled for now)
@@ -237,7 +237,7 @@ DEP_FILES := $(O_FILES:.o=.asmproc.d) $(OVL_RELOC_FILES:.o=.d) $(DRAGONEW_DEPS)
 
 # create build directories
 $(file > $(BUILD_DIR)/mkdir.txt,$(BUILD_DIR)/baserom $(EXTRACTED_DIR)/text $(BUILD_DIR)/assets/text $(foreach dir,$(sort $(SRC_DIRS) $(UNDECOMPILED_DATA_DIRS) $(ASSET_BIN_DIRS)),$(BUILD_DIR)/$(dir)))
-$(shell xargs mkdir --parents < $(BUILD_DIR)/mkdir.txt)
+$(shell xargs mkdir -p < $(BUILD_DIR)/mkdir.txt)
 
 ifeq ($(COMPILER),ido)
 $(BUILD_DIR)/src/boot/stackcheck.o: OPTFLAGS := -O2
