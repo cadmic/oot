@@ -4,13 +4,24 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pigment64
+
+from utils import str_removeprefix, str_removesuffix
 
 VERBOSE = False
 
-from n64 import G_IM_FMT, G_IM_SIZ
-import n64yatc
-from png2raw import png2raw
-from utils import str_removeprefix, str_removesuffix
+IMAGE_TYPES = {
+    "i1": pigment64.ImageType.I1,
+    "i4": pigment64.ImageType.I4,
+    "i8": pigment64.ImageType.I8,
+    "ia4": pigment64.ImageType.IA4,
+    "ia8": pigment64.ImageType.IA8,
+    "ia16": pigment64.ImageType.IA16,
+    "ci4": pigment64.ImageType.CI4,
+    "ci8": pigment64.ImageType.CI8,
+    "rgba16": pigment64.ImageType.RGBA16,
+    "rgba32": pigment64.ImageType.RGBA32,
+}
 
 
 def main():
@@ -30,24 +41,14 @@ def main():
         tlut_info = None
     assert len(suffixes) > 0
     fmtsiz_str = str_removeprefix(suffixes[-1], ".")
+    image_type = IMAGE_TYPES[fmtsiz_str]
 
-    fmt, siz = None, None
-    for candidate_fmt in G_IM_FMT:
-        for candidate_siz in G_IM_SIZ:
-            candidate_fmtsiz_str = f"{candidate_fmt.name.lower()}{candidate_siz.bpp}"
-            if candidate_fmtsiz_str == fmtsiz_str:
-                fmt = candidate_fmt
-                siz = candidate_siz
+    with open(png_path, "rb") as png:
+        input_data = png.read()
+    png_image = pigment64.PNGImage.read(input_data)
 
-    assert fmt is not None and siz is not None, fmtsiz_str
-
-    if fmt != G_IM_FMT.CI:
-        with png2raw.Instance(png_path) as png:
-            data_rgba32 = png.read_to_rgba32()
-        tex_bin = n64yatc.convert(data_rgba32, G_IM_FMT.RGBA, G_IM_SIZ._32b, fmt, siz)
-        # print(len(tex_bin), tex_bin[:0x10], tex_bin[-0x10:], file=sys.stderr)
-        # sys.stdout.buffer.write(tex_bin) # for some reason the *string* "None." is also written to stdout???
-        out_bin_path.write_bytes(tex_bin)
+    if image_type not in (pigment64.ImageType.CI4, pigment64.ImageType.CI8):
+        out_bin_path.write_bytes(png_image.as_native(image_type))
     else:
         # TODO probably move tlut_info and overall tex file suffix construction/parsing to its own library
 
@@ -91,15 +92,8 @@ def main():
         if VERBOSE:
             print(all_pngs_using_tlut)
 
-        with png2raw.Instance(png_path) as png:
-            palette_rgba32 = png.get_palette_rgba32()
-            data_ci8 = png.read_palette_indices()
-        tex_bin = n64yatc.convert(data_ci8, G_IM_FMT.CI, G_IM_SIZ._8b, fmt, siz)
-        tlut_bin = n64yatc.convert(
-            palette_rgba32, G_IM_FMT.RGBA, G_IM_SIZ._32b, G_IM_FMT.RGBA, G_IM_SIZ._16b
-        )
-        out_bin_path.write_bytes(tex_bin)
-        tlut_out_bin_path.write_bytes(tlut_bin)
+        out_bin_path.write_bytes(png_image.as_native(image_type))
+        tlut_out_bin_path.write_bytes(pigment64.create_palette_from_png(input_data))
 
         import subprocess
 
