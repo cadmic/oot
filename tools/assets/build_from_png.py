@@ -8,8 +8,6 @@ import pigment64
 
 from utils import str_removeprefix, str_removesuffix
 
-VERBOSE = False
-
 IMAGE_TYPES = {
     "i1": pigment64.ImageType.I1,
     "i4": pigment64.ImageType.I4,
@@ -62,7 +60,6 @@ def main():
                 tlut_out_bin_path_base_str = str_removesuffix(
                     tlut_out_bin_path_base_str, ".u64"
                 )
-            all_pngs_using_tlut = [png_path]
         else:
             tlut_elem_type = "u64"
             if tlut_info.endswith("_u64"):
@@ -79,18 +76,9 @@ def main():
                 tlut_name = str_removeprefix(tlut_info, "tlut_")
             tlut_out_bin_path_base_str = str(out_bin_path.parent / tlut_name)
 
-            # TODO this is far from perfect.
-            #  what if a tlut_name is included in another
-            #  what if not in the same folder (just don't support that)
-            #  does the same png get built several times
-            all_pngs_using_tlut = list(png_path.parent.glob(f"*.tlut_{tlut_name}*.png"))
-            assert png_path in all_pngs_using_tlut
         tlut_out_bin_path = Path(
             f"{tlut_out_bin_path_base_str}.tlut.rgba16.{tlut_elem_type}.bin"
         )
-
-        if VERBOSE:
-            print(all_pngs_using_tlut)
 
         out_bin_path.write_bytes(png_image.as_native(image_type))
         tlut_out_bin_path.write_bytes(pigment64.create_palette_from_png(input_data))
