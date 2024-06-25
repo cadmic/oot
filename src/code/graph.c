@@ -469,6 +469,7 @@ void Graph_ThreadEntry(void* arg) {
         if (gameState == NULL) {
 #if OOT_DEBUG
             char faultMsg[0x50];
+
             PRINTF("確保失敗\n"); // "Failure to secure"
 
             sprintf(faultMsg, "CLASS SIZE= %d bytes", size);
