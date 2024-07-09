@@ -1,11 +1,16 @@
 #include "global.h"
 #include "terminal.h"
+
+#include "z64frame_advance.h"
+
 #include "overlays/effects/ovl_Effect_Ss_HitMark/z_eff_ss_hitmark.h"
 
 typedef s32 (*ColChkResetFunc)(PlayState*, Collider*);
 typedef void (*ColChkApplyFunc)(PlayState*, CollisionCheckContext*, Collider*);
 typedef void (*ColChkVsFunc)(PlayState*, CollisionCheckContext*, Collider*, Collider*);
 typedef s32 (*ColChkLineFunc)(PlayState*, CollisionCheckContext*, Collider*, Vec3f*, Vec3f*);
+
+#define SAC_ENABLE (1 << 0)
 
 // For retail BSS ordering, the block number of sparkInit in CollisionCheck_BlueBlood
 // must be between 183 and 255 inclusive.
@@ -2310,7 +2315,6 @@ void CollisionCheck_ATQuadVsACCyl(PlayState* play, CollisionCheckContext* colChk
 static s8 sBssDummy3;
 static s8 sBssDummy4;
 static s8 sBssDummy5;
-static s8 sBssDummy6;
 #endif
 
 void CollisionCheck_ATTrisVsACTris(PlayState* play, CollisionCheckContext* colChkCtx, Collider* atCol,
