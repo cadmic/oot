@@ -17,6 +17,7 @@ import multiprocessing.pool
 from pathlib import Path
 import re
 import sys
+import time
 from typing import BinaryIO
 
 from ido_block_numbers import (
@@ -160,10 +161,19 @@ def get_file_pointers_worker_init(version: str):
     build = open(f"build/{version}/oot-{version}.z64", "rb")
 
 
+@dataclass
+class WrappedSystemExitException(Exception):
+    exc: SystemExit
+    stderr: str | None
+
+
 def get_file_pointers_worker(file: mapfile_parser.mapfile.File) -> list[Pointer]:
     assert base is not None
     assert build is not None
-    return get_file_pointers(file, base, build)
+    try:
+        return get_file_pointers(file, base, build)
+    except SystemExit as e:
+        raise WrappedSystemExitException(e, None)
 
 
 # Compare pointers between the baserom and the current build, returning a dictionary from
@@ -208,9 +218,14 @@ def compare_pointers(version: str) -> dict[Path, list[Pointer]]:
         num_files = len(all_file_pointers)
         while all_file_pointers:
             remaining_file_pointers = list[multiprocessing.pool.AsyncResult]()
+            got_some_results = False
             for file_pointers_async in all_file_pointers:
                 if file_pointers_async.ready():
-                    file_pointers = file_pointers_async.get()
+                    got_some_results = True
+                    try:
+                        file_pointers = file_pointers_async.get()
+                    except WrappedSystemExitException as e:
+                        sys.exit(e.exc.code)
                     pointers.extend(file_pointers)
                 else:
                     remaining_file_pointers.append(file_pointers_async)
@@ -221,6 +236,9 @@ def compare_pointers(version: str) -> dict[Path, list[Pointer]]:
                 end="\r",
                 file=sys.stderr,
             )
+            if not got_some_results and all_file_pointers:
+                # wait a bit if nothing happened this iteration
+                time.sleep(0.010)
     print("", file=sys.stderr)
 
     # Remove duplicates and sort by baserom address
@@ -391,6 +409,7 @@ def determine_base_bss_ordering(
                 fail(
                     f"Error: BSS symbol {new_symbol.name} found at multiple offsets in baserom "
                     f"(0x{existing_offset:04X} and 0x{new_offset:04X})"
+                    " (is build/ up-to-date with the source?)"
                 )
         else:
             found_symbols[new_symbol.name] = BssSymbol(
@@ -552,8 +571,10 @@ def process_file_worker(*x):
     try:
         sys.stderr = fake_stderr
         process_file(*x)
-    except Exception as e:
-        print(fake_stderr.getvalue(), end="", file=sys.stderr)
+    except SystemExit as e:
+        raise WrappedSystemExitException(e, fake_stderr.getvalue())
+    except:
+        print(fake_stderr.getvalue(), end="", file=ini_stderr)
         raise
     finally:
         sys.stderr = ini_stderr
@@ -636,13 +657,24 @@ def main():
 
         while all_stderr_async:
             remaining_stderr_async = list[multiprocessing.pool.AsyncResult]()
+            got_some_results = False
             for stderr_async in all_stderr_async:
                 if stderr_async.ready():
+                    got_some_results = True
                     print("", file=sys.stderr)
-                    print(stderr_async.get(), end="", file=sys.stderr)
+                    try:
+                        stderr_text = stderr_async.get()
+                    except WrappedSystemExitException as e:
+                        stderr_text = e.stderr
+                        sys.exit(e.exc.code)
+                    finally:
+                        print(stderr_text, end="", file=sys.stderr)
                 else:
                     remaining_stderr_async.append(stderr_async)
             all_stderr_async = remaining_stderr_async
+            if not got_some_results and all_stderr_async:
+                # wait a bit if nothing happened this iteration
+                time.sleep(0.010)
 
 
 if __name__ == "__main__":
