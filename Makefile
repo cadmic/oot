@@ -10,8 +10,6 @@ SHELL = /bin/bash
 COMPARE := 1
 # If NON_MATCHING is 1, define the NON_MATCHING C flag when building
 NON_MATCHING := 0
-# If ORIG_COMPILER is 1, compile with QEMU_IRIX and the original compiler
-ORIG_COMPILER := 0
 # If COMPILER is "gcc", compile with GCC instead of IDO.
 COMPILER := ido
 # Target game version. Currently the following versions are supported:
@@ -29,13 +27,6 @@ RUN_CC_CHECK := 1
 CFLAGS ?=
 CPPFLAGS ?=
 CPP_DEFINES ?=
-
-# ORIG_COMPILER cannot be combined with a non-IDO compiler. Check for this case and error out if found.
-ifneq ($(COMPILER),ido)
-  ifeq ($(ORIG_COMPILER),1)
-    $(error ORIG_COMPILER can only be used with the IDO compiler. Please check your Makefile variables and try again)
-  endif
-endif
 
 ifeq ($(COMPILER),gcc)
   CPP_DEFINES += -DCOMPILER_GCC
@@ -139,18 +130,6 @@ else
 $(error Unsupported compiler. Please use either ido or gcc as the COMPILER variable.)
 endif
 
-# if ORIG_COMPILER is 1, check that either QEMU_IRIX is set or qemu-irix package installed
-ifeq ($(ORIG_COMPILER),1)
-  ifndef QEMU_IRIX
-    QEMU_IRIX := $(shell which qemu-irix)
-    ifeq (, $(QEMU_IRIX))
-      $(error Please install qemu-irix package or set QEMU_IRIX env var to the full qemu-irix binary path)
-    endif
-  endif
-  CC        = $(QEMU_IRIX) -L tools/ido7.1_compiler tools/ido7.1_compiler/usr/bin/cc
-  CC_OLD    = $(QEMU_IRIX) -L tools/ido5.3_compiler tools/ido5.3_compiler/usr/bin/cc
-endif
-
 AS      := $(MIPS_BINUTILS_PREFIX)as
 LD      := $(MIPS_BINUTILS_PREFIX)ld
 OBJCOPY := $(MIPS_BINUTILS_PREFIX)objcopy
@@ -211,10 +190,7 @@ ifeq ($(COMPILER),ido)
   # Have CC_CHECK pretend to be a MIPS compiler
   MIPS_BUILTIN_DEFS := -D_MIPS_ISA_MIPS2=2 -D_MIPS_ISA=_MIPS_ISA_MIPS2 -D_ABIO32=1 -D_MIPS_SIM=_ABIO32 -D_MIPS_SZINT=32 -D_MIPS_SZLONG=32 -D_MIPS_SZPTR=32
   CC_CHECK  = gcc -fno-builtin -fsyntax-only -funsigned-char -std=gnu90 -D_LANGUAGE_C $(CPP_DEFINES) $(MIPS_BUILTIN_DEFS) $(GBI_DEFINES) $(INC) $(CHECK_WARNINGS)
-  ifeq ($(shell getconf LONG_BIT), 32)
-    # Work around memory allocation bug in QEMU
-    export QEMU_GUEST_BASE := 1
-  else
+  ifneq ($(shell getconf LONG_BIT),32)
     # Ensure that gcc (warning check) treats the code as 32-bit
     CC_CHECK += -m32
   endif
