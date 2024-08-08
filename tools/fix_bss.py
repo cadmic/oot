@@ -506,27 +506,37 @@ def update_source_file(version_to_update: str, file: Path, new_pragmas: list[Pra
         lines = f.readlines()
 
     for pragma in new_pragmas:
-        line = lines[pragma.line_number - 1]
-        if not line.startswith("#pragma increment_block_number "):
+        i = pragma.line_number - 1
+        if not lines[i].startswith("#pragma increment_block_number "):
             raise FixBssException(
                 f"Expected #pragma increment_block_number on line {pragma.line_number}"
             )
 
-        # Grab pragma argument and remove quotes
-        arg = line.strip()[len("#pragma increment_block_number ") + 1 : -1]
+        # list the pragma line and any continuation line
+        pragma_lines = [lines[i]]
+        while pragma_lines[-1].endswith("\\\n"):
+            i += 1
+            pragma_lines.append(lines[i])
 
-        amounts_by_version = {}
-        for part in arg.split():
-            version, amount_str = part.split(":")
-            amounts_by_version[version] = int(amount_str)
-
-        amounts_by_version[version_to_update] = pragma.amount
-        new_arg = " ".join(
-            f"{version}:{amount}" for version, amount in sorted(amounts_by_version.items())
-        )
-        new_line = f'#pragma increment_block_number "{new_arg}"\n'
-
-        lines[pragma.line_number - 1] = new_line
+        for i, s in enumerate(pragma_lines, pragma.line_number - 1):
+            s_updated, n = re.subn(
+                rf"{version_to_update}:(\d+)\b",
+                f"{version_to_update}:{pragma.amount}",
+                s,
+            )
+            if n != 0:
+                # version found and amount updated, set the modified line
+                lines[i] = s_updated
+                break
+        else:
+            # the version is not in the existing pragma
+            i = pragma.line_number - 1
+            # add version:amount between the pragma prefix and the other arguments
+            lines[i] = (
+                "#pragma increment_block_number "
+                + f'"{version_to_update}:{pragma.amount}" '
+                + lines[i][len("#pragma increment_block_number ") :]
+            )
 
     with open(file, "w", encoding="utf-8") as f:
         f.writelines(lines)
