@@ -22,7 +22,7 @@ u32 EffectSsEnFire_Init(PlayState* play, u32 index, EffectSs* this, void* initPa
 void EffectSsEnFire_Draw(PlayState* play, u32 index, EffectSs* this);
 void EffectSsEnFire_Update(PlayState* play, u32 index, EffectSs* this);
 
-EffectSsInit Effect_Ss_En_Fire_InitVars = {
+EffectSsProfile Effect_Ss_En_Fire_Profile = {
     EFFECT_SS_EN_FIRE,
     EffectSsEnFire_Init,
 };
@@ -78,7 +78,7 @@ void EffectSsEnFire_Draw(PlayState* play, u32 index, EffectSs* this) {
 
     scale = Math_SinS(this->life * 0x333) * (this->rScale * 0.00005f);
     Matrix_Scale(scale, scale, scale, MTXMODE_APPLY);
-    gSPMatrix(POLY_XLU_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_eff_en_fire.c", 180),
+    gSPMatrix(POLY_XLU_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_eff_en_fire.c", 180),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
 
     redGreen = this->life - 5;
@@ -103,12 +103,12 @@ void EffectSsEnFire_Draw(PlayState* play, u32 index, EffectSs* this) {
     CLOSE_DISPS(gfxCtx, "../z_eff_en_fire.c", 213);
 }
 
-typedef struct {
+typedef struct FireActorF {
     /* 0x000 */ Actor actor;
     /* 0x14C */ Vec3f firePos[10];
 } FireActorF;
 
-typedef struct {
+typedef struct FireActorS {
     /* 0x000 */ Actor actor;
     /* 0x14C */ Vec3s firePos[10];
 } FireActorS;

@@ -4,65 +4,105 @@ pipeline {
     }
 
     stages {
-        stage('Check for unused asm') {
-            steps {
-                sh './tools/find_unused_asm.sh'
-            }
-        }
-        stage('Setup') {
-            steps {
-                sh 'cp /usr/local/etc/roms/baserom_oot.z64 baserom_original.z64'
-                sh 'make -j setup'
-            }
-        }
-        stage('Build (qemu-irix)') {
+        stage('Check formatting (full)') {
             when {
-                branch 'master'
+                branch 'main'
             }
             steps {
-                sh 'ORIG_COMPILER=1 make -j'
+                echo 'Checking formatting on all files...'
+                sh 'python3 tools/check_format.py'
             }
         }
-        stage('Build') {
+        stage('Check formatting (modified)') {
             when {
                 not {
-                    branch 'master'
+                    branch 'main'
                 }
             }
             steps {
-                sh 'make -j'
+                echo 'Checking formatting on modified files...'
+                sh 'python3 tools/check_format.py --verbose --compare-to origin/main'
             }
         }
-        stage('Report Progress') {
-            when {
-                branch 'master'
-            }
+        // The ROMs are built in an order that maximizes compiler flags coverage in a "fail fast" approach.
+        // Specifically we start with a retail ROM for BSS ordering, and make sure we cover all of
+        // NTSC/PAL/MQ/DEBUG as quickly as possible.
+        stage('Build gc-jp') {
             steps {
-                sh 'mkdir reports'
-                sh 'python3 progress.py csv >> reports/progress-oot-nonmatching.csv'
-                sh 'python3 progress.py csv -m >> reports/progress-oot-matching.csv'
-                sh 'python3 progress.py shield-json > reports/progress-oot-shield.json'
-                stash includes: 'reports/*', name: 'reports'
+                sh 'ln -s /usr/local/etc/roms/oot-gc-jp.z64 baseroms/gc-jp/baserom.z64'
+                sh 'make -j setup VERSION=gc-jp'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-jp'
+                sh 'make clean assetclean VERSION=gc-jp'
             }
         }
-        stage('Update Progress') {
-            when {
-                branch 'master'
-            }
-            agent {
-                label 'zeldaret_website'
-            }
+        stage('Build gc-eu-mq') {
             steps {
-                unstash 'reports'
-                sh 'cat reports/progress-oot-nonmatching.csv >> /var/www/zelda64.dev/assets/csv/progress-oot-nonmatching.csv'
-                sh 'cat reports/progress-oot-matching.csv >> /var/www/zelda64.dev/assets/csv/progress-oot-matching.csv'
-                sh 'cat reports/progress-oot-shield.json > /var/www/zelda64.dev/assets/csv/progress-oot-shield.json'
+                sh 'ln -s /usr/local/etc/roms/oot-gc-eu-mq.z64 baseroms/gc-eu-mq/baserom.z64'
+                sh 'make -j setup VERSION=gc-eu-mq'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-eu-mq'
+                sh 'make clean assetclean VERSION=gc-eu-mq'
+            }
+        }
+        stage('Build gc-eu-mq-dbg') {
+            steps {
+                sh 'ln -s /usr/local/etc/roms/oot-gc-eu-mq-dbg.z64 baseroms/gc-eu-mq-dbg/baserom.z64'
+                sh 'make -j setup VERSION=gc-eu-mq-dbg'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-eu-mq-dbg'
+                sh 'make clean assetclean VERSION=gc-eu-mq-dbg'
+            }
+        }
+        stage('Build gc-us') {
+            steps {
+                sh 'ln -s /usr/local/etc/roms/oot-gc-us.z64 baseroms/gc-us/baserom.z64'
+                sh 'make -j setup VERSION=gc-us'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-us'
+                sh 'make clean assetclean VERSION=gc-us'
+            }
+        }
+        stage('Build gc-jp-ce') {
+            steps {
+                sh 'ln -s /usr/local/etc/roms/oot-gc-jp-ce.z64 baseroms/gc-jp-ce/baserom.z64'
+                sh 'make -j setup VERSION=gc-jp-ce'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-jp-ce'
+                sh 'make clean assetclean VERSION=gc-jp-ce'
+            }
+        }
+        stage('Build gc-eu') {
+            steps {
+                sh 'ln -s /usr/local/etc/roms/oot-gc-eu.z64 baseroms/gc-eu/baserom.z64'
+                sh 'make -j setup VERSION=gc-eu'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-eu'
+                sh 'make clean assetclean VERSION=gc-eu'
+            }
+        }
+        stage('Build gc-jp-mq') {
+            steps {
+                sh 'ln -s /usr/local/etc/roms/oot-gc-jp-mq.z64 baseroms/gc-jp-mq/baserom.z64'
+                sh 'make -j setup VERSION=gc-jp-mq'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-jp-mq'
+                sh 'make clean assetclean VERSION=gc-jp-mq'
+            }
+        }
+        stage('Build gc-us-mq') {
+            steps {
+                sh 'ln -s /usr/local/etc/roms/oot-gc-us-mq.z64 baseroms/gc-us-mq/baserom.z64'
+                sh 'make -j setup VERSION=gc-us-mq'
+                sh 'make -j RUN_CC_CHECK=0 VERSION=gc-us-mq'
+                sh 'make clean assetclean VERSION=gc-us-mq'
             }
         }
     }
     post {
         always {
-            cleanWs()
+            echo "Finished, deleting directory."
+            deleteDir()
+        }
+        cleanup {
+            echo "Clean up in post."
+            cleanWs(cleanWhenNotBuilt: false,
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true)
         }
     }
 }

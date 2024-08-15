@@ -28,19 +28,19 @@ void func_80BA24F8(ObjWarp2block* this, PlayState* play);
 void func_80BA2600(ObjWarp2block* this);
 void func_80BA2610(ObjWarp2block* this, PlayState* play);
 
-ActorInit Obj_Warp2block_InitVars = {
-    ACTOR_OBJ_WARP2BLOCK,
-    ACTORCAT_ITEMACTION,
-    FLAGS,
-    OBJECT_TIMEBLOCK,
-    sizeof(ObjWarp2block),
-    (ActorFunc)ObjWarp2block_Init,
-    (ActorFunc)ObjWarp2block_Destroy,
-    (ActorFunc)ObjWarp2block_Update,
-    (ActorFunc)ObjWarp2block_Draw,
+ActorProfile Obj_Warp2block_Profile = {
+    /**/ ACTOR_OBJ_WARP2BLOCK,
+    /**/ ACTORCAT_ITEMACTION,
+    /**/ FLAGS,
+    /**/ OBJECT_TIMEBLOCK,
+    /**/ sizeof(ObjWarp2block),
+    /**/ ObjWarp2block_Init,
+    /**/ ObjWarp2block_Destroy,
+    /**/ ObjWarp2block_Update,
+    /**/ ObjWarp2block_Draw,
 };
 
-typedef struct {
+typedef struct Warp2BlockSpawnData {
     /* 0x00 */ f32 scale;
     /* 0x04 */ f32 focus;
     /* 0x08 */ s16 params;
@@ -66,47 +66,45 @@ static Color_RGB8 sColors[] = {
 
 void ObjWarp2block_Spawn(ObjWarp2block* this, PlayState* play) {
     Actor_Spawn(&play->actorCtx, play, ACTOR_DEMO_EFFECT, this->dyna.actor.world.pos.x, this->dyna.actor.world.pos.y,
-                this->dyna.actor.world.pos.z, 0, 0, 0, sSpawnData[(this->dyna.actor.params >> 8) & 1].params);
+                this->dyna.actor.world.pos.z, 0, 0, 0, sSpawnData[PARAMS_GET_U(this->dyna.actor.params, 8, 1)].params);
 
     Actor_Spawn(&play->actorCtx, play, ACTOR_DEMO_EFFECT, this->dyna.actor.child->world.pos.x,
                 this->dyna.actor.child->world.pos.y, this->dyna.actor.child->world.pos.z, 0, 0, 0,
-                sSpawnData[(this->dyna.actor.child->params >> 8) & 1].params);
+                sSpawnData[PARAMS_GET_U(this->dyna.actor.child->params, 8, 1)].params);
 }
 
 s32 func_80BA1ECC(ObjWarp2block* this, PlayState* play) {
-    s32 pad;
-    Actor* temp_a3;
-    Player* player;
-    Vec3f sp20;
-    f32 temp_f2;
-
     if (DynaPolyActor_IsPlayerAbove(&this->dyna)) {
         return 0;
-    }
-
-    temp_a3 = this->dyna.actor.child;
-    player = GET_PLAYER(play);
-    if ((this->dyna.actor.xzDistToPlayer <= sDistances[(((this->dyna.actor.params >> 0xB) & 7))]) ||
-        (temp_a3->xzDistToPlayer <= sDistances[(((temp_a3->params >> 0xB) & 7))])) {
-
-        func_8002DBD0(&this->dyna.actor, &sp20, &player->actor.world.pos);
-        temp_f2 = (this->dyna.actor.scale.x * 50.0f) + 6.0f;
-
-        if (!(temp_f2 < fabsf(sp20.x)) && !(temp_f2 < fabsf(sp20.z))) {
-            return 0;
-        }
-
-        func_8002DBD0(temp_a3, &sp20, &player->actor.world.pos);
-        temp_f2 = (temp_a3->scale.x * 50.0f) + 6.0f;
-
-        if (!(temp_f2 < fabsf(sp20.x)) && !(temp_f2 < fabsf(sp20.z))) {
-            return 0;
-        }
     } else {
-        return 0;
-    }
+        s32 pad;
+        Actor* temp_a3 = this->dyna.actor.child;
+        Player* player = GET_PLAYER(play);
+        Vec3f sp20;
+        f32 temp_f2;
 
-    return 1;
+        if ((this->dyna.actor.xzDistToPlayer <= sDistances[PARAMS_GET_U(this->dyna.actor.params, 11, 3)]) ||
+            (temp_a3->xzDistToPlayer <= sDistances[PARAMS_GET_U(temp_a3->params, 11, 3)])) {
+
+            Actor_WorldToActorCoords(&this->dyna.actor, &sp20, &player->actor.world.pos);
+            temp_f2 = (this->dyna.actor.scale.x * 50.0f) + 6.0f;
+
+            if (!(temp_f2 < fabsf(sp20.x)) && !(temp_f2 < fabsf(sp20.z))) {
+                return 0;
+            }
+
+            Actor_WorldToActorCoords(temp_a3, &sp20, &player->actor.world.pos);
+            temp_f2 = (temp_a3->scale.x * 50.0f) + 6.0f;
+
+            if (!(temp_f2 < fabsf(sp20.x)) && !(temp_f2 < fabsf(sp20.z))) {
+                return 0;
+            }
+        } else {
+            return 0;
+        }
+
+        return 1;
+    }
 }
 
 void ObjWarp2block_SwapWithChild(ObjWarp2block* this, PlayState* play) {
@@ -142,14 +140,15 @@ void ObjWarp2block_SwapWithChild(ObjWarp2block* this, PlayState* play) {
     this->dyna.actor.focus.rot = this->dyna.actor.child->focus.rot;
     this->dyna.actor.child->focus.rot = tempRot;
 
-    temp = this->dyna.actor.params & 0x7FFF;
-    this->dyna.actor.params = (this->dyna.actor.params & 0x8000) | (this->dyna.actor.child->params & 0x7FFF);
-    this->dyna.actor.child->params = (this->dyna.actor.child->params & 0x8000) | (temp & 0x7FFF);
+    temp = PARAMS_GET_U(this->dyna.actor.params, 0, 15);
+    this->dyna.actor.params =
+        PARAMS_GET_NOSHIFT(this->dyna.actor.params, 15, 1) | PARAMS_GET_U(this->dyna.actor.child->params, 0, 15);
+    this->dyna.actor.child->params = PARAMS_GET_NOSHIFT(this->dyna.actor.child->params, 15, 1) | (temp & 0x7FFF);
 
     if (Math3D_Vec3fDistSq(&this->dyna.actor.world.pos, &this->dyna.actor.home.pos) < 0.01f) {
-        Flags_UnsetSwitch(play, this->dyna.actor.params & 0x3F);
+        Flags_UnsetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6));
     } else {
-        Flags_SetSwitch(play, this->dyna.actor.params & 0x3F);
+        Flags_SetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6));
     }
 }
 
@@ -158,7 +157,7 @@ s32 func_80BA2218(ObjWarp2block* this, PlayState* play) {
 
     if (func_80BA1ECC(this, play)) {
         if (player->stateFlags2 & PLAYER_STATE2_24) {
-            func_8010BD58(play, OCARINA_ACTION_FREE_PLAY);
+            Message_StartOcarina(play, OCARINA_ACTION_FREE_PLAY);
             this->func_168 = func_80BA228C;
         } else {
             player->stateFlags2 |= PLAYER_STATE2_23;
@@ -203,13 +202,13 @@ void ObjWarp2block_Init(Actor* thisx, PlayState* play2) {
     this->dyna.actor.world.rot.z = this->dyna.actor.shape.rot.z = 0;
     Actor_ProcessInitChain(&this->dyna.actor, sInitChain);
 
-    Actor_SetScale(&this->dyna.actor, sSpawnData[(this->dyna.actor.params >> 8) & 1].scale);
+    Actor_SetScale(&this->dyna.actor, sSpawnData[PARAMS_GET_U(this->dyna.actor.params, 8, 1)].scale);
     this->func_168 = func_80BA2218;
-    Actor_SetFocus(&this->dyna.actor, sSpawnData[(this->dyna.actor.params >> 8) & 1].focus);
+    Actor_SetFocus(&this->dyna.actor, sSpawnData[PARAMS_GET_U(this->dyna.actor.params, 8, 1)].focus);
 
-    if ((this->dyna.actor.params >> 0xF) & 1) {
+    if (PARAMS_GET_U(this->dyna.actor.params, 15, 1)) {
         func_80BA24E8(this);
-        if (Flags_GetSwitch(play, this->dyna.actor.params & 0x3F)) {
+        if (Flags_GetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6))) {
             this->dyna.actor.draw = NULL;
         }
         DynaPolyActor_Init(&this->dyna, 0);
@@ -219,13 +218,14 @@ void ObjWarp2block_Init(Actor* thisx, PlayState* play2) {
         ObjWarp2block_SetInactive(this);
     }
 
-    osSyncPrintf("時のブロック(ワープ２) (<arg> %04xH <type> color:%d range:%d)\n", this->dyna.actor.params & 0xFFFF,
-                 this->dyna.actor.home.rot.z & 7, (this->dyna.actor.params >> 0xB) & 7);
+    PRINTF("時のブロック(ワープ２) (<arg> %04xH <type> color:%d range:%d)\n",
+           PARAMS_GET_U(this->dyna.actor.params, 0, 16), this->dyna.actor.home.rot.z & 7,
+           PARAMS_GET_U(this->dyna.actor.params, 11, 3));
 }
 
 void ObjWarp2block_Destroy(Actor* thisx, PlayState* play) {
     ObjWarp2block* this = (ObjWarp2block*)thisx;
-    if ((this->dyna.actor.params >> 0xF) & 1) {
+    if (PARAMS_GET_U(this->dyna.actor.params, 15, 1)) {
         DynaPoly_DeleteBgActor(play, &play->colCtx.dyna, this->dyna.bgId);
     }
 }
@@ -246,10 +246,10 @@ void func_80BA24F8(ObjWarp2block* this, PlayState* play) {
     Actor* current = play->actorCtx.actorLists[ACTORCAT_ITEMACTION].head;
 
     while (current != NULL) {
-        if (current->id == ACTOR_OBJ_WARP2BLOCK && !((current->params >> 0xF) & 1) &&
-            ((this->dyna.actor.params & 0x3F) == (current->params & 0x3F))) {
+        if (current->id == ACTOR_OBJ_WARP2BLOCK && !PARAMS_GET_U(current->params, 15, 1) &&
+            (PARAMS_GET_U(this->dyna.actor.params, 0, 6) == PARAMS_GET_U(current->params, 0, 6))) {
             this->dyna.actor.child = current;
-            if (Flags_GetSwitch(play, this->dyna.actor.params & 0x3F)) {
+            if (Flags_GetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6))) {
                 ObjWarp2block_SwapWithChild(this, play);
                 this->dyna.actor.draw = ObjWarp2block_Draw;
             }
@@ -262,9 +262,9 @@ void func_80BA24F8(ObjWarp2block* this, PlayState* play) {
 
     this->unk_174++;
     if (this->unk_174 > 60) {
-        osSyncPrintf(VT_COL(RED, WHITE));
-        osSyncPrintf("Error : 時のブロック(ワープ２)が対でセットされていません(%s %d)\n", "../z_obj_warp2block.c", 505);
-        osSyncPrintf(VT_RST);
+        PRINTF(VT_COL(RED, WHITE));
+        PRINTF("Error : 時のブロック(ワープ２)が対でセットされていません(%s %d)\n", "../z_obj_warp2block.c", 505);
+        PRINTF(VT_RST);
         Actor_Kill(&this->dyna.actor);
     }
 }
@@ -288,7 +288,7 @@ void func_80BA2610(ObjWarp2block* this, PlayState* play) {
         }
     }
     if (this->unk_16C == 0x32) {
-        func_80078884(NA_SE_SY_TRE_BOX_APPEAR);
+        Sfx_PlaySfxCentered(NA_SE_SY_TRE_BOX_APPEAR);
     }
 }
 
@@ -309,7 +309,7 @@ void ObjWarp2block_Draw(Actor* thisx, PlayState* play) {
     OPEN_DISPS(play->state.gfxCtx, "../z_obj_warp2block.c", 584);
     Gfx_SetupDL_25Opa(play->state.gfxCtx);
 
-    gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_obj_warp2block.c", 588),
+    gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_obj_warp2block.c", 588),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, sp44->r, sp44->g, sp44->b, 255);
     gSPDisplayList(POLY_OPA_DISP++, gSongOfTimeBlockDL);

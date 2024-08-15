@@ -32,6 +32,23 @@ double round(double);
 long lroundf(float);
 long lround(double);
 
+float fabsf(float f);
+#ifdef __sgi
+#pragma intrinsic(fabsf)
+#else
+#define fabsf(f) __builtin_fabsf((float)(f))
+#endif
+
+float sqrtf(float f);
+#ifdef __sgi
+#pragma intrinsic(sqrtf)
+#endif
+
+double sqrt(double f);
+#ifdef __sgi
+#pragma intrinsic(sqrt)
+#endif
+
 extern float qNaN0x3FFFFF;
 extern float qNaN0x10000;
 extern float sNaN0x3FFFFF;

@@ -36,16 +36,4 @@ s16 coss(u16 angle);
 f32 sinf(f32 angle);
 s16 sins(u16 angle);
 
-float absf(float);
-float fabsf(float f);
-#ifndef __sgi
-#define fabsf(f) __builtin_fabsf((float)(f))
-#else
-#pragma intrinsic(fabsf)
-#endif
-float sqrtf(float f);
-#pragma intrinsic(sqrtf)
-double sqrt(double f);
-#pragma intrinsic(sqrt)
-
 #endif

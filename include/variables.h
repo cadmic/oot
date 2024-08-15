@@ -16,6 +16,7 @@ extern u32 gViConfigFeatures;
 extern f32 gViConfigXScale;
 extern f32 gViConfigYScale;
 extern OSPiHandle* gCartHandle;
+extern s32 gCurrentRegion;
 extern u8 gBuildTeam[];
 extern u8 gBuildDate[];
 extern u8 gBuildMakeOption[];
@@ -23,8 +24,8 @@ extern EffectSsOverlay gEffectSsOverlayTable[EFFECT_SS_TYPE_MAX];
 extern Gfx D_80116280[];
 extern ActorOverlay gActorOverlayTable[ACTOR_ID_MAX]; // original name: "actor_dlftbls" 801162A0
 extern s32 gMaxActorId; // original name: "MaxProfile"
-extern s32 gDbgCamEnabled;
-extern GameStateOverlay gGameStateOverlayTable[6];
+extern s32 gDebugCamEnabled;
+extern GameStateOverlay gGameStateOverlayTable[GAMESTATE_ID_MAX];
 extern u8 gWeatherMode;
 extern u8 gLightConfigAfterUnderwater;
 extern u8 gInterruptSongOfStorms;
@@ -53,7 +54,7 @@ extern u32 gGsFlagsMasks[4];
 extern u32 gGsFlagsShifts[4];
 extern void* gItemIcons[0x82];
 extern u8 gItemSlots[56];
-extern void (*gSceneCmdHandlers[SCENE_CMD_ID_MAX])(PlayState*, SceneCmd*);
+extern SceneCmdHandlerFunc gSceneCmdHandlers[SCENE_CMD_ID_MAX];
 extern s16 gLinkObjectIds[2];
 extern u32 gObjectTableSize;
 extern RomFile gObjectTable[OBJECT_ID_MAX];
@@ -66,12 +67,14 @@ extern u64 gMojiFontTex[]; // original name: "font_ff"
 extern KaleidoMgrOverlay gKaleidoMgrOverlayTable[KALEIDO_OVL_MAX];
 extern KaleidoMgrOverlay* gKaleidoMgrCurOvl;
 extern u8 gBossMarkState;
-extern void* D_8012D1F0;
+
 extern s32 gScreenWidth;
 extern s32 gScreenHeight;
 extern Mtx gMtxClear;
 extern MtxF gMtxFClear;
+#if OOT_DEBUG
 extern u32 gIsCtrlr2Valid;
+#endif
 extern s16* gWaveSamples[9];
 extern f32 gBendPitchOneOctaveFrequencies[256];
 extern f32 gBendPitchTwoSemitonesFrequencies[256];
@@ -109,13 +112,17 @@ extern u16 D_801333D0;
 extern Vec3f gSfxDefaultPos;
 extern f32 gSfxDefaultFreqAndVolScale;
 extern s8 gSfxDefaultReverb;
+#if OOT_DEBUG
 extern u8 D_801333F0;
 extern u8 gAudioSfxSwapOff;
 extern u8 D_801333F8;
+#endif
 extern u8 gSeqCmdWritePos;
 extern u8 gSeqCmdReadPos;
 extern u8 gStartSeqDisabled;
+#if OOT_DEBUG
 extern u8 gAudioDebugPrintSeqCmd;
+#endif
 extern u8 gSoundModeList[];
 extern u8 gAudioSpecId;
 extern u8 D_80133418;
@@ -123,8 +130,7 @@ extern AudioSpec gAudioSpecs[18];
 extern s32 gOverlayLogSeverity;
 extern s32 gSystemArenaLogSeverity;
 
-extern const s16 D_8014A6C0[];
-#define gTatumsPerBeat (D_8014A6C0[1])
+extern const TempoData gTempoData;
 extern const AudioHeapInitSizes gAudioHeapInitSizes;
 extern s16 gOcarinaSongItemMap[];
 extern u8 gSoundFontTable[];
@@ -133,25 +139,36 @@ extern u8 gSequenceTable[];
 extern u8 gSampleBankTable[];
 
 extern SaveContext gSaveContext;
-extern RegEditor* gRegEditor;
-extern u16 D_8015FCC0;
-extern u16 D_8015FCC2;
-extern u16 D_8015FCC4;
-extern u8 D_8015FCC8;
+
+extern u8 gUseCutsceneCam;
+extern u16 D_8015FCCC;
+extern char D_8015FCD0[20];
+extern u8 D_8015FCE4;
+extern u16 gCamAtSplinePointsAppliedFrame;
+extern u16 gCamEyePointAppliedFrame;
+extern u16 gCamAtPointAppliedFrame;
+
+extern LightningStrike gLightningStrike;
+// TODO: These variables are here for BSS ordering but ideally they should not
+// be extern. This could be fixed by putting more stuff (e.g. struct definitions)
+// between gLightningStrike and gCustomLensFlareOn.
+extern s16 sLightningFlashAlpha;
+extern s16 sSunDepthTestX;
+extern s16 sSunDepthTestY;
 extern u8 gCustomLensFlareOn;
 extern Vec3f gCustomLensFlarePos;
 extern s16 gLensFlareScale;
 extern f32 gLensFlareColorIntensity;
 extern s16 gLensFlareGlareStrength;
-extern LightningStrike gLightningStrike;
 extern MapData* gMapData;
 extern f32 gBossMarkScale;
+extern u32 D_8016139C;
 extern PauseMapMarksData* gLoadedPauseMarkDataTable;
-extern s32 gTrnsnUnkState;
-extern Color_RGBA8_u32 D_801614B0;
+
 extern PreNmiBuff* gAppNmiBufferPtr;
-extern Scheduler gScheduler;
 extern uintptr_t gSegments[NUM_SEGMENTS];
+extern Scheduler gScheduler;
+extern PadMgr gPadMgr;
 extern volatile OSTime gAudioThreadUpdateTimeTotalPerGfxTask;
 extern volatile OSTime gGfxTaskSentToNextReadyMinusAudioThreadUpdateTime;
 extern volatile OSTime gRSPAudioTimeTotal;
@@ -163,6 +180,7 @@ extern volatile OSTime gAudioThreadUpdateTimeAcc;
 extern volatile OSTime gRSPAudioTimeAcc;
 extern volatile OSTime gRSPGfxTimeAcc;
 extern volatile OSTime gRSPOtherTimeAcc;
+extern volatile OSTime D_8016A578;
 extern volatile OSTime gRDPTimeAcc;
 
 extern SfxBankEntry D_8016BAD0[9];
@@ -179,7 +197,7 @@ extern u16 gAudioSfxSwapTarget[10];
 extern u8 gAudioSfxSwapMode[10];
 extern ActiveSequence gActiveSeqs[4];
 extern AudioContext gAudioCtx;
-extern void(*D_801755D0)(void);
+extern AudioCustomUpdateFunction gAudioCustomUpdateFunction;
 
 extern u32 __osMalloc_FreeBlockTest_Enable;
 extern Arena gSystemArena;
@@ -190,6 +208,5 @@ extern u64 gGfxSPTaskYieldBuffer[OS_YIELD_DATA_SIZE / sizeof(u64)]; // 0xC00 byt
 extern u64 gGfxSPTaskStack[SP_DRAM_STACK_SIZE64]; // 0x400 bytes
 extern GfxPool gGfxPools[2]; // 0x24820 bytes
 extern u8 gAudioHeap[0x38000]; // 0x38000 bytes
-extern u8 gSystemHeap[];
 
 #endif

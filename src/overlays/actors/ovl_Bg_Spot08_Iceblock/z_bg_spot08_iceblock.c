@@ -22,16 +22,16 @@ void BgSpot08Iceblock_SetupFloatOrbitingTwins(BgSpot08Iceblock* this);
 void BgSpot08Iceblock_FloatOrbitingTwins(BgSpot08Iceblock* this, PlayState* play);
 void BgSpot08Iceblock_SetupNoAction(BgSpot08Iceblock* this);
 
-ActorInit Bg_Spot08_Iceblock_InitVars = {
-    ACTOR_BG_SPOT08_ICEBLOCK,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_SPOT08_OBJ,
-    sizeof(BgSpot08Iceblock),
-    (ActorFunc)BgSpot08Iceblock_Init,
-    (ActorFunc)BgSpot08Iceblock_Destroy,
-    (ActorFunc)BgSpot08Iceblock_Update,
-    (ActorFunc)BgSpot08Iceblock_Draw,
+ActorProfile Bg_Spot08_Iceblock_Profile = {
+    /**/ ACTOR_BG_SPOT08_ICEBLOCK,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_SPOT08_OBJ,
+    /**/ sizeof(BgSpot08Iceblock),
+    /**/ BgSpot08Iceblock_Init,
+    /**/ BgSpot08Iceblock_Destroy,
+    /**/ BgSpot08Iceblock_Update,
+    /**/ BgSpot08Iceblock_Draw,
 };
 
 void BgSpot08Iceblock_SetupAction(BgSpot08Iceblock* this, BgSpot08IceblockActionFunc actionFunc) {
@@ -41,28 +41,32 @@ void BgSpot08Iceblock_SetupAction(BgSpot08Iceblock* this, BgSpot08IceblockAction
 void BgSpot08Iceblock_InitDynaPoly(BgSpot08Iceblock* this, PlayState* play, CollisionHeader* collision, s32 flags) {
     s32 pad;
     CollisionHeader* colHeader = NULL;
-    s32 pad2;
 
     DynaPolyActor_Init(&this->dyna, flags);
     CollisionHeader_GetVirtual(collision, &colHeader);
     this->dyna.bgId = DynaPoly_SetBgActor(play, &play->colCtx.dyna, &this->dyna.actor, colHeader);
+
+#if OOT_DEBUG
     if (this->dyna.bgId == BG_ACTOR_MAX) {
+        s32 pad2;
+
         // "Warning: move BG registration failed"
-        osSyncPrintf("Warning : move BG 登録失敗(%s %d)(name %d)(arg_data 0x%04x)\n", "../z_bg_spot08_iceblock.c", 0xD9,
-                     this->dyna.actor.id, this->dyna.actor.params);
+        PRINTF("Warning : move BG 登録失敗(%s %d)(name %d)(arg_data 0x%04x)\n", "../z_bg_spot08_iceblock.c", 0xD9,
+               this->dyna.actor.id, this->dyna.actor.params);
     }
+#endif
 }
 
 // Sets params to 0x10 (medium, nonrotating) if not in the cases listed.
 void BgSpot08Iceblock_CheckParams(BgSpot08Iceblock* this) {
-    switch (this->dyna.actor.params & 0xFF) {
+    switch (PARAMS_GET_U(this->dyna.actor.params, 0, 8)) {
         case 0xFF:
             this->dyna.actor.params = 0x10;
             break;
         default:
             // "Error: arg_data setting error"
-            osSyncPrintf("Error : arg_data 設定ミスです。(%s %d)(arg_data 0x%04x)\n", "../z_bg_spot08_iceblock.c", 0xF6,
-                         this->dyna.actor.params);
+            PRINTF("Error : arg_data 設定ミスです。(%s %d)(arg_data 0x%04x)\n", "../z_bg_spot08_iceblock.c", 0xF6,
+                   this->dyna.actor.params);
             this->dyna.actor.params = 0x10;
             break;
         case 1:
@@ -86,7 +90,7 @@ void BgSpot08Iceblock_SinkUnderPlayer(BgSpot08Iceblock* this) {
     f32 target;
     f32 step;
 
-    switch (this->dyna.actor.params & 0xF0) {
+    switch (PARAMS_GET_NOSHIFT(this->dyna.actor.params, 4, 4)) {
         case 0:
             step = 0.15f;
             break;
@@ -173,7 +177,7 @@ void BgSpot08Iceblock_Roll(BgSpot08Iceblock* this, PlayState* play) {
     s32 pad;
     Player* player = GET_PLAYER(play);
 
-    switch (this->dyna.actor.params & 0xFF) {
+    switch (PARAMS_GET_U(this->dyna.actor.params, 0, 8)) {
         case 0x11: // Medium nonrotating
             rollDataIndex = 0;
             break;
@@ -258,7 +262,7 @@ void BgSpot08Iceblock_SpawnTwinFloe(BgSpot08Iceblock* this, PlayState* play) {
     sin = Math_SinS(this->dyna.actor.home.rot.y) * 100.0f;
     cos = Math_CosS(this->dyna.actor.home.rot.y) * 100.0f;
 
-    if (!(this->dyna.actor.params & 0x100)) {
+    if (!PARAMS_GET_NOSHIFT(this->dyna.actor.params, 8, 1)) {
         Actor_SpawnAsChild(&play->actorCtx, &this->dyna.actor, play, ACTOR_BG_SPOT08_ICEBLOCK,
                            this->dyna.actor.home.pos.x, this->dyna.actor.home.pos.y, this->dyna.actor.home.pos.z,
                            this->dyna.actor.home.rot.x, this->dyna.actor.home.rot.y, this->dyna.actor.home.rot.z,
@@ -284,10 +288,10 @@ void BgSpot08Iceblock_Init(Actor* thisx, PlayState* play) {
     CollisionHeader* colHeader;
 
     // "spot08 ice floe"
-    osSyncPrintf("(spot08 流氷)(arg_data 0x%04x)\n", this->dyna.actor.params);
+    PRINTF("(spot08 流氷)(arg_data 0x%04x)\n", this->dyna.actor.params);
     BgSpot08Iceblock_CheckParams(this);
 
-    switch (this->dyna.actor.params & 0x200) {
+    switch (PARAMS_GET_NOSHIFT(this->dyna.actor.params, 9, 1)) {
         case 0:
             colHeader = &gZorasFountainIcebergCol;
             break;
@@ -296,7 +300,7 @@ void BgSpot08Iceblock_Init(Actor* thisx, PlayState* play) {
             break;
     }
 
-    switch (this->dyna.actor.params & 0xF) {
+    switch (PARAMS_GET_U(this->dyna.actor.params, 0, 4)) {
         case 2:
         case 3:
             BgSpot08Iceblock_InitDynaPoly(this, play, colHeader, DYNA_TRANSFORM_POS | DYNA_TRANSFORM_ROT_Y);
@@ -313,7 +317,7 @@ void BgSpot08Iceblock_Init(Actor* thisx, PlayState* play) {
 
     Actor_ProcessInitChain(&this->dyna.actor, sInitChain);
 
-    switch (this->dyna.actor.params & 0xF0) {
+    switch (PARAMS_GET_NOSHIFT(this->dyna.actor.params, 4, 4)) {
         case 0:
             Actor_SetScale(&this->dyna.actor, 0.2f);
             break;
@@ -330,7 +334,7 @@ void BgSpot08Iceblock_Init(Actor* thisx, PlayState* play) {
     this->surfaceNormal.y = 1.0f;
     this->rotationAxis.x = 1.0f;
 
-    switch (this->dyna.actor.params & 0xF) {
+    switch (PARAMS_GET_U(this->dyna.actor.params, 0, 4)) {
         case 0:
         case 1:
             BgSpot08Iceblock_SetupFloatNonrotating(this);
@@ -373,7 +377,7 @@ void BgSpot08Iceblock_FloatRotating(BgSpot08Iceblock* this, PlayState* play) {
     BgSpot08Iceblock_Bobbing(this);
     BgSpot08Iceblock_SinkUnderPlayer(this);
     BgSpot08Iceblock_SetWaterline(this);
-    this->dyna.actor.world.rot.y = this->dyna.actor.world.rot.y + 0x190;
+    this->dyna.actor.world.rot.y += 0x190;
     this->dyna.actor.shape.rot.y = this->dyna.actor.world.rot.y;
     BgSpot08Iceblock_Roll(this, play);
 }
@@ -391,7 +395,7 @@ void BgSpot08Iceblock_FloatOrbitingTwins(BgSpot08Iceblock* this, PlayState* play
     BgSpot08Iceblock_SetWaterline(this);
 
     // parent handles rotations of both
-    if (!(this->dyna.actor.params & 0x100)) {
+    if (!PARAMS_GET_NOSHIFT(this->dyna.actor.params, 8, 1)) {
         this->dyna.actor.world.rot.y += 0x190;
         sin = Math_SinS(this->dyna.actor.world.rot.y) * 100.0f;
         cos = Math_CosS(this->dyna.actor.world.rot.y) * 100.0f;
@@ -432,7 +436,7 @@ void BgSpot08Iceblock_Draw(Actor* thisx, PlayState* play) {
     Gfx* dList;
     BgSpot08Iceblock* this = (BgSpot08Iceblock*)thisx;
 
-    switch (this->dyna.actor.params & 0x200) {
+    switch (PARAMS_GET_NOSHIFT(this->dyna.actor.params, 9, 1)) {
         case 0:
             dList = gZorasFountainIcebergDL;
             break;

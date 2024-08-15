@@ -1,4 +1,5 @@
 #include "osint.h"
+#include "../attributes.h" // TODO
 #include "../macros.h" // TODO
 
 s32 osSetTimer(OSTimer* timer, OSTime countdown, OSTime interval, OSMesgQueue* mq, OSMesg msg) {

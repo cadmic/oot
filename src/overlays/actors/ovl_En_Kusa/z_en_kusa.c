@@ -20,7 +20,7 @@ void EnKusa_Update(Actor* thisx, PlayState* play);
 void EnKusa_Draw(Actor* thisx, PlayState* play);
 
 void EnKusa_SetupLiftedUp(EnKusa* this);
-void EnKusa_SetupWaitObject(EnKusa* this);
+void EnKusa_SetupWaitForObject(EnKusa* this);
 void EnKusa_SetupMain(EnKusa* this);
 void EnKusa_SetupFall(EnKusa* this);
 void EnKusa_SetupCut(EnKusa* this);
@@ -28,7 +28,7 @@ void EnKusa_SetupUprootedWaitRegrow(EnKusa* this);
 void EnKusa_SetupRegrow(EnKusa* this);
 
 void EnKusa_Fall(EnKusa* this, PlayState* play);
-void EnKusa_WaitObject(EnKusa* this, PlayState* play);
+void EnKusa_WaitForObject(EnKusa* this, PlayState* play);
 void EnKusa_Main(EnKusa* this, PlayState* play);
 void EnKusa_LiftedUp(EnKusa* this, PlayState* play);
 void EnKusa_CutWaitRegrow(EnKusa* this, PlayState* play);
@@ -41,16 +41,16 @@ static s16 rotSpeedX = 0;
 static s16 rotSpeedYtarget = 0;
 static s16 rotSpeedY = 0;
 
-ActorInit En_Kusa_InitVars = {
-    ACTOR_EN_KUSA,
-    ACTORCAT_PROP,
-    FLAGS,
-    OBJECT_GAMEPLAY_KEEP,
-    sizeof(EnKusa),
-    (ActorFunc)EnKusa_Init,
-    (ActorFunc)EnKusa_Destroy,
-    (ActorFunc)EnKusa_Update,
-    NULL,
+ActorProfile En_Kusa_Profile = {
+    /**/ ACTOR_EN_KUSA,
+    /**/ ACTORCAT_PROP,
+    /**/ FLAGS,
+    /**/ OBJECT_GAMEPLAY_KEEP,
+    /**/ sizeof(EnKusa),
+    /**/ EnKusa_Init,
+    /**/ EnKusa_Destroy,
+    /**/ EnKusa_Update,
+    /**/ NULL,
 };
 
 static s16 sObjectIds[] = { OBJECT_GAMEPLAY_FIELD_KEEP, OBJECT_KUSA, OBJECT_KUSA };
@@ -68,8 +68,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x4FC00758, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_ON,
+        ATELEM_NONE,
+        ACELEM_ON,
         OCELEM_ON,
     },
     { 12, 44, 0, { 0, 0, 0 } },
@@ -115,10 +115,10 @@ s32 EnKusa_SnapToFloor(EnKusa* this, PlayState* play, f32 yOffset) {
         Math_Vec3f_Copy(&this->actor.home.pos, &this->actor.world.pos);
         return true;
     } else {
-        osSyncPrintf(VT_COL(YELLOW, BLACK));
+        PRINTF(VT_COL(YELLOW, BLACK));
         // "Failure attaching to ground"
-        osSyncPrintf("地面に付着失敗(%s %d)\n", "../z_en_kusa.c", 323);
-        osSyncPrintf(VT_RST);
+        PRINTF("地面に付着失敗(%s %d)\n", "../z_en_kusa.c", 323);
+        PRINTF(VT_RST);
         return false;
     }
 }
@@ -126,10 +126,10 @@ s32 EnKusa_SnapToFloor(EnKusa* this, PlayState* play, f32 yOffset) {
 void EnKusa_DropCollectible(EnKusa* this, PlayState* play) {
     s16 dropParams;
 
-    switch (this->actor.params & 3) {
+    switch (PARAMS_GET_U(this->actor.params, 0, 2)) {
         case ENKUSA_TYPE_0:
         case ENKUSA_TYPE_2:
-            dropParams = (this->actor.params >> 8) & 0xF;
+            dropParams = PARAMS_GET_U(this->actor.params, 8, 4);
 
             if (dropParams >= 0xD) {
                 dropParams = 0;
@@ -253,16 +253,16 @@ void EnKusa_Init(Actor* thisx, PlayState* play) {
         return;
     }
 
-    this->objBankIndex = Object_GetIndex(&play->objectCtx, sObjectIds[thisx->params & 3]);
+    this->requiredObjectSlot = Object_GetSlot(&play->objectCtx, sObjectIds[PARAMS_GET_U(thisx->params, 0, 2)]);
 
-    if (this->objBankIndex < 0) {
+    if (this->requiredObjectSlot < 0) {
         // "Bank danger!"
-        osSyncPrintf("Error : バンク危険！ (arg_data 0x%04x)(%s %d)\n", thisx->params, "../z_en_kusa.c", 561);
+        PRINTF("Error : バンク危険！ (arg_data 0x%04x)(%s %d)\n", thisx->params, "../z_en_kusa.c", 561);
         Actor_Kill(&this->actor);
         return;
     }
 
-    EnKusa_SetupWaitObject(this);
+    EnKusa_SetupWaitForObject(this);
 }
 
 void EnKusa_Destroy(Actor* thisx, PlayState* play2) {
@@ -272,12 +272,12 @@ void EnKusa_Destroy(Actor* thisx, PlayState* play2) {
     Collider_DestroyCylinder(play, &this->collider);
 }
 
-void EnKusa_SetupWaitObject(EnKusa* this) {
-    EnKusa_SetupAction(this, EnKusa_WaitObject);
+void EnKusa_SetupWaitForObject(EnKusa* this) {
+    EnKusa_SetupAction(this, EnKusa_WaitForObject);
 }
 
-void EnKusa_WaitObject(EnKusa* this, PlayState* play) {
-    if (Object_IsLoaded(&play->objectCtx, this->objBankIndex)) {
+void EnKusa_WaitForObject(EnKusa* this, PlayState* play) {
+    if (Object_IsLoaded(&play->objectCtx, this->requiredObjectSlot)) {
         if (this->actor.flags & ACTOR_FLAG_ENKUSA_CUT) {
             EnKusa_SetupCut(this);
         } else {
@@ -285,7 +285,7 @@ void EnKusa_WaitObject(EnKusa* this, PlayState* play) {
         }
 
         this->actor.draw = EnKusa_Draw;
-        this->actor.objBankIndex = this->objBankIndex;
+        this->actor.objectSlot = this->requiredObjectSlot;
         this->actor.flags &= ~ACTOR_FLAG_4;
     }
 }
@@ -307,11 +307,11 @@ void EnKusa_Main(EnKusa* this, PlayState* play) {
         EnKusa_DropCollectible(this, play);
         SfxSource_PlaySfxAtFixedWorldPos(play, &this->actor.world.pos, 20, NA_SE_EV_PLANT_BROKEN);
 
-        if ((this->actor.params >> 4) & 1) {
+        if (PARAMS_GET_U(this->actor.params, 4, 1)) {
             EnKusa_SpawnBugs(this, play);
         }
 
-        if ((this->actor.params & 3) == ENKUSA_TYPE_0) {
+        if (PARAMS_GET_U(this->actor.params, 0, 2) == ENKUSA_TYPE_0) {
             Actor_Kill(&this->actor);
             return;
         }
@@ -347,13 +347,13 @@ void EnKusa_LiftedUp(EnKusa* this, PlayState* play) {
     if (Actor_HasNoParent(&this->actor, play)) {
         this->actor.room = play->roomCtx.curRoom.num;
         EnKusa_SetupFall(this);
-        this->actor.velocity.x = this->actor.speedXZ * Math_SinS(this->actor.world.rot.y);
-        this->actor.velocity.z = this->actor.speedXZ * Math_CosS(this->actor.world.rot.y);
+        this->actor.velocity.x = this->actor.speed * Math_SinS(this->actor.world.rot.y);
+        this->actor.velocity.z = this->actor.speed * Math_CosS(this->actor.world.rot.y);
         this->actor.colChkInfo.mass = 240;
         this->actor.gravity = -0.1f;
         EnKusa_UpdateVelY(this);
         EnKusa_RandScaleVecToZero(&this->actor.velocity, 0.005f);
-        func_8002D7EC(&this->actor);
+        Actor_UpdatePos(&this->actor);
         Actor_UpdateBgCheckInfo(play, &this->actor, 7.5f, 35.0f, 0.0f,
                                 UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2 | UPDBGCHECKINFO_FLAG_6 |
                                     UPDBGCHECKINFO_FLAG_7);
@@ -379,7 +379,7 @@ void EnKusa_Fall(EnKusa* this, PlayState* play) {
         }
         EnKusa_SpawnFragments(this, play);
         EnKusa_DropCollectible(this, play);
-        switch (this->actor.params & 3) {
+        switch (PARAMS_GET_U(this->actor.params, 0, 2)) {
             case ENKUSA_TYPE_0:
             case ENKUSA_TYPE_2:
                 Actor_Kill(&this->actor);
@@ -394,7 +394,7 @@ void EnKusa_Fall(EnKusa* this, PlayState* play) {
 
     if (this->actor.bgCheckFlags & BGCHECKFLAG_WATER_TOUCH) {
         contactPos.x = this->actor.world.pos.x;
-        contactPos.y = this->actor.world.pos.y + this->actor.yDistToWater;
+        contactPos.y = this->actor.world.pos.y + this->actor.depthInWater;
         contactPos.z = this->actor.world.pos.z;
         EffectSsGSplash_Spawn(play, &contactPos, NULL, NULL, 0, 400);
         EffectSsGRipple_Spawn(play, &contactPos, 150, 650, 0);
@@ -415,7 +415,7 @@ void EnKusa_Fall(EnKusa* this, PlayState* play) {
     this->actor.shape.rot.x += rotSpeedX;
     this->actor.shape.rot.y += rotSpeedY;
     EnKusa_RandScaleVecToZero(&this->actor.velocity, 0.05f);
-    func_8002D7EC(&this->actor);
+    Actor_UpdatePos(&this->actor);
     Actor_UpdateBgCheckInfo(play, &this->actor, 7.5f, 35.0f, 0.0f,
                             UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2 | UPDBGCHECKINFO_FLAG_6 |
                                 UPDBGCHECKINFO_FLAG_7);
@@ -424,7 +424,7 @@ void EnKusa_Fall(EnKusa* this, PlayState* play) {
 }
 
 void EnKusa_SetupCut(EnKusa* this) {
-    switch (this->actor.params & 3) {
+    switch (PARAMS_GET_U(this->actor.params, 0, 2)) {
         case ENKUSA_TYPE_2:
             EnKusa_SetupAction(this, EnKusa_DoNothing);
             break;
@@ -504,6 +504,6 @@ void EnKusa_Draw(Actor* thisx, PlayState* play) {
     if (this->actor.flags & ACTOR_FLAG_ENKUSA_CUT) {
         Gfx_DrawDListOpa(play, object_kusa_DL_0002E0);
     } else {
-        Gfx_DrawDListOpa(play, dLists[thisx->params & 3]);
+        Gfx_DrawDListOpa(play, dLists[PARAMS_GET_U(thisx->params, 0, 2)]);
     }
 }

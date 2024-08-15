@@ -9,7 +9,7 @@ struct DemoIm;
 typedef void (*DemoImActionFunc)(struct DemoIm*, PlayState*);
 typedef void (*DemoImDrawFunc)(struct DemoIm*, PlayState*);
 
-typedef enum {
+typedef enum ImpaLimb {
     /* 0x00 */ IMPA_LIMB_NONE,
     /* 0x01 */ IMPA_LIMB_ROOT,
     /* 0x02 */ IMPA_LIMB_TORSO,
@@ -42,7 +42,7 @@ typedef struct DemoIm {
     /* 0x0268 */ f32 unk_268;
     /* 0x026C */ s32 alpha;
     /* 0x0270 */ s32 unk_270;
-    /* 0x0274 */ s32 unk_274;
+    /* 0x0274 */ s32 cueId;
     /* 0x0278 */ f32 unk_278;
     /* 0x027C */ s32 unk_27C;
     /* 0x0280 */ s32 unk_280;

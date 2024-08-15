@@ -14,7 +14,7 @@ void ItemEtcetera_Update(Actor* thisx, PlayState* play);
 void ItemEtcetera_DrawThroughLens(Actor* thisx, PlayState* play);
 void ItemEtcetera_Draw(Actor* thisx, PlayState* play);
 
-void func_80B857D0(ItemEtcetera* this, PlayState* play);
+void ItemEtcetera_WaitForObject(ItemEtcetera* this, PlayState* play);
 void func_80B85824(ItemEtcetera* this, PlayState* play);
 void func_80B858B4(ItemEtcetera* this, PlayState* play);
 void ItemEtcetera_SpawnSparkles(ItemEtcetera* this, PlayState* play);
@@ -22,16 +22,16 @@ void ItemEtcetera_MoveFireArrowDown(ItemEtcetera* this, PlayState* play);
 void func_80B85B28(ItemEtcetera* this, PlayState* play);
 void ItemEtcetera_UpdateFireArrow(ItemEtcetera* this, PlayState* play);
 
-ActorInit Item_Etcetera_InitVars = {
-    ACTOR_ITEM_ETCETERA,
-    ACTORCAT_PROP,
-    FLAGS,
-    OBJECT_GAMEPLAY_KEEP,
-    sizeof(ItemEtcetera),
-    (ActorFunc)ItemEtcetera_Init,
-    (ActorFunc)ItemEtcetera_Destroy,
-    (ActorFunc)ItemEtcetera_Update,
-    NULL,
+ActorProfile Item_Etcetera_Profile = {
+    /**/ ACTOR_ITEM_ETCETERA,
+    /**/ ACTORCAT_PROP,
+    /**/ FLAGS,
+    /**/ OBJECT_GAMEPLAY_KEEP,
+    /**/ sizeof(ItemEtcetera),
+    /**/ ItemEtcetera_Init,
+    /**/ ItemEtcetera_Destroy,
+    /**/ ItemEtcetera_Update,
+    /**/ NULL,
 };
 
 static s16 sObjectIds[] = {
@@ -94,23 +94,23 @@ void ItemEtcetera_Init(Actor* thisx, PlayState* play) {
     ItemEtcetera* this = (ItemEtcetera*)thisx;
     s32 pad;
     s32 type;
-    s32 objBankIndex;
+    s32 objectSlot;
 
-    type = this->actor.params & 0xFF;
-    osSyncPrintf("no = %d\n", type);
-    objBankIndex = Object_GetIndex(&play->objectCtx, sObjectIds[type]);
-    osSyncPrintf("bank_ID = %d\n", objBankIndex);
-    if (objBankIndex < 0) {
+    type = PARAMS_GET_U(this->actor.params, 0, 8);
+    PRINTF("no = %d\n", type);
+    objectSlot = Object_GetSlot(&play->objectCtx, sObjectIds[type]);
+    PRINTF("bank_ID = %d\n", objectSlot);
+    if (objectSlot < 0) {
         ASSERT(0, "0", "../z_item_etcetera.c", 241);
     } else {
-        this->objBankIndex = objBankIndex;
+        this->requiredObjectSlot = objectSlot;
     }
     this->giDrawId = sDrawItemIndices[type];
     this->getItemId = sGetItemIds[type];
     this->futureActionFunc = func_80B85824;
     this->drawFunc = ItemEtcetera_Draw;
     Actor_SetScale(&this->actor, 0.25f);
-    ItemEtcetera_SetupAction(this, func_80B857D0);
+    ItemEtcetera_SetupAction(this, ItemEtcetera_WaitForObject);
     switch (type) {
         case ITEM_ETC_LETTER:
             Actor_SetScale(&this->actor, 0.5f);
@@ -142,9 +142,9 @@ void ItemEtcetera_Init(Actor* thisx, PlayState* play) {
 void ItemEtcetera_Destroy(Actor* thisx, PlayState* play) {
 }
 
-void func_80B857D0(ItemEtcetera* this, PlayState* play) {
-    if (Object_IsLoaded(&play->objectCtx, this->objBankIndex)) {
-        this->actor.objBankIndex = this->objBankIndex;
+void ItemEtcetera_WaitForObject(ItemEtcetera* this, PlayState* play) {
+    if (Object_IsLoaded(&play->objectCtx, this->requiredObjectSlot)) {
+        this->actor.objectSlot = this->requiredObjectSlot;
         this->actor.draw = this->drawFunc;
         this->actionFunc = this->futureActionFunc;
     }
@@ -152,7 +152,7 @@ void func_80B857D0(ItemEtcetera* this, PlayState* play) {
 
 void func_80B85824(ItemEtcetera* this, PlayState* play) {
     if (Actor_HasParent(&this->actor, play)) {
-        if ((this->actor.params & 0xFF) == 1) {
+        if (PARAMS_GET_U(this->actor.params, 0, 8) == 1) {
             SET_EVENTCHKINF(EVENTCHKINF_31);
             Flags_SetSwitch(play, 0xB);
         }
@@ -164,7 +164,7 @@ void func_80B85824(ItemEtcetera* this, PlayState* play) {
 
 void func_80B858B4(ItemEtcetera* this, PlayState* play) {
     if (Actor_HasParent(&this->actor, play)) {
-        if ((this->actor.params & 0xFF) == 1) {
+        if (PARAMS_GET_U(this->actor.params, 0, 8) == 1) {
             SET_EVENTCHKINF(EVENTCHKINF_31);
             Flags_SetSwitch(play, 0xB);
         }
@@ -197,7 +197,7 @@ void ItemEtcetera_SpawnSparkles(ItemEtcetera* this, PlayState* play) {
 
 void ItemEtcetera_MoveFireArrowDown(ItemEtcetera* this, PlayState* play) {
     Actor_UpdateBgCheckInfo(play, &this->actor, 10.0f, 10.0f, 0.0f, UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2);
-    Actor_MoveForward(&this->actor);
+    Actor_MoveXZGravity(&this->actor);
     if (!(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND)) {
         ItemEtcetera_SpawnSparkles(this, play);
     }
@@ -206,16 +206,16 @@ void ItemEtcetera_MoveFireArrowDown(ItemEtcetera* this, PlayState* play) {
 }
 
 void func_80B85B28(ItemEtcetera* this, PlayState* play) {
-    if (Flags_GetTreasure(play, (this->actor.params >> 8) & 0x1F)) {
+    if (Flags_GetTreasure(play, PARAMS_GET_U(this->actor.params, 8, 5))) {
         Actor_Kill(&this->actor);
     }
 }
 
 void ItemEtcetera_UpdateFireArrow(ItemEtcetera* this, PlayState* play) {
-    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.npcActions[0] != NULL)) {
-        LOG_NUM("(game_play->demo_play.npcdemopnt[0]->dousa)", play->csCtx.npcActions[0]->action,
-                "../z_item_etcetera.c", 441);
-        if (play->csCtx.npcActions[0]->action == 2) {
+    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.actorCues[0] != NULL)) {
+        LOG_NUM("(game_play->demo_play.npcdemopnt[0]->dousa)", play->csCtx.actorCues[0]->id, "../z_item_etcetera.c",
+                441);
+        if (play->csCtx.actorCues[0]->id == 2) {
             this->actor.draw = ItemEtcetera_Draw;
             this->actor.gravity = -0.1f;
             this->actor.minVelocityY = -4.0f;

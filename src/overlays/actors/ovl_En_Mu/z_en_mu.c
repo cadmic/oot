@@ -30,8 +30,8 @@ static ColliderCylinderInit D_80AB0BD0 = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 100, 70, 0, { 0, 0, 0 } },
@@ -39,16 +39,16 @@ static ColliderCylinderInit D_80AB0BD0 = {
 
 static CollisionCheckInfoInit2 D_80AB0BFC = { 0, 0, 0, 0, MASS_IMMOVABLE };
 
-ActorInit En_Mu_InitVars = {
-    ACTOR_EN_MU,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_MU,
-    sizeof(EnMu),
-    (ActorFunc)EnMu_Init,
-    (ActorFunc)EnMu_Destroy,
-    (ActorFunc)EnMu_Update,
-    (ActorFunc)EnMu_Draw,
+ActorProfile En_Mu_Profile = {
+    /**/ ACTOR_EN_MU,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_MU,
+    /**/ sizeof(EnMu),
+    /**/ EnMu_Init,
+    /**/ EnMu_Destroy,
+    /**/ EnMu_Update,
+    /**/ EnMu_Draw,
 };
 
 void EnMu_SetupAction(EnMu* this, EnMuActionFunc actionFunc) {
@@ -83,7 +83,7 @@ void EnMu_Interact(EnMu* this, PlayState* play) {
     }
 
     if (i == 5) {
-        if (this->defFaceReaction == (textIdOffset[randomIndex] | 0x7000)) {
+        if (this->defaultTextId == (textIdOffset[randomIndex] | 0x7000)) {
             randomIndex++;
             if (randomIndex >= 5) {
                 randomIndex = 0;
@@ -93,19 +93,19 @@ void EnMu_Interact(EnMu* this, PlayState* play) {
     }
 
     textFlags |= bitmask[randomIndex];
-    this->defFaceReaction = textIdOffset[randomIndex] | 0x7000;
+    this->defaultTextId = textIdOffset[randomIndex] | 0x7000;
     textFlags &= EVENTINF_20_MASK | EVENTINF_21_MASK | EVENTINF_22_MASK | EVENTINF_23_MASK | EVENTINF_24_MASK | 0xE0;
     gSaveContext.eventInf[EVENTINF_20_21_22_23_24_INDEX] |= textFlags;
 }
 
-u16 EnMu_GetFaceReaction(PlayState* play, Actor* thisx) {
+u16 EnMu_GetTextId(PlayState* play, Actor* thisx) {
     EnMu* this = (EnMu*)thisx;
-    u16 faceReaction = Text_GetFaceReaction(play, this->actor.params + 0x3A);
+    u16 textId = MaskReaction_GetTextId(play, MASK_REACTION_SET_HAGGLING_TOWNSPEOPLE_1 + this->actor.params);
 
-    if (faceReaction != 0) {
-        return faceReaction;
+    if (textId != 0) {
+        return textId;
     }
-    return this->defFaceReaction;
+    return this->defaultTextId;
 }
 
 s16 EnMu_UpdateTalkState(PlayState* play, Actor* thisx) {
@@ -172,8 +172,7 @@ void EnMu_Update(Actor* thisx, PlayState* play) {
     Actor_UpdateBgCheckInfo(play, &this->actor, 0.0f, 0.0f, 0.0f, UPDBGCHECKINFO_FLAG_2);
     this->actionFunc(this, play);
     talkDist = this->collider.dim.radius + 30.0f;
-    Npc_UpdateTalking(play, &this->actor, &this->npcInfo.talkState, talkDist, EnMu_GetFaceReaction,
-                      EnMu_UpdateTalkState);
+    Npc_UpdateTalking(play, &this->actor, &this->npcInfo.talkState, talkDist, EnMu_GetTextId, EnMu_UpdateTalkState);
 
     this->actor.focus.pos = this->actor.world.pos;
     this->actor.focus.pos.y += 60.0f;
@@ -196,7 +195,7 @@ void EnMu_PostLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3s* rot, 
 Gfx* EnMu_DisplayListSetColor(GraphicsContext* gfxCtx, u8 r, u8 g, u8 b, u8 a) {
     Gfx* dlist;
 
-    dlist = Graph_Alloc(gfxCtx, 2 * sizeof(Gfx));
+    dlist = GRAPH_ALLOC(gfxCtx, 2 * sizeof(Gfx));
     gDPSetEnvColor(dlist, r, g, b, a);
     gSPEndDisplayList(dlist + 1);
     return dlist;

@@ -10,6 +10,7 @@
 
 #define ISV_MAGIC_VAUE  (('I' << 24) | ('S' << 16) | ('6' << 8) | ('4' << 0))
 
+#if OOT_DEBUG
 OSPiHandle* sISVHandle; // official name : is_Handle
 
 void isPrintfInit(void) {
@@ -18,14 +19,15 @@ void isPrintfInit(void) {
     osEPiWriteIo(sISVHandle, ISV_GET_ADDR, 0);
     osEPiWriteIo(sISVHandle, ISV_MAGIC_ADDR, ISV_MAGIC_VAUE);
 }
-
-void* is_proutSyncPrintf(void* arg, const char* str, size_t count);
+#endif
 
 void isPrintf(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
+#if OOT_DEBUG
     _Printf(is_proutSyncPrintf, NULL, fmt, args);
+#endif
 
     va_end(args);
 }
@@ -34,7 +36,9 @@ void osSyncPrintf(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
+#if OOT_DEBUG
     _Printf(is_proutSyncPrintf, NULL, fmt, args);
+#endif
 
     va_end(args);
 }
@@ -43,11 +47,14 @@ void rmonPrintf(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
+#if OOT_DEBUG
     _Printf(is_proutSyncPrintf, NULL, fmt, args);
+#endif
 
     va_end(args);
 }
 
+#if OOT_DEBUG
 void* is_proutSyncPrintf(void* arg, const char* str, size_t count) {
     u32 data;
     s32 pos;
@@ -101,3 +108,4 @@ NORETURN void isAssertFail(const char* exp, const char* file, int line) {
         ;
     }
 }
+#endif

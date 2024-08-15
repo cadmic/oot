@@ -27,16 +27,16 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play);
 void BgHeavyBlock_Land(BgHeavyBlock* this, PlayState* play);
 void BgHeavyBlock_DoNothing(BgHeavyBlock* this, PlayState* play);
 
-ActorInit Bg_Heavy_Block_InitVars = {
-    ACTOR_BG_HEAVY_BLOCK,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_HEAVY_OBJECT,
-    sizeof(BgHeavyBlock),
-    (ActorFunc)BgHeavyBlock_Init,
-    (ActorFunc)BgHeavyBlock_Destroy,
-    (ActorFunc)BgHeavyBlock_Update,
-    (ActorFunc)BgHeavyBlock_Draw,
+ActorProfile Bg_Heavy_Block_Profile = {
+    /**/ ACTOR_BG_HEAVY_BLOCK,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_HEAVY_OBJECT,
+    /**/ sizeof(BgHeavyBlock),
+    /**/ BgHeavyBlock_Init,
+    /**/ BgHeavyBlock_Destroy,
+    /**/ BgHeavyBlock_Update,
+    /**/ BgHeavyBlock_Draw,
 };
 
 static InitChainEntry sInitChain[] = {
@@ -94,7 +94,7 @@ void BgHeavyBlock_Init(Actor* thisx, PlayState* play) {
         thisx->params |= 4;
     }
 
-    switch (thisx->params & 0xFF) {
+    switch (PARAMS_GET_U(thisx->params, 0, 8)) {
         case HEAVYBLOCK_BIG_PIECE:
             thisx->draw = BgHeavyBlock_DrawPiece;
             this->actionFunc = BgHeavyBlock_MovePiece;
@@ -114,7 +114,7 @@ void BgHeavyBlock_Init(Actor* thisx, PlayState* play) {
         case HEAVYBLOCK_BREAKABLE:
             BgHeavyBlock_SetupDynapoly(this, play);
 
-            if (Flags_GetSwitch(play, (thisx->params >> 8) & 0x3F)) {
+            if (Flags_GetSwitch(play, PARAMS_GET_U(thisx->params, 8, 6))) {
                 Actor_Kill(thisx);
                 return;
             }
@@ -124,7 +124,7 @@ void BgHeavyBlock_Init(Actor* thisx, PlayState* play) {
         case HEAVYBLOCK_UNBREAKABLE_OUTSIDE_CASTLE:
             BgHeavyBlock_SetupDynapoly(this, play);
 
-            if (Flags_GetSwitch(play, (thisx->params >> 8) & 0x3F)) {
+            if (Flags_GetSwitch(play, PARAMS_GET_U(thisx->params, 8, 6))) {
                 this->actionFunc = BgHeavyBlock_DoNothing;
                 thisx->shape.rot.x = thisx->world.rot.x = 0x8AD0;
                 thisx->shape.rot.y = thisx->world.rot.y = 0xC000;
@@ -146,12 +146,12 @@ void BgHeavyBlock_Init(Actor* thisx, PlayState* play) {
             break;
     }
     // "Largest Block Save Bit %x"
-    osSyncPrintf(VT_FGCOL(CYAN) " 最大 ブロック セーブビット %x\n" VT_RST, thisx->params);
+    PRINTF(VT_FGCOL(CYAN) " 最大 ブロック セーブビット %x\n" VT_RST, thisx->params);
 }
 
 void BgHeavyBlock_Destroy(Actor* thisx, PlayState* play) {
     BgHeavyBlock* this = (BgHeavyBlock*)thisx;
-    switch (this->dyna.actor.params & 0xFF) {
+    switch (PARAMS_GET_U(this->dyna.actor.params, 0, 8)) {
         case HEAVYBLOCK_BIG_PIECE:
             break;
         case HEAVYBLOCK_SMALL_PIECE:
@@ -172,7 +172,7 @@ void BgHeavyBlock_MovePiece(BgHeavyBlock* this, PlayState* play) {
 
     thisx->velocity.x *= 0.98f;
     thisx->velocity.z *= 0.98f;
-    func_8002D7EC(thisx);
+    Actor_UpdatePos(thisx);
     thisx->shape.rot.x += thisx->world.rot.x;
     thisx->shape.rot.y += thisx->world.rot.y;
     thisx->shape.rot.z += thisx->world.rot.z;
@@ -189,7 +189,7 @@ void BgHeavyBlock_MovePiece(BgHeavyBlock* this, PlayState* play) {
             thisx->velocity.x = Rand_CenteredFloat(8.0f);
             thisx->velocity.z = Rand_CenteredFloat(8.0f);
             BgHeavyBlock_SetPieceRandRot(this, 1.0f);
-            Audio_PlayActorSfx2(thisx, NA_SE_EV_ROCK_BROKEN);
+            Actor_PlaySfx(thisx, NA_SE_EV_ROCK_BROKEN);
             Rumble_Request(thisx->xzDistToPlayer, 150, 10, 8);
         }
     }
@@ -320,7 +320,7 @@ void BgHeavyBlock_Wait(BgHeavyBlock* this, PlayState* play) {
     if (Actor_HasParent(&this->dyna.actor, play)) {
         this->timer = 0;
 
-        switch (this->dyna.actor.params & 0xFF) {
+        switch (PARAMS_GET_U(this->dyna.actor.params, 0, 8)) {
             case HEAVYBLOCK_BREAKABLE:
                 OnePointCutscene_Init(play, 4020, 270, &this->dyna.actor, CAM_ID_MAIN);
                 break;
@@ -350,7 +350,7 @@ void BgHeavyBlock_LiftedUp(BgHeavyBlock* this, PlayState* play) {
 
     if (this->timer == 11) {
         Rumble_Request(0.0f, 255, 20, 20);
-        func_8002F7DC(&player->actor, NA_SE_PL_PULL_UP_BIGROCK);
+        Player_PlaySfx(player, NA_SE_PL_PULL_UP_BIGROCK);
         LOG_STRING("NA_SE_PL_PULL_UP_BIGROCK", "../z_bg_heavy_block.c", 691);
     }
 
@@ -367,11 +367,11 @@ void BgHeavyBlock_LiftedUp(BgHeavyBlock* this, PlayState* play) {
 
     this->timer++;
 
-    func_8002DF54(play, &player->actor, PLAYER_CSMODE_8);
+    Player_SetCsActionWithHaltedActors(play, &player->actor, PLAYER_CSACTION_8);
 
     // if parent is NULL, link threw it
     if (Actor_HasNoParent(&this->dyna.actor, play)) {
-        Audio_PlayActorSfx2(&this->dyna.actor, NA_SE_EV_HEAVY_THROW);
+        Actor_PlaySfx(&this->dyna.actor, NA_SE_EV_HEAVY_THROW);
         this->actionFunc = BgHeavyBlock_Fly;
     }
 }
@@ -382,7 +382,7 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play) {
     Vec3f checkPos;
     f32 yIntersect;
 
-    Actor_MoveForward(&this->dyna.actor);
+    Actor_MoveXZGravity(&this->dyna.actor);
     checkPos.x = this->dyna.actor.home.pos.x;
     checkPos.y = this->dyna.actor.home.pos.y + 1000.0f;
     checkPos.z = this->dyna.actor.home.pos.z;
@@ -393,10 +393,10 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play) {
     if (this->dyna.actor.home.pos.y <= yIntersect) {
         Rumble_Request(0.0f, 255, 60, 4);
 
-        switch (this->dyna.actor.params & 0xFF) {
+        switch (PARAMS_GET_U(this->dyna.actor.params, 0, 8)) {
             case HEAVYBLOCK_BREAKABLE:
                 BgHeavyBlock_SpawnPieces(this, play);
-                Flags_SetSwitch(play, (this->dyna.actor.params >> 8) & 0x3F);
+                Flags_SetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 8, 6));
                 Actor_Kill(&this->dyna.actor);
 
                 quakeIndex = Quake_Request(GET_ACTIVE_CAM(play), QUAKE_TYPE_3);
@@ -412,7 +412,7 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play) {
                 SfxSource_PlaySfxAtFixedWorldPos(play, &this->dyna.actor.world.pos, 30, NA_SE_EV_ELECTRIC_EXPLOSION);
                 return;
             case HEAVYBLOCK_UNBREAKABLE_OUTSIDE_CASTLE:
-                Audio_PlayActorSfx2(&this->dyna.actor, NA_SE_EV_STONE_BOUND);
+                Actor_PlaySfx(&this->dyna.actor, NA_SE_EV_STONE_BOUND);
 
                 quakeIndex = Quake_Request(GET_ACTIVE_CAM(play), QUAKE_TYPE_3);
                 Quake_SetSpeed(quakeIndex, 28000);
@@ -420,10 +420,10 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play) {
                 Quake_SetDuration(quakeIndex, 40);
 
                 this->actionFunc = BgHeavyBlock_Land;
-                Flags_SetSwitch(play, (this->dyna.actor.params >> 8) & 0x3F);
+                Flags_SetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 8, 6));
                 break;
             case HEAVYBLOCK_UNBREAKABLE:
-                Audio_PlayActorSfx2(&this->dyna.actor, NA_SE_EV_BUYOSTAND_STOP_U);
+                Actor_PlaySfx(&this->dyna.actor, NA_SE_EV_BUYOSTAND_STOP_U);
 
                 quakeIndex = Quake_Request(GET_ACTIVE_CAM(play), QUAKE_TYPE_3);
                 Quake_SetSpeed(quakeIndex, 28000);
@@ -441,7 +441,7 @@ void BgHeavyBlock_Fly(BgHeavyBlock* this, PlayState* play) {
                 this->actionFunc = BgHeavyBlock_Land;
         }
     }
-    this->dyna.actor.shape.rot.x = Math_Atan2S(this->dyna.actor.velocity.y, this->dyna.actor.speedXZ);
+    this->dyna.actor.shape.rot.x = Math_Atan2S(this->dyna.actor.velocity.y, this->dyna.actor.speed);
 }
 
 void BgHeavyBlock_DoNothing(BgHeavyBlock* this, PlayState* play) {
@@ -451,13 +451,13 @@ void BgHeavyBlock_Land(BgHeavyBlock* this, PlayState* play) {
     s32 pad;
 
     if (Math_SmoothStepToS(&this->dyna.actor.shape.rot.x, 0x8AD0, 6, 2000, 100) != 0) {
-        Math_StepToF(&this->dyna.actor.speedXZ, 0.0f, 20.0f);
+        Math_StepToF(&this->dyna.actor.speed, 0.0f, 20.0f);
         Math_StepToF(&this->dyna.actor.velocity.y, 0.0f, 3.0f);
         this->dyna.actor.gravity = 0.0f;
         this->dyna.actor.world.pos = this->dyna.actor.home.pos;
-        Actor_MoveForward(&this->dyna.actor);
+        Actor_MoveXZGravity(&this->dyna.actor);
         this->dyna.actor.home.pos = this->dyna.actor.world.pos;
-        switch (this->dyna.actor.params & 0xFF) {
+        switch (PARAMS_GET_U(this->dyna.actor.params, 0, 8)) {
             case HEAVYBLOCK_UNBREAKABLE_OUTSIDE_CASTLE:
                 BgHeavyBlock_SpawnDust(play, Rand_CenteredFloat(30.0f) + 1678.0f, Rand_ZeroFloat(100.0f) + 1286.0f,
                                        Rand_CenteredFloat(30.0f) + 552.0f, 0.0f, 0.0f, 0.0f, 0);
@@ -490,6 +490,8 @@ void BgHeavyBlock_Draw(Actor* thisx, PlayState* play) {
 
     OPEN_DISPS(play->state.gfxCtx, "../z_bg_heavy_block.c", 904);
 
+    if (1) {}
+
     if (BgHeavyBlock_LiftedUp == this->actionFunc) {
         Matrix_SetTranslateRotateYXZ(player->leftHandPos.x, player->leftHandPos.y, player->leftHandPos.z,
                                      &thisx->shape.rot);
@@ -503,7 +505,7 @@ void BgHeavyBlock_Draw(Actor* thisx, PlayState* play) {
     Matrix_MultVec3f(&D_80884ED4, &thisx->home.pos);
     Gfx_SetupDL_25Opa(play->state.gfxCtx);
 
-    gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_bg_heavy_block.c", 931),
+    gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_bg_heavy_block.c", 931),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     gSPDisplayList(POLY_OPA_DISP++, gHeavyBlockEntirePillarDL);
 
@@ -511,7 +513,7 @@ void BgHeavyBlock_Draw(Actor* thisx, PlayState* play) {
 }
 
 void BgHeavyBlock_DrawPiece(Actor* thisx, PlayState* play) {
-    switch (thisx->params & 0xFF) {
+    switch (PARAMS_GET_U(thisx->params, 0, 8)) {
         case HEAVYBLOCK_BIG_PIECE:
             Matrix_Translate(50.0f, -260.0f, -20.0f, MTXMODE_APPLY);
             Gfx_DrawDListOpa(play, gHeavyBlockBigPieceDL);

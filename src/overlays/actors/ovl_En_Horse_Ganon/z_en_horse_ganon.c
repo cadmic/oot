@@ -9,7 +9,7 @@
 
 #define FLAGS ACTOR_FLAG_4
 
-typedef struct {
+typedef struct unk_D_80A69248 {
     /* 0x0 */ Vec3s unk_0;
     /* 0x6 */ u8 unk_6;
 } unk_D_80A69248; // size = 0x8
@@ -23,16 +23,16 @@ void func_80A68AC4(EnHorseGanon* this);
 void func_80A68AF0(EnHorseGanon* this, PlayState* play);
 void func_80A68DB0(EnHorseGanon* this, PlayState* play);
 
-ActorInit En_Horse_Ganon_InitVars = {
-    ACTOR_EN_HORSE_GANON,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_HORSE_GANON,
-    sizeof(EnHorseGanon),
-    (ActorFunc)EnHorseGanon_Init,
-    (ActorFunc)EnHorseGanon_Destroy,
-    (ActorFunc)EnHorseGanon_Update,
-    (ActorFunc)EnHorseGanon_Draw,
+ActorProfile En_Horse_Ganon_Profile = {
+    /**/ ACTOR_EN_HORSE_GANON,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_HORSE_GANON,
+    /**/ sizeof(EnHorseGanon),
+    /**/ EnHorseGanon_Init,
+    /**/ EnHorseGanon_Destroy,
+    /**/ EnHorseGanon_Update,
+    /**/ EnHorseGanon_Draw,
 };
 
 static AnimationHeader* sAnimations[] = {
@@ -55,8 +55,8 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 40, 100, 0, { 0, 0, 0 } },
@@ -68,8 +68,8 @@ static ColliderJntSphElementInit sJntSphElementsInit[] = {
             ELEMTYPE_UNK0,
             { 0x00000000, 0x00, 0x00 },
             { 0x00000000, 0x00, 0x00 },
-            TOUCH_NONE,
-            BUMP_NONE,
+            ATELEM_NONE,
+            ACELEM_NONE,
             OCELEM_ON,
         },
         { 13, { { 0, 0, 0 }, 20 }, 100 },
@@ -120,7 +120,7 @@ void func_80A686A8(EnHorseGanon* this, PlayState* play) {
 
     func_80A68660(D_80A69248, this->unk_1EC, &vec);
     if (Math3D_Vec3f_DistXYZ(&vec, &this->actor.world.pos) <= 400.0f) {
-        this->unk_1EC += 1;
+        this->unk_1EC++;
         if (this->unk_1EC >= 14) {
             this->unk_1EC = 0;
             func_80A68660(D_80A69248, 0, &vec);
@@ -139,15 +139,15 @@ void func_80A686A8(EnHorseGanon* this, PlayState* play) {
     this->actor.shape.rot.y = this->actor.world.rot.y;
 
     if (Actor_WorldDistXZToActor(&this->actor, &GET_PLAYER(play)->actor) <= 300.0f) {
-        if (this->actor.speedXZ < 12.0f) {
-            this->actor.speedXZ += 1.0f;
+        if (this->actor.speed < 12.0f) {
+            this->actor.speed += 1.0f;
         } else {
-            this->actor.speedXZ -= 1.0f;
+            this->actor.speed -= 1.0f;
         }
-    } else if (this->actor.speedXZ < D_80A69248[this->unk_1EC].unk_6) {
-        this->actor.speedXZ += 0.5f;
+    } else if (this->actor.speed < D_80A69248[this->unk_1EC].unk_6) {
+        this->actor.speed += 0.5f;
     } else {
-        this->actor.speedXZ -= 0.5f;
+        this->actor.speed -= 0.5f;
     }
 }
 
@@ -173,7 +173,7 @@ void EnHorseGanon_Init(Actor* thisx, PlayState* play) {
     this->actor.gravity = -3.5f;
 
     ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawHorse, 20.0f);
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.focus.pos = this->actor.world.pos;
     this->action = 0;
     this->actor.focus.pos.y += 70.0f;
@@ -204,7 +204,7 @@ void func_80A68AC4(EnHorseGanon* this) {
 }
 
 void func_80A68AF0(EnHorseGanon* this, PlayState* play) {
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     SkelAnime_Update(&this->skin.skelAnime);
 }
 
@@ -214,12 +214,12 @@ void func_80A68B20(EnHorseGanon* this) {
 
     animationChanged = 0;
     this->action = 1;
-    if (this->actor.speedXZ <= 3.0f) {
+    if (this->actor.speed <= 3.0f) {
         if (this->currentAnimation != 2) {
             animationChanged = 1;
         }
         this->currentAnimation = 2;
-    } else if (this->actor.speedXZ <= 6.0f) {
+    } else if (this->actor.speed <= 6.0f) {
         if (this->currentAnimation != 3) {
             animationChanged = 1;
         }
@@ -232,13 +232,13 @@ void func_80A68B20(EnHorseGanon* this) {
     }
 
     if (this->currentAnimation == 2) {
-        sp30 = this->actor.speedXZ / 3.0f;
+        sp30 = this->actor.speed / 3.0f;
     } else if (this->currentAnimation == 3) {
-        sp30 = this->actor.speedXZ / 5.0f;
+        sp30 = this->actor.speed / 5.0f;
         Audio_PlaySfxGeneral(NA_SE_EV_HORSE_RUN, &this->actor.projectedPos, 4, &gSfxDefaultFreqAndVolScale,
                              &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
     } else if (this->currentAnimation == 4) {
-        sp30 = this->actor.speedXZ / 7.0f;
+        sp30 = this->actor.speed / 7.0f;
         Audio_PlaySfxGeneral(NA_SE_EV_HORSE_RUN, &this->actor.projectedPos, 4, &gSfxDefaultFreqAndVolScale,
                              &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
     } else {
@@ -287,7 +287,7 @@ void EnHorseGanon_Update(Actor* thisx, PlayState* play) {
     s32 pad;
 
     sActionFuncs[this->action](this, play);
-    Actor_MoveForward(&this->actor);
+    Actor_MoveXZGravity(&this->actor);
     Actor_UpdateBgCheckInfo(play, &this->actor, 20.0f, 55.0f, 100.0f,
                             UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2 | UPDBGCHECKINFO_FLAG_3 |
                                 UPDBGCHECKINFO_FLAG_4);

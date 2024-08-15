@@ -18,16 +18,16 @@ void EnHorseZelda_Stop(EnHorseZelda* this, PlayState* play);
 void EnHorseZelda_Gallop(EnHorseZelda* this, PlayState* play);
 void EnHorseZelda_SetupStop(EnHorseZelda* this);
 
-ActorInit En_Horse_Zelda_InitVars = {
-    ACTOR_EN_HORSE_ZELDA,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_HORSE_ZELDA,
-    sizeof(EnHorseZelda),
-    (ActorFunc)EnHorseZelda_Init,
-    (ActorFunc)EnHorseZelda_Destroy,
-    (ActorFunc)EnHorseZelda_Update,
-    (ActorFunc)EnHorseZelda_Draw,
+ActorProfile En_Horse_Zelda_Profile = {
+    /**/ ACTOR_EN_HORSE_ZELDA,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_HORSE_ZELDA,
+    /**/ sizeof(EnHorseZelda),
+    /**/ EnHorseZelda_Init,
+    /**/ EnHorseZelda_Destroy,
+    /**/ EnHorseZelda_Update,
+    /**/ EnHorseZelda_Draw,
 };
 
 static AnimationHeader* sAnimationHeaders[] = { &gHorseZeldaGallopingAnim };
@@ -46,8 +46,8 @@ static ColliderCylinderInitType1 sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 40, 100, 0, { 0, 0, 0 } },
@@ -59,8 +59,8 @@ static ColliderJntSphElementInit sJntSphElementsInit[1] = {
             ELEMTYPE_UNK0,
             { 0x00000000, 0x00, 0x00 },
             { 0x00000000, 0x00, 0x00 },
-            TOUCH_NONE,
-            BUMP_NONE,
+            ATELEM_NONE,
+            ACELEM_NONE,
             OCELEM_ON,
         },
         { 13, { { 0, 0, 0 }, 20 }, 100 },
@@ -82,9 +82,9 @@ static ColliderJntSphInit sJntSphInit = {
 
 static CollisionCheckInfoInit sColChkInfoInit = { 10, 35, 100, MASS_HEAVY };
 
-typedef struct {
+typedef struct HorsePosSpeed {
     /* 0x0 */ Vec3s pos;
-    /* 0x6 */ u8 speed;
+    /* 0x6 */ u8 speedXZ;
 } HorsePosSpeed; // size = 0x8
 
 // these seem to be valid coords on Hyrule field, along with target speeds
@@ -135,15 +135,15 @@ void EnHorseZelda_Move(EnHorseZelda* this, PlayState* play) {
     this->actor.shape.rot.y = this->actor.world.rot.y;
 
     if (Actor_WorldDistXZToActor(&this->actor, &GET_PLAYER(play)->actor) <= 300.0f) {
-        if (this->actor.speedXZ < 12.0f) {
-            this->actor.speedXZ += 1.0f;
+        if (this->actor.speed < 12.0f) {
+            this->actor.speed += 1.0f;
         } else {
-            this->actor.speedXZ -= 1.0f;
+            this->actor.speed -= 1.0f;
         }
-    } else if (this->actor.speedXZ < sHorseFieldPositions[this->fieldPosIndex].speed) {
-        this->actor.speedXZ += 0.5f;
+    } else if (this->actor.speed < sHorseFieldPositions[this->fieldPosIndex].speedXZ) {
+        this->actor.speed += 0.5f;
     } else {
-        this->actor.speedXZ -= 0.5f;
+        this->actor.speed -= 0.5f;
     }
 }
 
@@ -154,7 +154,7 @@ void EnHorseZelda_Init(Actor* thisx, PlayState* play) {
     Actor_SetScale(&this->actor, 0.0115f);
     this->actor.gravity = -3.5f;
     ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawHorse, 20.0f);
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     this->actor.focus.pos = this->actor.world.pos;
     this->action = 0;
     this->actor.focus.pos.y += 70.0f;
@@ -188,7 +188,7 @@ void EnHorseZelda_SetupStop(EnHorseZelda* this) {
 }
 
 void EnHorseZelda_Stop(EnHorseZelda* this, PlayState* play) {
-    this->actor.speedXZ = 0.0f;
+    this->actor.speed = 0.0f;
     if (SkelAnime_Update(&this->skin.skelAnime)) {
         EnHorseZelda_SetupStop(this);
     }
@@ -199,7 +199,7 @@ void EnHorseZelda_Spur(EnHorseZelda* this) {
 
     this->action = 1;
     this->animationIndex = 0;
-    speedMod = this->actor.speedXZ / 6.0f;
+    speedMod = this->actor.speed / 6.0f;
     Audio_PlaySfxGeneral(NA_SE_EV_HORSE_RUN, &this->actor.projectedPos, 4, &gSfxDefaultFreqAndVolScale,
                          &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
     Animation_Change(&this->skin.skelAnime, sAnimationHeaders[this->animationIndex],
@@ -233,8 +233,8 @@ void EnHorseZelda_Update(Actor* thisx, PlayState* play) {
     s32 pad;
 
     sActionFuncs[this->action](this, play);
-    this->actor.speedXZ = 0.0f;
-    Actor_MoveForward(&this->actor);
+    this->actor.speed = 0.0f;
+    Actor_MoveXZGravity(&this->actor);
     Actor_UpdateBgCheckInfo(play, &this->actor, 20.0f, 55.0f, 100.0f,
                             UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2 | UPDBGCHECKINFO_FLAG_3 |
                                 UPDBGCHECKINFO_FLAG_4);

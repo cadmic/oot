@@ -1,9 +1,10 @@
 #include "guint.h"
-
-#ifndef __GNUC__
-#define __builtin_sqrt sqrt
-#endif
+#include "math.h"
 
 double sqrt(double f) {
+#ifndef __GNUC__
+    return sqrt(f);
+#else
     return __builtin_sqrt(f);
+#endif
 }

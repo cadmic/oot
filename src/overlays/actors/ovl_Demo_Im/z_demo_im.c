@@ -58,7 +58,9 @@ static void* sEyeTextures[] = {
     gImpaEyeClosedTex,
 };
 
+#if OOT_DEBUG
 static u32 D_8098783C = 0;
+#endif
 
 static ColliderCylinderInitType1 sCylinderInit = {
     {
@@ -72,7 +74,6 @@ static ColliderCylinderInitType1 sCylinderInit = {
     { 25, 80, 0, { 0, 0, 0 } },
 };
 
-#pragma asmproc recurse
 #include "z_demo_im_cutscene_data.inc.c"
 
 static DemoImActionFunc sActionFuncs[] = {
@@ -91,16 +92,16 @@ static DemoImDrawFunc sDrawFuncs[] = {
     DemoIm_DrawTranslucent,
 };
 
-ActorInit Demo_Im_InitVars = {
-    ACTOR_DEMO_IM,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_IM,
-    sizeof(DemoIm),
-    (ActorFunc)DemoIm_Init,
-    (ActorFunc)DemoIm_Destroy,
-    (ActorFunc)DemoIm_Update,
-    (ActorFunc)DemoIm_Draw,
+ActorProfile Demo_Im_Profile = {
+    /**/ ACTOR_DEMO_IM,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_IM,
+    /**/ sizeof(DemoIm),
+    /**/ DemoIm_Init,
+    /**/ DemoIm_Destroy,
+    /**/ DemoIm_Update,
+    /**/ DemoIm_Draw,
 };
 
 void func_80984BE0(DemoIm* this) {
@@ -118,6 +119,7 @@ void func_80984BE0(DemoIm* this) {
     }
 }
 
+#if OOT_DEBUG
 void func_80984C68(DemoIm* this) {
     this->action = 7;
     this->drawConfig = 0;
@@ -143,6 +145,7 @@ void func_80984C8C(DemoIm* this, PlayState* play) {
         }
     }
 }
+#endif
 
 void DemoIm_InitCollider(Actor* thisx, PlayState* play) {
     DemoIm* this = (DemoIm*)thisx;
@@ -179,14 +182,14 @@ void func_80984DB8(DemoIm* this) {
 void func_80984E58(DemoIm* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     s16 yawDiff;
-    s16 npcTrackingMode;
+    s16 trackingMode;
 
     this->interactInfo.trackPos = player->actor.world.pos;
     this->interactInfo.yOffset = kREG(16) + 4.0f;
 
     yawDiff = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
-    npcTrackingMode = (ABS(yawDiff) < 0x18E3) ? NPC_TRACKING_HEAD_AND_TORSO : NPC_TRACKING_NONE;
-    Npc_TrackPoint(&this->actor, &this->interactInfo, kREG(17) + 0xC, npcTrackingMode);
+    trackingMode = (ABS(yawDiff) < 0x18E3) ? NPC_TRACKING_HEAD_AND_TORSO : NPC_TRACKING_NONE;
+    Npc_TrackPoint(&this->actor, &this->interactInfo, kREG(17) + 0xC, trackingMode);
 }
 
 void func_80984F10(DemoIm* this, PlayState* play) {
@@ -214,7 +217,7 @@ s32 DemoIm_UpdateSkelAnime(DemoIm* this) {
     return SkelAnime_Update(&this->skelAnime);
 }
 
-s32 DemoIm_IsCsStateIdle(PlayState* play) {
+s32 DemoIm_IsCutsceneIdle(PlayState* play) {
     if (play->csCtx.state == CS_STATE_IDLE) {
         return true;
     } else {
@@ -222,57 +225,58 @@ s32 DemoIm_IsCsStateIdle(PlayState* play) {
     }
 }
 
-CsCmdActorAction* DemoIm_GetNpcAction(PlayState* play, s32 actionIdx) {
+CsCmdActorCue* DemoIm_GetCue(PlayState* play, s32 cueChannel) {
     s32 pad[2];
-    CsCmdActorAction* ret = NULL;
+    CsCmdActorCue* cue = NULL;
 
-    if (!DemoIm_IsCsStateIdle(play)) {
-        ret = play->csCtx.npcActions[actionIdx];
+    if (!DemoIm_IsCutsceneIdle(play)) {
+        cue = play->csCtx.actorCues[cueChannel];
     }
-    return ret;
+
+    return cue;
 }
 
-s32 func_809850E8(DemoIm* this, PlayState* play, u16 action, s32 actionIdx) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, actionIdx);
+s32 func_809850E8(DemoIm* this, PlayState* play, u16 action, s32 cueChannel) {
+    CsCmdActorCue* cue = DemoIm_GetCue(play, cueChannel);
 
-    if (npcAction != NULL) {
-        if (npcAction->action == action) {
+    if (cue != NULL) {
+        if (cue->id == action) {
             return true;
         }
     }
     return false;
 }
 
-s32 func_80985134(DemoIm* this, PlayState* play, u16 action, s32 actionIdx) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, actionIdx);
+s32 func_80985134(DemoIm* this, PlayState* play, u16 cueId, s32 cueChannel) {
+    CsCmdActorCue* cue = DemoIm_GetCue(play, cueChannel);
 
-    if (npcAction != NULL) {
-        if (npcAction->action != action) {
+    if (cue != NULL) {
+        if (cue->id != cueId) {
             return true;
         }
     }
     return false;
 }
 
-void func_80985180(DemoIm* this, PlayState* play, s32 actionIdx) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, actionIdx);
+void func_80985180(DemoIm* this, PlayState* play, s32 cueChannel) {
+    CsCmdActorCue* cue = DemoIm_GetCue(play, cueChannel);
 
-    if (npcAction != NULL) {
-        this->actor.world.pos.x = npcAction->startPos.x;
-        this->actor.world.pos.y = npcAction->startPos.y;
-        this->actor.world.pos.z = npcAction->startPos.z;
-        this->actor.world.rot.y = this->actor.shape.rot.y = npcAction->rot.y;
+    if (cue != NULL) {
+        this->actor.world.pos.x = cue->startPos.x;
+        this->actor.world.pos.y = cue->startPos.y;
+        this->actor.world.pos.z = cue->startPos.z;
+        this->actor.world.rot.y = this->actor.shape.rot.y = cue->rot.y;
     }
 }
 
-void func_80985200(DemoIm* this, PlayState* play, s32 actionIdx) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, actionIdx);
+void func_80985200(DemoIm* this, PlayState* play, s32 cueChannel) {
+    CsCmdActorCue* cue = DemoIm_GetCue(play, cueChannel);
 
-    if (npcAction != NULL) {
-        this->actor.world.pos.x = npcAction->startPos.x;
-        this->actor.world.pos.y = npcAction->startPos.y;
-        this->actor.world.pos.z = npcAction->startPos.z;
-        this->actor.world.rot.y = this->actor.shape.rot.y = npcAction->rot.y;
+    if (cue != NULL) {
+        this->actor.world.pos.x = cue->startPos.x;
+        this->actor.world.pos.y = cue->startPos.y;
+        this->actor.world.pos.z = cue->startPos.z;
+        this->actor.world.rot.y = this->actor.shape.rot.y = cue->rot.y;
     }
 }
 
@@ -325,11 +329,11 @@ void func_80985430(DemoIm* this, PlayState* play) {
 void func_8098544C(DemoIm* this, PlayState* play) {
     s32 pad[2];
 
-    if ((gSaveContext.chamberCutsceneNum == 4) && !IS_CUTSCENE_LAYER) {
+    if ((gSaveContext.chamberCutsceneNum == CHAMBER_CS_SHADOW) && !IS_CUTSCENE_LAYER) {
         Player* player = GET_PLAYER(play);
 
         this->action = 1;
-        play->csCtx.segment = D_8098786C;
+        play->csCtx.script = D_8098786C;
         gSaveContext.cutsceneTrigger = 2;
         Item_Give(play, ITEM_MEDALLION_SHADOW);
         player->actor.world.rot.y = player->actor.shape.rot.y = this->actor.world.rot.y + 0x8000;
@@ -337,8 +341,8 @@ void func_8098544C(DemoIm* this, PlayState* play) {
 }
 
 void func_809854DC(DemoIm* this, PlayState* play) {
-    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.npcActions[5] != NULL) &&
-        (play->csCtx.npcActions[5]->action == 2)) {
+    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.actorCues[5] != NULL) &&
+        (play->csCtx.actorCues[5]->id == 2)) {
         Animation_Change(&this->skelAnime, &gImpaIdleAnim, 1.0f, 0.0f, Animation_GetLastFrame(&gImpaIdleAnim),
                          ANIMMODE_LOOP, 0.0f);
         this->action = 2;
@@ -355,8 +359,8 @@ void func_8098557C(DemoIm* this) {
 }
 
 void func_809855A8(DemoIm* this, PlayState* play) {
-    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.npcActions[5] != NULL) &&
-        (play->csCtx.npcActions[5]->action == 3)) {
+    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.actorCues[5] != NULL) &&
+        (play->csCtx.actorCues[5]->id == 3)) {
         Animation_Change(&this->skelAnime, &gImpaRaiseArmsAnim, 1.0f, 0.0f, Animation_GetLastFrame(&gImpaRaiseArmsAnim),
                          ANIMMODE_ONCE, 4.0f);
         this->action = 4;
@@ -372,8 +376,8 @@ void func_80985640(DemoIm* this, s32 arg1) {
 }
 
 void func_809856AC(DemoIm* this, PlayState* play) {
-    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.npcActions[6] != NULL) &&
-        (play->csCtx.npcActions[6]->action == 2)) {
+    if ((play->csCtx.state != CS_STATE_IDLE) && (play->csCtx.actorCues[6] != NULL) &&
+        (play->csCtx.actorCues[6]->id == 2)) {
         this->action = 6;
         func_809853B4(this, play);
     }
@@ -430,7 +434,7 @@ void func_80985860(DemoIm* this, PlayState* play) {
 }
 
 void func_809858A8(void) {
-    func_800788CC(NA_SE_SY_WHITE_OUT_T);
+    Sfx_PlaySfxCentered2(NA_SE_SY_WHITE_OUT_T);
 }
 
 void DemoIm_SpawnLightBall(DemoIm* this, PlayState* play) {
@@ -496,7 +500,9 @@ void func_80985B34(DemoIm* this, PlayState* play) {
 
 void func_80985C10(DemoIm* this, PlayState* play) {
     func_80985948(this, play);
+#if OOT_DEBUG
     func_80984C8C(this, play);
+#endif
 }
 
 void func_80985C40(DemoIm* this, PlayState* play) {
@@ -504,7 +510,9 @@ void func_80985C40(DemoIm* this, PlayState* play) {
     DemoIm_UpdateSkelAnime(this);
     func_80984BE0(this);
     func_809859E0(this, play);
+#if OOT_DEBUG
     func_80984C8C(this, play);
+#endif
 }
 
 void func_80985C94(DemoIm* this, PlayState* play) {
@@ -512,7 +520,9 @@ void func_80985C94(DemoIm* this, PlayState* play) {
     DemoIm_UpdateSkelAnime(this);
     func_80984BE0(this);
     func_80985B34(this, play);
+#if OOT_DEBUG
     func_80984C8C(this, play);
+#endif
 }
 
 void DemoIm_DrawTranslucent(DemoIm* this, PlayState* play) {
@@ -543,7 +553,7 @@ void func_80985E60(DemoIm* this, PlayState* play) {
 }
 
 void func_80985EAC(DemoIm* this, PlayState* play) {
-    if ((play->csCtx.frames >= 80) && (play->csCtx.frames < 243)) {
+    if ((play->csCtx.curFrame >= 80) && (play->csCtx.curFrame < 243)) {
         func_80984F10(this, play);
     } else {
         func_80984DB8(this);
@@ -606,14 +616,14 @@ void func_80986148(DemoIm* this) {
 }
 
 void func_809861C4(DemoIm* this, PlayState* play) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, 5);
+    CsCmdActorCue* cue = DemoIm_GetCue(play, 5);
 
-    if (npcAction != NULL) {
-        u32 action = npcAction->action;
-        u32 unk_274 = this->unk_274;
+    if (cue != NULL) {
+        u32 nextCueId = cue->id;
+        u32 currentCueId = this->cueId;
 
-        if (action != unk_274) {
-            switch (action) {
+        if (nextCueId != currentCueId) {
+            switch (nextCueId) {
                 case 9:
                     func_80986148(this);
                     break;
@@ -623,15 +633,15 @@ void func_809861C4(DemoIm* this, PlayState* play) {
                     this->action = 12;
                     break;
                 default:
-                    osSyncPrintf("Demo_Im_Ocarina_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
+                    PRINTF("Demo_Im_Ocarina_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
             }
-            this->unk_274 = action;
+            this->cueId = nextCueId;
         }
     }
 }
 
 void func_8098629C(DemoIm* this, PlayState* play) {
-    if (DemoIm_IsCsStateIdle(play)) {
+    if (DemoIm_IsCutsceneIdle(play)) {
         this->action = 21;
         this->drawConfig = 1;
         this->unk_280 = 1;
@@ -639,14 +649,14 @@ void func_8098629C(DemoIm* this, PlayState* play) {
 }
 
 void func_809862E0(DemoIm* this, PlayState* play) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, 5);
+    CsCmdActorCue* cue = DemoIm_GetCue(play, 5);
 
-    if (npcAction != NULL) {
-        u32 action = npcAction->action;
-        u32 unk_274 = this->unk_274;
+    if (cue != NULL) {
+        u32 nextCueId = cue->id;
+        u32 currentCueId = this->cueId;
 
-        if (action != unk_274) {
-            switch (action) {
+        if (nextCueId != currentCueId) {
+            switch (nextCueId) {
                 case 1:
                     func_80985F54(this);
                     break;
@@ -663,9 +673,9 @@ void func_809862E0(DemoIm* this, PlayState* play) {
                     func_80986148(this);
                     break;
                 default:
-                    osSyncPrintf("Demo_Im_Ocarina_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
+                    PRINTF("Demo_Im_Ocarina_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
             }
-            this->unk_274 = action;
+            this->cueId = nextCueId;
         }
     }
 }
@@ -770,14 +780,14 @@ void func_80986794(DemoIm* this) {
 }
 
 void func_8098680C(DemoIm* this, PlayState* play) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, 5);
+    CsCmdActorCue* cue = DemoIm_GetCue(play, 5);
 
-    if (npcAction != NULL) {
-        u32 action = npcAction->action;
-        u32 unk_274 = this->unk_274;
+    if (cue != NULL) {
+        u32 nextCueId = cue->id;
+        u32 currentCueId = this->cueId;
 
-        if (action != unk_274) {
-            switch (action) {
+        if (nextCueId != currentCueId) {
+            switch (nextCueId) {
                 case 1:
                     func_80986700(this);
                     break;
@@ -791,9 +801,9 @@ void func_8098680C(DemoIm* this, PlayState* play) {
                     Actor_Kill(&this->actor);
                     break;
                 default:
-                    osSyncPrintf("Demo_Im_Spot00_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
+                    PRINTF("Demo_Im_Spot00_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
             }
-            this->unk_274 = action;
+            this->cueId = nextCueId;
         }
     }
 }
@@ -852,9 +862,9 @@ s32 func_80986A5C(DemoIm* this, PlayState* play) {
 
 s32 func_80986AD0(DemoIm* this, PlayState* play) {
     this->actor.flags |= ACTOR_FLAG_0 | ACTOR_FLAG_3;
-    if (!Actor_ProcessTalkRequest(&this->actor, play)) {
+    if (!Actor_TalkOfferAccepted(&this->actor, play)) {
         this->actor.textId = 0x708E;
-        func_8002F2F4(&this->actor, play);
+        Actor_OfferTalkNearColChkInfoCylinder(&this->actor, play);
     } else {
         return true;
     }
@@ -868,7 +878,7 @@ void func_80986B2C(PlayState* play) {
         play->nextEntranceIndex = ENTR_HYRULE_FIELD_0;
         play->transitionType = TRANS_TYPE_CIRCLE(TCA_STARBURST, TCC_BLACK, TCS_FAST);
         play->transitionTrigger = TRANS_TRIGGER_START;
-        func_8002DF54(play, &player->actor, PLAYER_CSMODE_8);
+        Player_SetCsActionWithHaltedActors(play, &player->actor, PLAYER_CSACTION_8);
     }
 }
 
@@ -898,7 +908,9 @@ void func_80986BF8(DemoIm* this, PlayState* play) {
 
 void func_80986C30(DemoIm* this, PlayState* play) {
     if (func_80986A5C(this, play)) {
-        play->csCtx.segment = SEGMENTED_TO_VIRTUAL(gZeldasCourtyardLullabyCs);
+        s32 pad;
+
+        play->csCtx.script = SEGMENTED_TO_VIRTUAL(gZeldasCourtyardLullabyCs);
         gSaveContext.cutsceneTrigger = 1;
         SET_EVENTCHKINF(EVENTCHKINF_59);
         Item_Give(play, ITEM_SONG_LULLABY);
@@ -923,10 +935,15 @@ void func_80986CFC(DemoIm* this, PlayState* play) {
 }
 
 void func_80986D40(DemoIm* this, PlayState* play) {
+#if OOT_DEBUG
     if (gSaveContext.sceneLayer == 6) {
         this->action = 19;
         this->drawConfig = 1;
-    } else if (GET_EVENTCHKINF(EVENTCHKINF_80)) {
+        return;
+    }
+#endif
+
+    if (GET_EVENTCHKINF(EVENTCHKINF_80)) {
         Actor_Kill(&this->actor);
     } else if (!GET_EVENTCHKINF(EVENTCHKINF_59)) {
         this->action = 23;
@@ -1039,14 +1056,14 @@ void func_809871B4(DemoIm* this, s32 arg1) {
 }
 
 void func_809871E8(DemoIm* this, PlayState* play) {
-    CsCmdActorAction* npcAction = DemoIm_GetNpcAction(play, 5);
+    CsCmdActorCue* cue = DemoIm_GetCue(play, 5);
 
-    if (npcAction != NULL) {
-        u32 action = npcAction->action;
-        u32 unk_274 = this->unk_274;
+    if (cue != NULL) {
+        u32 nextCueId = cue->id;
+        u32 currentCueId = this->cueId;
 
-        if (action != unk_274) {
-            switch (action) {
+        if (nextCueId != currentCueId) {
+            switch (nextCueId) {
                 case 12:
                     func_809870F0(this, play);
                     break;
@@ -1054,9 +1071,9 @@ void func_809871E8(DemoIm* this, PlayState* play) {
                     func_80987174(this);
                     break;
                 default:
-                    osSyncPrintf("Demo_Im_inEnding_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
+                    PRINTF("Demo_Im_inEnding_Check_DemoMode:そんな動作は無い!!!!!!!!\n");
             }
-            this->unk_274 = action;
+            this->cueId = nextCueId;
         }
     }
 }
@@ -1093,7 +1110,7 @@ void DemoIm_Update(Actor* thisx, PlayState* play) {
     DemoIm* this = (DemoIm*)thisx;
 
     if ((this->action < 0) || (this->action >= 31) || (sActionFuncs[this->action] == NULL)) {
-        osSyncPrintf(VT_FGCOL(RED) "メインモードがおかしい!!!!!!!!!!!!!!!!!!!!!!!!!\n" VT_RST);
+        PRINTF(VT_FGCOL(RED) "メインモードがおかしい!!!!!!!!!!!!!!!!!!!!!!!!!\n" VT_RST);
         return;
     }
     sActionFuncs[this->action](this, play);
@@ -1204,7 +1221,7 @@ void DemoIm_Draw(Actor* thisx, PlayState* play) {
     DemoIm* this = (DemoIm*)thisx;
 
     if ((this->drawConfig < 0) || (this->drawConfig >= 3) || (sDrawFuncs[this->drawConfig] == NULL)) {
-        osSyncPrintf(VT_FGCOL(RED) "描画モードがおかしい!!!!!!!!!!!!!!!!!!!!!!!!!\n" VT_RST);
+        PRINTF(VT_FGCOL(RED) "描画モードがおかしい!!!!!!!!!!!!!!!!!!!!!!!!!\n" VT_RST);
         return;
     }
     sDrawFuncs[this->drawConfig](this, play);

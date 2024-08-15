@@ -34,16 +34,16 @@ void EnGo_SpawnEffectDust(EnGo* this, Vec3f* pos, Vec3f* velocity, Vec3f* accel,
 void EnGo_UpdateEffects(EnGo* this);
 void EnGo_DrawEffects(EnGo* this, PlayState* play);
 
-ActorInit En_Go_InitVars = {
-    ACTOR_EN_GO,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_OF1D_MAP,
-    sizeof(EnGo),
-    (ActorFunc)EnGo_Init,
-    (ActorFunc)EnGo_Destroy,
-    (ActorFunc)EnGo_Update,
-    (ActorFunc)EnGo_Draw,
+ActorProfile En_Go_Profile = {
+    /**/ ACTOR_EN_GO,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_OF1D_MAP,
+    /**/ sizeof(EnGo),
+    /**/ EnGo_Init,
+    /**/ EnGo_Destroy,
+    /**/ EnGo_Update,
+    /**/ EnGo_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -59,18 +59,16 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 20, 46, 0, { 0, 0, 0 } },
 };
 
-static CollisionCheckInfoInit2 sColChkInfoInit = {
-    0, 0, 0, 0, MASS_IMMOVABLE,
-};
+static CollisionCheckInfoInit2 sColChkInfoInit = { 0, 0, 0, 0, MASS_IMMOVABLE };
 
-typedef enum {
+typedef enum EnGoAnimation {
     /* 0 */ ENGO_ANIM_0,
     /* 1 */ ENGO_ANIM_1,
     /* 2 */ ENGO_ANIM_2,
@@ -91,9 +89,9 @@ void EnGo_SetupAction(EnGo* this, EnGoActionFunc actionFunc) {
 u16 EnGo_GetTextID(PlayState* play, Actor* thisx) {
     Player* player = GET_PLAYER(play);
 
-    switch (thisx->params & 0xF0) {
+    switch (PARAMS_GET_NOSHIFT(thisx->params, 4, 4)) {
         case 0x90:
-            if (gSaveContext.bgsFlag) {
+            if (gSaveContext.save.info.playerData.bgsFlag) {
                 return 0x305E;
             } else if (INV_CONTENT(ITEM_TRADE_ADULT) >= ITEM_CLAIM_CHECK) {
                 if (Environment_GetBgsDayCount() >= 3) {
@@ -135,7 +133,7 @@ u16 EnGo_GetTextID(PlayState* play, Actor* thisx) {
                 }
             }
         case 0x10:
-            if (Flags_GetSwitch(play, thisx->params >> 8)) {
+            if (Flags_GetSwitch(play, PARAMS_GET_NOMASK(thisx->params, 8))) {
                 return 0x3052;
             } else {
                 return 0x3051;
@@ -196,7 +194,7 @@ u16 EnGo_GetTextID(PlayState* play, Actor* thisx) {
 }
 
 s16 EnGo_UpdateTalkState(PlayState* play, Actor* thisx) {
-    s16 unkState = NPC_TALK_STATE_TALKING;
+    s16 talkState = NPC_TALK_STATE_TALKING;
     f32 xzRange;
     f32 yRange = fabsf(thisx->yDistToPlayer) + 1.0f;
 
@@ -207,51 +205,51 @@ s16 EnGo_UpdateTalkState(PlayState* play, Actor* thisx) {
             switch (thisx->textId) {
                 case 0x3008:
                     SET_INFTABLE(INFTABLE_E0);
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
                 case 0x300B:
                     SET_INFTABLE(INFTABLE_EB);
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
                 case 0x3014:
                     SET_INFTABLE(INFTABLE_F0);
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
                 case 0x3016:
                     SET_INFTABLE(INFTABLE_F4);
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
                 case 0x3018:
                     SET_INFTABLE(INFTABLE_F8);
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
                 case 0x3036:
                     Actor_OfferGetItem(thisx, play, GI_TUNIC_GORON, xzRange, yRange);
                     SET_INFTABLE(INFTABLE_10D); // EnGo exclusive flag
-                    unkState = NPC_TALK_STATE_ACTION;
+                    talkState = NPC_TALK_STATE_ACTION;
                     break;
                 case 0x3037:
                     SET_INFTABLE(INFTABLE_10E);
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
                 case 0x3041:
                     SET_INFTABLE(INFTABLE_10F);
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
                 case 0x3059:
-                    unkState = NPC_TALK_STATE_ACTION;
+                    talkState = NPC_TALK_STATE_ACTION;
                     break;
                 case 0x3052:
                 case 0x3054:
                 case 0x3055:
                 case 0x305A:
-                    unkState = NPC_TALK_STATE_ACTION;
+                    talkState = NPC_TALK_STATE_ACTION;
                     break;
                 case 0x305E:
-                    unkState = NPC_TALK_STATE_ACTION;
+                    talkState = NPC_TALK_STATE_ACTION;
                     break;
                 default:
-                    unkState = NPC_TALK_STATE_IDLE;
+                    talkState = NPC_TALK_STATE_IDLE;
                     break;
             }
             break;
@@ -269,7 +267,7 @@ s16 EnGo_UpdateTalkState(PlayState* play, Actor* thisx) {
                             thisx->textId = 0x300D;
                         }
                         Message_ContinueTextbox(play, thisx->textId);
-                        unkState = NPC_TALK_STATE_TALKING;
+                        talkState = NPC_TALK_STATE_TALKING;
                         break;
                     case 0x3034:
                         if (play->msgCtx.choiceIndex == 0) {
@@ -284,16 +282,16 @@ s16 EnGo_UpdateTalkState(PlayState* play, Actor* thisx) {
                             thisx->textId = 0x3033;
                         }
                         Message_ContinueTextbox(play, thisx->textId);
-                        unkState = NPC_TALK_STATE_TALKING;
+                        talkState = NPC_TALK_STATE_TALKING;
                         break;
                     case 0x3054:
                     case 0x3055:
                         if (play->msgCtx.choiceIndex == 0) {
-                            unkState = NPC_TALK_STATE_ACTION;
+                            talkState = NPC_TALK_STATE_ACTION;
                         } else {
                             thisx->textId = 0x3056;
                             Message_ContinueTextbox(play, thisx->textId);
-                            unkState = NPC_TALK_STATE_TALKING;
+                            talkState = NPC_TALK_STATE_TALKING;
                         }
                         SET_INFTABLE(INFTABLE_B4);
                         break;
@@ -310,17 +308,17 @@ s16 EnGo_UpdateTalkState(PlayState* play, Actor* thisx) {
                     case 0x3033:
                         thisx->textId = 0x3034;
                         Message_ContinueTextbox(play, thisx->textId);
-                        unkState = NPC_TALK_STATE_TALKING;
+                        talkState = NPC_TALK_STATE_TALKING;
                         break;
                     default:
-                        unkState = NPC_TALK_STATE_ACTION;
+                        talkState = NPC_TALK_STATE_ACTION;
                         break;
                 }
             }
             break;
         case TEXT_STATE_DONE:
             if (Message_ShouldAdvance(play)) {
-                unkState = NPC_TALK_STATE_ITEM_GIVEN;
+                talkState = NPC_TALK_STATE_ITEM_GIVEN;
             }
             break;
         case TEXT_STATE_NONE:
@@ -330,55 +328,59 @@ s16 EnGo_UpdateTalkState(PlayState* play, Actor* thisx) {
         case TEXT_STATE_9:
             break;
     }
-    return unkState;
+    return talkState;
 }
 
-s32 func_80A3ED24(PlayState* play, EnGo* this, NpcInteractInfo* interactInfo, f32 arg3, NpcGetTextIdFunc getTextId,
-                  NpcUpdateTalkStateFunc updateTalkState) {
-    if (interactInfo->talkState != NPC_TALK_STATE_IDLE) {
-        interactInfo->talkState = updateTalkState(play, &this->actor);
+s32 EnGo_UpdateTalking(PlayState* play, Actor* thisx, s16* talkState, f32 interactRange, NpcGetTextIdFunc getTextId,
+                       NpcUpdateTalkStateFunc updateTalkState) {
+    if (*talkState != NPC_TALK_STATE_IDLE) {
+        *talkState = updateTalkState(play, thisx);
         return false;
-    } else if (Actor_ProcessTalkRequest(&this->actor, play)) {
-        interactInfo->talkState = NPC_TALK_STATE_TALKING;
+    } else if (Actor_TalkOfferAccepted(thisx, play)) {
+        *talkState = NPC_TALK_STATE_TALKING;
         return true;
-    } else if (!func_8002F2CC(&this->actor, play, arg3)) {
+    } else if (!Actor_OfferTalk(thisx, play, interactRange)) {
         return false;
     } else {
-        this->actor.textId = getTextId(play, &this->actor);
+        thisx->textId = getTextId(play, thisx);
         return false;
     }
 }
 
 void EnGo_ChangeAnim(EnGo* this, s32 index) {
     Animation_Change(&this->skelAnime, sAnimationInfo[index].animation,
-                     sAnimationInfo[index].playSpeed * ((this->actor.params & 0xF0) == 0x90 ? 0.5f : 1.0f), 0.0f,
-                     Animation_GetLastFrame(sAnimationInfo[index].animation), sAnimationInfo[index].mode,
+                     sAnimationInfo[index].playSpeed *
+                         (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90 ? 0.5f : 1.0f),
+                     0.0f, Animation_GetLastFrame(sAnimationInfo[index].animation), sAnimationInfo[index].mode,
                      sAnimationInfo[index].morphFrames);
 }
 
 s32 EnGo_IsActorSpawned(EnGo* this, PlayState* play) {
     if (((this->actor.params) & 0xF0) == 0x90) {
         return true;
-    } else if (play->sceneId == SCENE_FIRE_TEMPLE && !Flags_GetSwitch(play, (this->actor.params) >> 8) &&
-               LINK_IS_ADULT && (this->actor.params & 0xF0) == 0x10) {
+    } else if (play->sceneId == SCENE_FIRE_TEMPLE && !Flags_GetSwitch(play, PARAMS_GET_NOMASK(this->actor.params, 8)) &&
+               LINK_IS_ADULT && PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x10) {
         return true;
-    } else if (play->sceneId == SCENE_GORON_CITY && LINK_IS_ADULT && (this->actor.params & 0xF0) == 0x00) {
+    } else if (play->sceneId == SCENE_GORON_CITY && LINK_IS_ADULT &&
+               PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x00) {
         return true;
     } else if (play->sceneId == SCENE_DEATH_MOUNTAIN_TRAIL && LINK_IS_CHILD &&
-               ((this->actor.params & 0xF0) == 0x20 || (this->actor.params & 0xF0) == 0x30 ||
-                (this->actor.params & 0xF0) == 0x40)) {
+               (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x20 ||
+                PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x30 ||
+                PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x40)) {
         return true;
     } else if (play->sceneId == SCENE_GORON_CITY && LINK_IS_CHILD &&
-               ((this->actor.params & 0xF0) == 0x50 || (this->actor.params & 0xF0) == 0x60 ||
-                (this->actor.params & 0xF0) == 0x70)) {
+               (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x50 ||
+                PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x60 ||
+                PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x70)) {
         return true;
     } else {
         return false;
     }
 }
 
-f32 EnGo_GetGoronSize(EnGo* this) {
-    switch (this->actor.params & 0xF0) {
+f32 EnGo_GetPlayerTrackingYOffset(EnGo* this) {
+    switch (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4)) {
         case 0x00:
             return 10.0f;
         case 0x20:
@@ -396,16 +398,16 @@ f32 EnGo_GetGoronSize(EnGo* this) {
 
 void func_80A3F060(EnGo* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    s16 npcTrackingMode;
+    s16 trackingMode;
 
     if (this->actionFunc != EnGo_BiggoronActionFunc && this->actionFunc != EnGo_FireGenericActionFunc &&
         this->actionFunc != func_80A40B1C) {
-        npcTrackingMode = NPC_TRACKING_NONE;
+        trackingMode = NPC_TRACKING_NONE;
     }
 
     this->interactInfo.trackPos = player->actor.world.pos;
-    this->interactInfo.yOffset = EnGo_GetGoronSize(this);
-    Npc_TrackPoint(&this->actor, &this->interactInfo, 4, npcTrackingMode);
+    this->interactInfo.yOffset = EnGo_GetPlayerTrackingYOffset(this);
+    Npc_TrackPoint(&this->actor, &this->interactInfo, 4, trackingMode);
 }
 
 void func_80A3F0E4(EnGo* this) {
@@ -427,15 +429,15 @@ s32 EnGo_IsCameraModified(EnGo* this, PlayState* play) {
         return 0;
     }
 
-    xyzDistSq = (this->actor.scale.x / 0.01f) * 10000.0f;
-    if ((this->actor.params & 0xF0) == 0x90) {
-        Camera_ChangeSetting(mainCam, CAM_SET_DIRECTED_YAW);
+    xyzDistSq = (this->actor.scale.x / 0.01f) * SQ(100.0f);
+    if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90) {
+        Camera_RequestSetting(mainCam, CAM_SET_DIRECTED_YAW);
         xyzDistSq *= 4.8f;
     }
 
     if (fabsf(this->actor.xyzDistToPlayerSq) > xyzDistSq) {
         if (mainCam->setting == CAM_SET_DIRECTED_YAW) {
-            Camera_ChangeSetting(mainCam, CAM_SET_NORMAL0);
+            Camera_RequestSetting(mainCam, CAM_SET_NORMAL0);
         }
         return 0;
     } else {
@@ -469,11 +471,11 @@ s32 EnGo_FollowPath(EnGo* this, PlayState* play) {
     f32 xDist;
     f32 zDist;
 
-    if ((this->actor.params & 0xF) == 15) {
+    if (PARAMS_GET_U(this->actor.params, 0, 4) == 15) {
         return false;
     }
 
-    path = &play->pathList[this->actor.params & 0xF];
+    path = &play->pathList[PARAMS_GET_U(this->actor.params, 0, 4)];
     pointPos = SEGMENTED_TO_VIRTUAL(path->points);
     pointPos += this->unk_218;
     xDist = pointPos->x - this->actor.world.pos.x;
@@ -486,9 +488,9 @@ s32 EnGo_FollowPath(EnGo* this, PlayState* play) {
             this->unk_218 = 0;
         }
 
-        if ((this->actor.params & 0xF0) != 0x00) {
+        if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) != 0x00) {
             return true;
-        } else if (Flags_GetSwitch(play, this->actor.params >> 8)) {
+        } else if (Flags_GetSwitch(play, PARAMS_GET_NOMASK(this->actor.params, 8))) {
             return true;
         } else if (this->unk_218 >= this->actor.shape.rot.z) {
             this->unk_218 = 0;
@@ -504,10 +506,10 @@ s32 EnGo_SetMovedPos(EnGo* this, PlayState* play) {
     Path* path;
     Vec3s* pointPos;
 
-    if ((this->actor.params & 0xF) == 0xF) {
+    if (PARAMS_GET_U(this->actor.params, 0, 4) == 0xF) {
         return false;
     } else {
-        path = &play->pathList[this->actor.params & 0xF];
+        path = &play->pathList[PARAMS_GET_U(this->actor.params, 0, 4)];
         pointPos = SEGMENTED_TO_VIRTUAL(path->points);
         pointPos += (path->count - 1);
         this->actor.world.pos.x = pointPos->x;
@@ -571,29 +573,29 @@ s32 EnGo_IsRollingOnGround(EnGo* this, s16 unkArg1, f32 unkArg2) {
 
 void func_80A3F908(EnGo* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
-    f32 float1;
-    s32 isUnkCondition;
+    f32 interactRange;
+    s32 dialogStarted;
 
     if (this->actionFunc == EnGo_BiggoronActionFunc || this->actionFunc == EnGo_GoronLinkRolling ||
         this->actionFunc == EnGo_FireGenericActionFunc || this->actionFunc == EnGo_Eyedrops ||
         this->actionFunc == func_80A40DCC || this->actionFunc == EnGo_GetItem || this->actionFunc == func_80A40C78 ||
         this->actionFunc == func_80A40B1C) {
 
-        float1 = (this->collider.dim.radius + 30.0f);
-        float1 *= (this->actor.scale.x / 0.01f);
-        if ((this->actor.params & 0xF0) == 0x90) {
-            float1 *= 4.8f;
+        interactRange = (this->collider.dim.radius + 30.0f);
+        interactRange *= (this->actor.scale.x / 0.01f);
+        if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90) {
+            interactRange *= 4.8f;
         }
 
-        if ((this->actor.params & 0xF0) == 0x90) {
-            isUnkCondition =
-                func_80A3ED24(play, this, &this->interactInfo, float1, EnGo_GetTextID, EnGo_UpdateTalkState);
-        } else {
-            isUnkCondition = Npc_UpdateTalking(play, &this->actor, &this->interactInfo.talkState, float1,
+        if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90) {
+            dialogStarted = EnGo_UpdateTalking(play, &this->actor, &this->interactInfo.talkState, interactRange,
                                                EnGo_GetTextID, EnGo_UpdateTalkState);
+        } else {
+            dialogStarted = Npc_UpdateTalking(play, &this->actor, &this->interactInfo.talkState, interactRange,
+                                              EnGo_GetTextID, EnGo_UpdateTalkState);
         }
 
-        if (((this->actor.params & 0xF0) == 0x90) && (isUnkCondition == true)) {
+        if ((PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90) && (dialogStarted == true)) {
             if (INV_CONTENT(ITEM_TRADE_ADULT) == ITEM_BROKEN_GORONS_SWORD) {
                 if (func_8002F368(play) == EXCH_ITEM_BROKEN_GORONS_SWORD) {
                     if (GET_INFTABLE(INFTABLE_B4)) {
@@ -636,7 +638,7 @@ void EnGo_Init(Actor* thisx, PlayState* play) {
         return;
     }
 
-    if ((this->actor.params & 0xF0) && ((this->actor.params & 0xF0) != 0x90)) {
+    if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) && (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) != 0x90)) {
         this->actor.flags &= ~ACTOR_FLAG_4;
         this->actor.flags &= ~ACTOR_FLAG_5;
     }
@@ -646,7 +648,7 @@ void EnGo_Init(Actor* thisx, PlayState* play) {
     this->interactInfo.talkState = NPC_TALK_STATE_IDLE;
     this->actor.gravity = -1.0f;
 
-    switch (this->actor.params & 0xF0) {
+    switch (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4)) {
         case 0x00:
             Actor_SetScale(&this->actor, 0.008f);
             if (CHECK_OWNED_EQUIP(EQUIP_TYPE_TUNIC, EQUIP_INV_TUNIC_GORON)) {
@@ -654,7 +656,7 @@ void EnGo_Init(Actor* thisx, PlayState* play) {
                 EnGo_SetupAction(this, EnGo_CurledUp);
             } else {
                 this->actor.shape.yOffset = 1400.0f;
-                this->actor.speedXZ = 3.0f;
+                this->actor.speed = 3.0f;
                 EnGo_SetupAction(this, EnGo_GoronLinkRolling);
             }
             break;
@@ -717,7 +719,7 @@ void EnGo_StopRolling(EnGo* this, PlayState* play) {
         }
     }
 
-    this->actor.speedXZ = 3.0f;
+    this->actor.speed = 3.0f;
     if ((EnGo_FollowPath(this, play) == true) && (this->unk_218 == 0)) {
         bomb = (EnBom*)Actor_Spawn(&play->actorCtx, play, ACTOR_EN_BOM, this->actor.world.pos.x,
                                    this->actor.world.pos.y, this->actor.world.pos.z, 0, 0, 0, 0);
@@ -725,7 +727,7 @@ void EnGo_StopRolling(EnGo* this, PlayState* play) {
             bomb->timer = 0;
         }
 
-        this->actor.speedXZ = 0.0f;
+        this->actor.speed = 0.0f;
         EnGo_SetupAction(this, func_80A4008C);
     }
 
@@ -748,9 +750,9 @@ void func_80A4008C(EnGo* this, PlayState* play) {
 }
 
 void EnGo_GoronLinkRolling(EnGo* this, PlayState* play) {
-    if ((EnGo_FollowPath(this, play) == true) && Flags_GetSwitch(play, this->actor.params >> 8) &&
+    if ((EnGo_FollowPath(this, play) == true) && Flags_GetSwitch(play, PARAMS_GET_NOMASK(this->actor.params, 8)) &&
         (this->unk_218 == 0)) {
-        this->actor.speedXZ = 0.0f;
+        this->actor.speed = 0.0f;
         EnGo_SetupAction(this, func_80A4008C);
         SET_INFTABLE(INFTABLE_109);
     }
@@ -771,10 +773,10 @@ void EnGo_CurledUp(EnGo* this, PlayState* play) {
                              &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
 
         this->skelAnime.playSpeed = 0.1f;
-        this->skelAnime.playSpeed *= (this->actor.params & 0xF0) == 0x90 ? 0.5f : 1.0f;
+        this->skelAnime.playSpeed *= PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90 ? 0.5f : 1.0f;
 
         EnGo_SetupAction(this, EnGo_WakeUp);
-        if ((this->actor.params & 0xF0) == 0x90) {
+        if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90) {
             OnePointCutscene_Init(play, 4200, -99, &this->actor, CAM_ID_MAIN);
         }
     }
@@ -784,8 +786,9 @@ void EnGo_WakeUp(EnGo* this, PlayState* play) {
     f32 frame;
 
     if (this->skelAnime.playSpeed != 0.0f) {
-        Math_SmoothStepToF(&this->skelAnime.playSpeed, ((this->actor.params & 0xF0) == 0x90 ? 0.5f : 1.0f) * 0.5f, 0.1f,
-                           1000.0f, 0.1f);
+        Math_SmoothStepToF(&this->skelAnime.playSpeed,
+                           (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90 ? 0.5f : 1.0f) * 0.5f, 0.1f, 1000.0f,
+                           0.1f);
         frame = this->skelAnime.curFrame;
         frame += this->skelAnime.playSpeed;
 
@@ -794,7 +797,7 @@ void EnGo_WakeUp(EnGo* this, PlayState* play) {
         } else {
             this->skelAnime.curFrame = 12.0f;
             this->skelAnime.playSpeed = 0.0f;
-            if ((this->actor.params & 0xF0) != 0x90) {
+            if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) != 0x90) {
                 this->unk_212 = 30;
                 return;
             }
@@ -815,8 +818,9 @@ void EnGo_WakeUp(EnGo* this, PlayState* play) {
 void func_80A40494(EnGo* this, PlayState* play) {
     f32 frame;
 
-    Math_SmoothStepToF(&this->skelAnime.playSpeed, ((this->actor.params & 0xF0) == 0x90 ? 0.5f : 1.0f) * -0.5f, 0.1f,
-                       1000.0f, 0.1f);
+    Math_SmoothStepToF(&this->skelAnime.playSpeed,
+                       (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90 ? 0.5f : 1.0f) * -0.5f, 0.1f, 1000.0f,
+                       0.1f);
     frame = this->skelAnime.curFrame;
     frame += this->skelAnime.playSpeed;
 
@@ -837,8 +841,8 @@ void func_80A405CC(EnGo* this, PlayState* play) {
     f32 frame;
 
     lastFrame = Animation_GetLastFrame(&gGoronAnim_004930);
-    Math_SmoothStepToF(&this->skelAnime.playSpeed, (this->actor.params & 0xF0) == 0x90 ? 0.5f : 1.0f, 0.1f, 1000.0f,
-                       0.1f);
+    Math_SmoothStepToF(&this->skelAnime.playSpeed, PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90 ? 0.5f : 1.0f,
+                       0.1f, 1000.0f, 0.1f);
 
     frame = this->skelAnime.curFrame;
     frame += this->skelAnime.playSpeed;
@@ -847,7 +851,7 @@ void func_80A405CC(EnGo* this, PlayState* play) {
         this->skelAnime.curFrame = lastFrame;
         this->skelAnime.playSpeed = 0.0f;
         this->unk_212 = Rand_S16Offset(30, 30);
-        if (((this->actor.params & 0xF0) == 0x40) && !GET_INFTABLE(INFTABLE_EB)) {
+        if ((PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x40) && !GET_INFTABLE(INFTABLE_EB)) {
             EnGo_SetupAction(this, func_80A40B1C);
         } else {
             EnGo_SetupAction(this, EnGo_BiggoronActionFunc);
@@ -856,8 +860,9 @@ void func_80A405CC(EnGo* this, PlayState* play) {
 }
 
 void EnGo_BiggoronActionFunc(EnGo* this, PlayState* play) {
-    if (((this->actor.params & 0xF0) == 0x90) && (this->interactInfo.talkState == NPC_TALK_STATE_ACTION)) {
-        if (gSaveContext.bgsFlag) {
+    if ((PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90) &&
+        (this->interactInfo.talkState == NPC_TALK_STATE_ACTION)) {
+        if (gSaveContext.save.info.playerData.bgsFlag) {
             this->interactInfo.talkState = NPC_TALK_STATE_IDLE;
         } else {
             if (INV_CONTENT(ITEM_TRADE_ADULT) == ITEM_EYE_DROPS) {
@@ -875,7 +880,8 @@ void EnGo_BiggoronActionFunc(EnGo* this, PlayState* play) {
                 EnGo_GetItem(this, play);
             }
         }
-    } else if (((this->actor.params & 0xF0) == 0) && (this->interactInfo.talkState == NPC_TALK_STATE_ACTION)) {
+    } else if ((PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0) &&
+               (this->interactInfo.talkState == NPC_TALK_STATE_ACTION)) {
         EnGo_SetupAction(this, EnGo_GetItem);
         play->msgCtx.stateTimer = 4;
         play->msgCtx.msgMode = MSGMODE_TEXT_CLOSING;
@@ -883,7 +889,7 @@ void EnGo_BiggoronActionFunc(EnGo* this, PlayState* play) {
         if ((DECR(this->unk_212) == 0) && !EnGo_IsCameraModified(this, play)) {
             EnGo_ReverseAnimation(this);
             this->skelAnime.playSpeed = -0.1f;
-            this->skelAnime.playSpeed *= (this->actor.params & 0xF0) == 0x90 ? 0.5f : 1.0f;
+            this->skelAnime.playSpeed *= PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90 ? 0.5f : 1.0f;
             EnGo_SetupAction(this, func_80A408D8);
         }
     }
@@ -893,8 +899,9 @@ void func_80A408D8(EnGo* this, PlayState* play) {
     f32 frame;
 
     if (this->skelAnime.playSpeed != 0.0f) {
-        Math_SmoothStepToF(&this->skelAnime.playSpeed, ((this->actor.params & 0xF0) == 0x90 ? 0.5f : 1.0f) * -1.0f,
-                           0.1f, 1000.0f, 0.1f);
+        Math_SmoothStepToF(&this->skelAnime.playSpeed,
+                           (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90 ? 0.5f : 1.0f) * -1.0f, 0.1f, 1000.0f,
+                           0.1f);
         frame = this->skelAnime.curFrame;
         frame += this->skelAnime.playSpeed;
         if (frame >= 12.0f) {
@@ -902,7 +909,7 @@ void func_80A408D8(EnGo* this, PlayState* play) {
         } else {
             this->skelAnime.curFrame = 12.0f;
             this->skelAnime.playSpeed = 0.0f;
-            if ((this->actor.params & 0xF0) != 0x90) {
+            if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) != 0x90) {
                 this->unk_212 = 30;
                 return;
             }
@@ -924,11 +931,11 @@ void func_80A40A54(EnGo* this, PlayState* play) {
     f32 float1 = ((f32)0x8000 / Animation_GetLastFrame(&gGoronAnim_010590));
     f32 float2 = this->skelAnime.curFrame * float1;
 
-    this->actor.speedXZ = Math_SinS((s16)float2);
+    this->actor.speed = Math_SinS((s16)float2);
     if (EnGo_FollowPath(this, play) && this->unk_218 == 0) {
         EnGo_ChangeAnim(this, ENGO_ANIM_1);
         this->skelAnime.curFrame = Animation_GetLastFrame(&gGoronAnim_004930);
-        this->actor.speedXZ = 0.0f;
+        this->actor.speed = 0.0f;
         EnGo_SetupAction(this, EnGo_BiggoronActionFunc);
     }
 }
@@ -953,7 +960,7 @@ void EnGo_GetItem(EnGo* this, PlayState* play) {
         EnGo_SetupAction(this, func_80A40C78);
     } else {
         this->unk_20C = 0;
-        if ((this->actor.params & 0xF0) == 0x90) {
+        if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0x90) {
             if (INV_CONTENT(ITEM_TRADE_ADULT) == ITEM_CLAIM_CHECK) {
                 getItemId = GI_SWORD_BIGGORON;
                 this->unk_20C = 1;
@@ -966,7 +973,7 @@ void EnGo_GetItem(EnGo* this, PlayState* play) {
             }
         }
 
-        if ((this->actor.params & 0xF0) == 0) {
+        if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) == 0) {
             getItemId = GI_TUNIC_GORON;
         }
 
@@ -979,11 +986,11 @@ void EnGo_GetItem(EnGo* this, PlayState* play) {
 void func_80A40C78(EnGo* this, PlayState* play) {
     if (this->interactInfo.talkState == NPC_TALK_STATE_ITEM_GIVEN) {
         EnGo_SetupAction(this, EnGo_BiggoronActionFunc);
-        if ((this->actor.params & 0xF0) != 0x90) {
+        if (PARAMS_GET_NOSHIFT(this->actor.params, 4, 4) != 0x90) {
             this->interactInfo.talkState = NPC_TALK_STATE_IDLE;
         } else if (this->unk_20C) {
             this->interactInfo.talkState = NPC_TALK_STATE_IDLE;
-            gSaveContext.bgsFlag = true;
+            gSaveContext.save.info.playerData.bgsFlag = true;
         } else if (INV_CONTENT(ITEM_TRADE_ADULT) == ITEM_PRESCRIPTION) {
             this->actor.textId = 0x3058;
             Message_ContinueTextbox(play, this->actor.textId);
@@ -1032,7 +1039,7 @@ void EnGo_Update(Actor* thisx, PlayState* play) {
     EnGo_UpdateShadow(this);
 
     if (this->interactInfo.talkState == NPC_TALK_STATE_IDLE) {
-        Actor_MoveForward(&this->actor);
+        Actor_MoveXZGravity(&this->actor);
     }
 
     Actor_UpdateBgCheckInfo(play, &this->actor, 0.0f, 0.0f, 0.0f, UPDBGCHECKINFO_FLAG_2);
@@ -1050,7 +1057,7 @@ void EnGo_DrawCurledUp(EnGo* this, PlayState* play) {
     Matrix_Push();
     Gfx_SetupDL_25Opa(play->state.gfxCtx);
 
-    gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_en_go.c", 2326),
+    gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_en_go.c", 2326),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
 
     gSPDisplayList(POLY_OPA_DISP++, gGoronDL_00BD80);
@@ -1068,9 +1075,9 @@ void EnGo_DrawRolling(EnGo* this, PlayState* play) {
 
     Matrix_Push();
     Gfx_SetupDL_25Opa(play->state.gfxCtx);
-    Matrix_RotateZYX((s16)(play->state.frames * ((s16)this->actor.speedXZ * 1400)), 0, this->actor.shape.rot.z,
+    Matrix_RotateZYX((s16)(play->state.frames * ((s16)this->actor.speed * 1400)), 0, this->actor.shape.rot.z,
                      MTXMODE_APPLY);
-    gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_en_go.c", 2368),
+    gSPMatrix(POLY_OPA_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_en_go.c", 2368),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     gSPDisplayList(POLY_OPA_DISP++, gGoronDL_00C140);
     Matrix_MultVec3f(&D_80A41BC0, &this->actor.focus.pos);
@@ -1081,32 +1088,25 @@ void EnGo_DrawRolling(EnGo* this, PlayState* play) {
 
 s32 EnGo_OverrideLimbDraw(PlayState* play, s32 limb, Gfx** dList, Vec3f* pos, Vec3s* rot, void* thisx) {
     EnGo* this = (EnGo*)thisx;
-    Vec3s vec1;
-    f32 float1;
+    Vec3s limbRot;
 
     if (limb == 17) {
         Matrix_Translate(2800.0f, 0.0f, 0.0f, MTXMODE_APPLY);
-        vec1 = this->interactInfo.headRot;
-        float1 = BINANG_TO_RAD_ALT(vec1.y);
-        Matrix_RotateX(float1, MTXMODE_APPLY);
-        float1 = BINANG_TO_RAD_ALT(vec1.x);
-        Matrix_RotateZ(float1, MTXMODE_APPLY);
+        limbRot = this->interactInfo.headRot;
+        Matrix_RotateX(BINANG_TO_RAD_ALT(limbRot.y), MTXMODE_APPLY);
+        Matrix_RotateZ(BINANG_TO_RAD_ALT(limbRot.x), MTXMODE_APPLY);
         Matrix_Translate(-2800.0f, 0.0f, 0.0f, MTXMODE_APPLY);
     }
 
     if (limb == 10) {
-        vec1 = this->interactInfo.torsoRot;
-        float1 = BINANG_TO_RAD_ALT(vec1.y);
-        Matrix_RotateY(float1, MTXMODE_APPLY);
-        float1 = BINANG_TO_RAD_ALT(vec1.x);
-        Matrix_RotateX(float1, MTXMODE_APPLY);
+        limbRot = this->interactInfo.torsoRot;
+        Matrix_RotateY(BINANG_TO_RAD_ALT(limbRot.y), MTXMODE_APPLY);
+        Matrix_RotateX(BINANG_TO_RAD_ALT(limbRot.x), MTXMODE_APPLY);
     }
 
     if ((limb == 10) || (limb == 11) || (limb == 14)) {
-        float1 = Math_SinS(this->jointTable[limb]);
-        rot->y += float1 * 200.0f;
-        float1 = Math_CosS(this->morphTable[limb]);
-        rot->z += float1 * 200.0f;
+        rot->y += Math_SinS(this->jointTable[limb]) * 200.0f;
+        rot->z += Math_CosS(this->morphTable[limb]) * 200.0f;
     }
 
     return 0;
@@ -1207,29 +1207,32 @@ void EnGo_DrawEffects(EnGo* this, PlayState* play) {
     OPEN_DISPS(play->state.gfxCtx, "../z_en_go.c", 2626);
     materialFlag = false;
     Gfx_SetupDL_25Xlu(play->state.gfxCtx);
-    if (1) {}
+
     for (i = 0; i < EN_GO_EFFECT_COUNT; i++, dustEffect++) {
-        if (dustEffect->type) {
-            if (!materialFlag) {
-                POLY_XLU_DISP = Gfx_SetupDL(POLY_XLU_DISP, SETUPDL_0);
-                gSPDisplayList(POLY_XLU_DISP++, gGoronDL_00FD40);
-                gDPSetEnvColor(POLY_XLU_DISP++, 100, 60, 20, 0);
-                materialFlag = true;
-            }
-
-            alpha = dustEffect->timer * (255.0f / dustEffect->initialTimer);
-            gDPSetPrimColor(POLY_XLU_DISP++, 0, 0, 170, 130, 90, alpha);
-            gDPPipeSync(POLY_XLU_DISP++);
-            Matrix_Translate(dustEffect->pos.x, dustEffect->pos.y, dustEffect->pos.z, MTXMODE_NEW);
-            Matrix_ReplaceRotation(&play->billboardMtxF);
-            Matrix_Scale(dustEffect->scale, dustEffect->scale, 1.0f, MTXMODE_APPLY);
-            gSPMatrix(POLY_XLU_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_en_go.c", 2664),
-                      G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-
-            index = dustEffect->timer * (8.0f / dustEffect->initialTimer);
-            gSPSegment(POLY_XLU_DISP++, 0x08, SEGMENTED_TO_VIRTUAL(dustTex[index]));
-            gSPDisplayList(POLY_XLU_DISP++, gGoronDL_00FD50);
+        if (dustEffect->type == 0) {
+            continue;
         }
+
+        if (!materialFlag) {
+            POLY_XLU_DISP = Gfx_SetupDL(POLY_XLU_DISP, SETUPDL_0);
+            gSPDisplayList(POLY_XLU_DISP++, gGoronDL_00FD40);
+            gDPSetEnvColor(POLY_XLU_DISP++, 100, 60, 20, 0);
+            materialFlag = true;
+        }
+
+        alpha = dustEffect->timer * (255.0f / dustEffect->initialTimer);
+        gDPSetPrimColor(POLY_XLU_DISP++, 0, 0, 170, 130, 90, alpha);
+        gDPPipeSync(POLY_XLU_DISP++);
+        Matrix_Translate(dustEffect->pos.x, dustEffect->pos.y, dustEffect->pos.z, MTXMODE_NEW);
+        Matrix_ReplaceRotation(&play->billboardMtxF);
+        Matrix_Scale(dustEffect->scale, dustEffect->scale, 1.0f, MTXMODE_APPLY);
+        gSPMatrix(POLY_XLU_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_en_go.c", 2664),
+                  G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+
+        index = dustEffect->timer * (8.0f / dustEffect->initialTimer);
+        gSPSegment(POLY_XLU_DISP++, 0x08, SEGMENTED_TO_VIRTUAL(dustTex[index]));
+        gSPDisplayList(POLY_XLU_DISP++, gGoronDL_00FD50);
     }
+
     CLOSE_DISPS(play->state.gfxCtx, "../z_en_go.c", 2678);
 }

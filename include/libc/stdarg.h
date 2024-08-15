@@ -2,20 +2,23 @@
 #define STDARG_H
 
 // When building with GCC, use the official vaarg macros to avoid warnings and possibly bad codegen.
+
 #ifdef __GNUC__
-#define va_list __builtin_va_list
+
+#define va_list  __builtin_va_list
 #define va_start __builtin_va_start
-#define va_arg __builtin_va_arg
-#define va_end __builtin_va_end
+#define va_arg   __builtin_va_arg
+#define va_end   __builtin_va_end
+
 #else
 
 #ifndef _VA_LIST_
-#define _VA_LIST_
+# define _VA_LIST_
 typedef char* va_list;
 #endif
 
-#define _INT 0
-#define _FP 1
+#define _INT    0
+#define _FP     1
 #define _STRUCT 2
 
 #define _VA_FP_SAVE_AREA 0x10
@@ -49,5 +52,6 @@ typedef char* va_list;
 /* No cleanup processing is required for the end of a varargs list: */
 #define va_end(__list)
 
-#endif
+#endif /* __GNUC__ */
+
 #endif

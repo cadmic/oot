@@ -14,16 +14,16 @@ void BgSpot18Futa_Destroy(Actor* thisx, PlayState* play);
 void BgSpot18Futa_Update(Actor* thisx, PlayState* play);
 void BgSpot18Futa_Draw(Actor* thisx, PlayState* play);
 
-ActorInit Bg_Spot18_Futa_InitVars = {
-    ACTOR_BG_SPOT18_FUTA,
-    ACTORCAT_PROP,
-    FLAGS,
-    OBJECT_SPOT18_OBJ,
-    sizeof(BgSpot18Futa),
-    (ActorFunc)BgSpot18Futa_Init,
-    (ActorFunc)BgSpot18Futa_Destroy,
-    (ActorFunc)BgSpot18Futa_Update,
-    (ActorFunc)BgSpot18Futa_Draw,
+ActorProfile Bg_Spot18_Futa_Profile = {
+    /**/ ACTOR_BG_SPOT18_FUTA,
+    /**/ ACTORCAT_PROP,
+    /**/ FLAGS,
+    /**/ OBJECT_SPOT18_OBJ,
+    /**/ sizeof(BgSpot18Futa),
+    /**/ BgSpot18Futa_Init,
+    /**/ BgSpot18Futa_Destroy,
+    /**/ BgSpot18Futa_Update,
+    /**/ BgSpot18Futa_Draw,
 };
 
 static InitChainEntry sInitChain[] = {

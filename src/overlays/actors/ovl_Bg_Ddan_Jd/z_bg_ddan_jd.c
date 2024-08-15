@@ -17,23 +17,23 @@ void BgDdanJd_Draw(Actor* thisx, PlayState* play);
 void BgDdanJd_Idle(BgDdanJd* this, PlayState* play);
 void BgDdanJd_Move(BgDdanJd* this, PlayState* play);
 
-ActorInit Bg_Ddan_Jd_InitVars = {
-    ACTOR_BG_DDAN_JD,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_DDAN_OBJECTS,
-    sizeof(BgDdanJd),
-    (ActorFunc)BgDdanJd_Init,
-    (ActorFunc)BgDdanJd_Destroy,
-    (ActorFunc)BgDdanJd_Update,
-    (ActorFunc)BgDdanJd_Draw,
+ActorProfile Bg_Ddan_Jd_Profile = {
+    /**/ ACTOR_BG_DDAN_JD,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_DDAN_OBJECTS,
+    /**/ sizeof(BgDdanJd),
+    /**/ BgDdanJd_Init,
+    /**/ BgDdanJd_Destroy,
+    /**/ BgDdanJd_Update,
+    /**/ BgDdanJd_Draw,
 };
 
 static InitChainEntry sInitChain[] = {
     ICHAIN_VEC3F_DIV1000(scale, 100, ICHAIN_STOP),
 };
 
-typedef enum {
+typedef enum BgDdanJdState {
     /* 0 */ STATE_GO_BOTTOM,
     /* 1 */ STATE_GO_MIDDLE_FROM_BOTTOM,
     /* 2 */ STATE_GO_MIDDLE_FROM_TOP,
@@ -162,7 +162,7 @@ void BgDdanJd_Move(BgDdanJd* this, PlayState* play) {
         this->actionFunc = BgDdanJd_Idle;
         OnePointCutscene_Init(play, 3060, -99, &this->dyna.actor, CAM_ID_MAIN);
     } else if (Math_StepToF(&this->dyna.actor.world.pos.y, this->targetY, this->ySpeed)) {
-        Audio_PlayActorSfx2(&this->dyna.actor, NA_SE_EV_PILLAR_MOVE_STOP);
+        Actor_PlaySfx(&this->dyna.actor, NA_SE_EV_PILLAR_MOVE_STOP);
         this->actionFunc = BgDdanJd_Idle;
     }
     BgDdanJd_MoveEffects(this, play);

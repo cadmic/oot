@@ -14,7 +14,7 @@ typedef void (*EnOssanInitFunc)(struct EnOssan*, PlayState*);
 typedef s16 (*EnOssanGetGirlAParamsFunc)(s16);
 typedef void (*EnOssanStateFunc)(struct EnOssan*, PlayState*, Player*);
 
-typedef struct {
+typedef struct StickDirectionPrompt {
     /* 0x00 */ u32 stickColorR;
     /* 0x04 */ u32 stickColorG;
     /* 0x08 */ u32 stickColorB;
@@ -41,9 +41,9 @@ typedef struct EnOssan {
     /* 0x0198 */ ColliderCylinder collider; // unused
     /* 0x01E4 */ s16 timer;
     /* 0x01E6 */ s16 delayTimer;
-    /* 0x01E8 */ s8 objBankIndex1;
-    /* 0x01E9 */ s8 objBankIndex2;
-    /* 0x01EA */ s8 objBankIndex3;
+    /* 0x01E8 */ s8 objectSlot1;
+    /* 0x01E9 */ s8 objectSlot2;
+    /* 0x01EA */ s8 objectSlot3;
     /* 0x01EB */ u8 happyMaskShopState;
     /* 0x01EC */ u8 happyMaskShopkeeperEyeIdx;
     /* 0x01EE */ s16 headRot;
@@ -83,7 +83,7 @@ typedef struct EnOssan {
     /* 0x02D4 */ f32 cameraFaceAngle; // stored in degrees
 } EnOssan; // size = 0x02D8
 
-typedef enum {
+typedef enum OssanType {
     /* 00 */ OSSAN_TYPE_KOKIRI,
     /* 01 */ OSSAN_TYPE_KAKARIKO_POTION,
     /* 02 */ OSSAN_TYPE_BOMBCHUS,
@@ -97,7 +97,7 @@ typedef enum {
     /* 10 */ OSSAN_TYPE_MASK
 } OssanType;
 
-typedef enum {
+typedef enum EnOssanState {
     /* 00 */ OSSAN_STATE_IDLE,
     /* 01 */ OSSAN_STATE_START_CONVERSATION,
     /* 02 */ OSSAN_STATE_FACING_SHOPKEEPER,
@@ -127,7 +127,7 @@ typedef enum {
     /* 26 */ OSSAN_STATE_DISCOUNT_DIALOG     // Hylian Shield Discount
 } EnOssanState;
 
-typedef enum {
+typedef enum EnOssanHappyMaskState {
     OSSAN_HAPPY_STATE_REQUEST_PAYMENT_KEATON_MASK,
     OSSAN_HAPPY_STATE_REQUEST_PAYMENT_SPOOKY_MASK,
     OSSAN_HAPPY_STATE_REQUEST_PAYMENT_SKULL_MASK,

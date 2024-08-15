@@ -9,7 +9,7 @@
  * ((params >> 8) & 0x3F) == 0x3F means no switch flag is checked / set
  */
 
-typedef struct {
+typedef struct DoorKillerTextureEntry {
     /* 0x00 */ s16 objectId;
     /* 0x04 */ void* texture;
 } DoorKillerTextureEntry; // size 0x8
@@ -25,7 +25,7 @@ typedef struct DoorKiller {
     /* 0x0214 */ void* texture;
     /* 0x0218 */ u16 hasHitPlayerOrGround;
     /* 0x021A */ u16 timer;
-    /* 0x021C */ u8 doorObjBankIndex;
+    /* 0x021C */ u8 requiredObjectSlot;
     /* 0x021D */ u8 textureEntryIndex;
     /* 0x0220 */ ColliderJntSph colliderJntSph;
     /* 0x0240 */ ColliderJntSphElement colliderJntSphItems[1];

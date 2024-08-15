@@ -12,13 +12,13 @@ typedef void (*EnTaActionFunc)(struct EnTa*, PlayState*);
 typedef void (*EnTaBlinkFunc)(struct EnTa*);
 typedef void (*EnTaAnimFunc)(struct EnTa*);
 
-typedef enum {
+typedef enum EnTaType {
     /* 0xFFFF */ ENTA_CHILD_ERA = -1,
     /* 0x0001 */ ENTA_IN_KAKARIKO = 1,
     /* 0x0002 */ ENTA_RETURNED_FROM_KAKARIKO
  } EnTaType;
 
-typedef enum {
+typedef enum EnTaLimb {
     /* 0x00 */ ENTA_LIMB_NONE,
     /* 0x01 */ ENTA_LIMB_ROOT,
     /* 0x02 */ ENTA_LIMB_LEFT_THIGH,
@@ -43,7 +43,7 @@ typedef struct EnTa {
     /* 0x0000 */ Actor actor;
     /* 0x014C */ SkelAnime skelAnime;
     /* 0x0190 */ Vec3s jointTable[ENTA_LIMB_MAX];
-    /* 0x01F6 */ Vec3s morphTable[ENTA_LIMB_MAX]; 
+    /* 0x01F6 */ Vec3s morphTable[ENTA_LIMB_MAX];
     /* 0x025C */ EnTaActionFunc actionFunc;
     /* 0x0260 */ EnTaAnimFunc animFunc;
     /* 0x0264 */ ColliderCylinder collider;

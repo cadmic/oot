@@ -9,17 +9,21 @@
 
 __attribute__((noreturn)) void __assert(const char* assertion, const char* file, int line);
 
+// assert for matching
 #ifndef NDEBUG
 # ifndef NON_MATCHING
 #  define ASSERT(cond, msg, file, line) ((cond) ? ((void)0) : __assert(msg, file, line))
 # else
-// macro for matching
 #  define ASSERT(cond, msg, file, line) ((cond) ? ((void)0) : __assert(#cond, __FILE__, __LINE__))
-// standard assert macro
-#  define assert(cond) ASSERT(cond, ., ., .)
 # endif
 #else
 # define ASSERT(cond, msg, file, line) ((void)0)
+#endif
+
+// standard assert macro
+#ifndef NDEBUG
+# define assert(cond) ASSERT(cond, #cond, __FILE__, __LINE__)
+#else
 # define assert(cond) ((void)0)
 #endif
 

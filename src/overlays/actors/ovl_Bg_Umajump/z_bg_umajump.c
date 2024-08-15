@@ -14,16 +14,16 @@ void BgUmaJump_Destroy(Actor* thisx, PlayState* play);
 void BgUmaJump_Update(Actor* thisx, PlayState* play);
 void BgUmaJump_Draw(Actor* thisx, PlayState* play);
 
-ActorInit Bg_Umajump_InitVars = {
-    ACTOR_BG_UMAJUMP,
-    ACTORCAT_PROP,
-    FLAGS,
-    OBJECT_UMAJUMP,
-    sizeof(BgUmaJump),
-    (ActorFunc)BgUmaJump_Init,
-    (ActorFunc)BgUmaJump_Destroy,
-    (ActorFunc)BgUmaJump_Update,
-    (ActorFunc)BgUmaJump_Draw,
+ActorProfile Bg_Umajump_Profile = {
+    /**/ ACTOR_BG_UMAJUMP,
+    /**/ ACTORCAT_PROP,
+    /**/ FLAGS,
+    /**/ OBJECT_UMAJUMP,
+    /**/ sizeof(BgUmaJump),
+    /**/ BgUmaJump_Init,
+    /**/ BgUmaJump_Destroy,
+    /**/ BgUmaJump_Update,
+    /**/ BgUmaJump_Draw,
 };
 
 static InitChainEntry sInitChain[] = {

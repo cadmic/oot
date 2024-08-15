@@ -25,16 +25,16 @@ void func_808B44CC(BgSpot15Rrbox* this, PlayState* play);
 
 static s16 D_808B4590 = 0;
 
-ActorInit Bg_Spot15_Rrbox_InitVars = {
-    ACTOR_BG_SPOT15_RRBOX,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_SPOT15_OBJ,
-    sizeof(BgSpot15Rrbox),
-    (ActorFunc)BgSpot15Rrbox_Init,
-    (ActorFunc)BgSpot15Rrbox_Destroy,
-    (ActorFunc)BgSpot15Rrbox_Update,
-    (ActorFunc)BgSpot15Rrbox_Draw,
+ActorProfile Bg_Spot15_Rrbox_Profile = {
+    /**/ ACTOR_BG_SPOT15_RRBOX,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_SPOT15_OBJ,
+    /**/ sizeof(BgSpot15Rrbox),
+    /**/ BgSpot15Rrbox_Init,
+    /**/ BgSpot15Rrbox_Destroy,
+    /**/ BgSpot15Rrbox_Update,
+    /**/ BgSpot15Rrbox_Draw,
 };
 
 static InitChainEntry sInitChain[] = {
@@ -58,17 +58,19 @@ static Vec3f sBoxGroundCheckPoints[] = {
 void func_808B3960(BgSpot15Rrbox* this, PlayState* play, CollisionHeader* collision, s32 flags) {
     s32 pad;
     CollisionHeader* colHeader = NULL;
-    u32 pad2;
 
     DynaPolyActor_Init(&this->dyna, flags);
     CollisionHeader_GetVirtual(collision, &colHeader);
-
     this->dyna.bgId = DynaPoly_SetBgActor(play, &play->colCtx.dyna, &this->dyna.actor, colHeader);
 
+#if OOT_DEBUG
     if (this->dyna.bgId == BG_ACTOR_MAX) {
-        osSyncPrintf("Warning : move BG 登録失敗(%s %d)(name %d)(arg_data 0x%04x)\n", "../z_bg_spot15_rrbox.c", 171,
-                     this->dyna.actor.id, this->dyna.actor.params);
+        s32 pad2;
+
+        PRINTF("Warning : move BG 登録失敗(%s %d)(name %d)(arg_data 0x%04x)\n", "../z_bg_spot15_rrbox.c", 171,
+               this->dyna.actor.id, this->dyna.actor.params);
     }
+#endif
 }
 
 void BgSpot15Rrbox_RotatePoint(Vec3f* outPos, Vec3f* pos, f32 arg2, f32 arg3) {
@@ -124,14 +126,14 @@ void BgSpot15Rrbox_Init(Actor* thisx, PlayState* play) {
     func_808B3960(this, play, &gLonLonMilkCrateCol, 0);
     Actor_ProcessInitChain(&this->dyna.actor, sInitChain);
     func_808B3A34(this);
-    if (Flags_GetSwitch(play, (this->dyna.actor.params & 0x3F))) {
+    if (Flags_GetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6))) {
         func_808B44B8(this, play);
         this->dyna.actor.world.pos = D_808B45C4[D_808B4590];
         D_808B4590++;
     } else {
         func_808B4084(this, play);
     }
-    osSyncPrintf("(spot15 ロンロン木箱)(arg_data 0x%04x)\n", this->dyna.actor.params);
+    PRINTF("(spot15 ロンロン木箱)(arg_data 0x%04x)\n", this->dyna.actor.params);
 }
 
 void BgSpot15Rrbox_Destroy(Actor* thisx, PlayState* play) {
@@ -224,11 +226,9 @@ s32 func_808B4010(BgSpot15Rrbox* this, PlayState* play) {
 }
 
 void func_808B4084(BgSpot15Rrbox* this, PlayState* play) {
-    this->actionFunc = func_808B40AC;
     this->dyna.actor.gravity = 0.0f;
-    this->dyna.actor.velocity.x = 0.0f;
-    this->dyna.actor.velocity.y = 0.0f;
-    this->dyna.actor.velocity.z = 0.0f;
+    this->dyna.actor.velocity.x = this->dyna.actor.velocity.y = this->dyna.actor.velocity.z = 0.0f;
+    this->actionFunc = func_808B40AC;
 }
 
 void func_808B40AC(BgSpot15Rrbox* this, PlayState* play) {
@@ -283,10 +283,10 @@ void func_808B4194(BgSpot15Rrbox* this, PlayState* play) {
     } else if (approxFResult) {
         player = GET_PLAYER(play);
         if (func_808B4010(this, play)) {
-            Audio_PlayActorSfx2(actor, NA_SE_EV_WOOD_BOUND);
+            Actor_PlaySfx(actor, NA_SE_EV_WOOD_BOUND);
         }
         if (func_808B3A40(this, play)) {
-            func_80078884(NA_SE_SY_CORRECT_CHIME);
+            Sfx_PlaySfxCentered(NA_SE_SY_CORRECT_CHIME);
         }
         actor->home.pos.x = actor->world.pos.x;
         actor->home.pos.z = actor->world.pos.z;
@@ -297,13 +297,11 @@ void func_808B4194(BgSpot15Rrbox* this, PlayState* play) {
         this->unk_168 = 10;
         func_808B4084(this, play);
     }
-    Audio_PlayActorSfx2(actor, NA_SE_EV_ROCK_SLIDE - SFX_FLAG);
+    Actor_PlaySfx(actor, NA_SE_EV_ROCK_SLIDE - SFX_FLAG);
 }
 
 void func_808B4380(BgSpot15Rrbox* this, PlayState* play) {
-    this->dyna.actor.velocity.x = 0.0f;
-    this->dyna.actor.velocity.y = 0.0f;
-    this->dyna.actor.velocity.z = 0.0f;
+    this->dyna.actor.velocity.x = this->dyna.actor.velocity.y = this->dyna.actor.velocity.z = 0.0f;
     this->dyna.actor.gravity = -1.0f;
     this->dyna.actor.floorHeight = BgSpot15Rrbox_GetFloorHeight(this, play);
     this->actionFunc = func_808B43D0;
@@ -319,12 +317,12 @@ void func_808B43D0(BgSpot15Rrbox* this, PlayState* play) {
         player->stateFlags2 &= ~PLAYER_STATE2_4;
     }
 
-    Actor_MoveForward(actor);
+    Actor_MoveXZGravity(actor);
 
     if (actor->world.pos.y <= BGCHECK_Y_MIN + 10.0f) {
         // "Lon Lon wooden crate fell too much"
-        osSyncPrintf("Warning : ロンロン木箱落ちすぎた(%s %d)(arg_data 0x%04x)\n", "../z_bg_spot15_rrbox.c", 599,
-                     actor->params);
+        PRINTF("Warning : ロンロン木箱落ちすぎた(%s %d)(arg_data 0x%04x)\n", "../z_bg_spot15_rrbox.c", 599,
+               actor->params);
 
         Actor_Kill(actor);
 
@@ -336,7 +334,7 @@ void func_808B43D0(BgSpot15Rrbox* this, PlayState* play) {
     if ((floorHeight - actor->world.pos.y) >= -0.001f) {
         actor->world.pos.y = floorHeight;
         func_808B4084(this, play);
-        Audio_PlayActorSfx2(&this->dyna.actor, NA_SE_EV_WOOD_BOUND);
+        Actor_PlaySfx(&this->dyna.actor, NA_SE_EV_WOOD_BOUND);
     }
 }
 

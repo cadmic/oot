@@ -4,7 +4,7 @@
 #include "ultra64.h"
 #include "global.h"
 
-typedef enum {
+typedef enum EnHorseAction {
     /*  0 */ ENHORSE_ACT_FROZEN,
     /*  1 */ ENHORSE_ACT_INACTIVE,
     /*  2 */ ENHORSE_ACT_IDLE,
@@ -63,7 +63,7 @@ typedef enum {
 
 struct EnHorse;
 
-typedef enum {
+typedef enum EnHorsePlayerDir {
     /* 0 */ PLAYER_DIR_FRONT_R,
     /* 1 */ PLAYER_DIR_FRONT_L,
     /* 2 */ PLAYER_DIR_BACK_R,
@@ -72,7 +72,7 @@ typedef enum {
     /* 5 */ PLAYER_DIR_SIDE_L
 } EnHorsePlayerDir;
 
-typedef enum {
+typedef enum EnHorseAnimationIndex {
     /* 0 */ ENHORSE_ANIM_IDLE,
     /* 1 */ ENHORSE_ANIM_WHINNEY,
     /* 2 */ ENHORSE_ANIM_STOPPING,
@@ -84,7 +84,7 @@ typedef enum {
     /* 8 */ ENHORSE_ANIM_HIGH_JUMP
 } EnHorseAnimationIndex;
 
-typedef enum {
+typedef enum HorseType {
     /* 0 */ HORSE_EPONA,
     /* 1 */ HORSE_HNI
 } HorseType;
@@ -97,7 +97,7 @@ typedef struct EnHorse {
     /* 0x0150 */ s32 noInputTimer;
     /* 0x0154 */ s32 noInputTimerMax;
     /* 0x0158 */ s32 type;
-    /* 0x015C */ s8 bankIndex;
+    /* 0x015C */ s8 hniObjectSlot;
     /* 0x0160 */ Skin skin;
     /* 0x01F0 */ u32 stateFlags;
     /* 0x01F4 */ Vec3f lastPos;

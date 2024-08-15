@@ -20,16 +20,16 @@ void func_808BF078(BgYdanMaruta* this, PlayState* play);
 void func_808BF108(BgYdanMaruta* this, PlayState* play);
 void func_808BF1EC(BgYdanMaruta* this, PlayState* play);
 
-ActorInit Bg_Ydan_Maruta_InitVars = {
-    ACTOR_BG_YDAN_MARUTA,
-    ACTORCAT_PROP,
-    FLAGS,
-    OBJECT_YDAN_OBJECTS,
-    sizeof(BgYdanMaruta),
-    (ActorFunc)BgYdanMaruta_Init,
-    (ActorFunc)BgYdanMaruta_Destroy,
-    (ActorFunc)BgYdanMaruta_Update,
-    (ActorFunc)BgYdanMaruta_Draw,
+ActorProfile Bg_Ydan_Maruta_Profile = {
+    /**/ ACTOR_BG_YDAN_MARUTA,
+    /**/ ACTORCAT_PROP,
+    /**/ FLAGS,
+    /**/ OBJECT_YDAN_OBJECTS,
+    /**/ sizeof(BgYdanMaruta),
+    /**/ BgYdanMaruta_Init,
+    /**/ BgYdanMaruta_Destroy,
+    /**/ BgYdanMaruta_Update,
+    /**/ BgYdanMaruta_Draw,
 };
 
 static ColliderTrisElementInit sTrisElementsInit[2] = {
@@ -38,8 +38,8 @@ static ColliderTrisElementInit sTrisElementsInit[2] = {
             ELEMTYPE_UNK0,
             { 0x20000000, 0x00, 0x04 },
             { 0x00000004, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_WOOD,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_WOOD,
+            ACELEM_ON,
             OCELEM_NONE,
         },
         { { { 220.0f, -10.0f, 0.0f }, { 220.0f, 10.0f, 0.0f }, { -220.0f, 10.0f, 0.0f } } },
@@ -49,8 +49,8 @@ static ColliderTrisElementInit sTrisElementsInit[2] = {
             ELEMTYPE_UNK0,
             { 0x20000000, 0x00, 0x04 },
             { 0x00000004, 0x00, 0x00 },
-            TOUCH_ON | TOUCH_SFX_WOOD,
-            BUMP_ON,
+            ATELEM_ON | ATELEM_SFX_WOOD,
+            ACELEM_ON,
             OCELEM_NONE,
         },
         { { { 16.0f, 0.0f, 0.0f }, { 16.0f, 135.0f, 0.0f }, { -16.0f, 135.0f, 0.0f } } },
@@ -88,8 +88,8 @@ void BgYdanMaruta_Init(Actor* thisx, PlayState* play) {
     Collider_InitTris(play, &this->collider);
     Collider_SetTris(play, &this->collider, &this->dyna.actor, &sTrisInit, this->elements);
 
-    this->switchFlag = this->dyna.actor.params & 0xFFFF;
-    thisx->params = (thisx->params >> 8) & 0xFF; // thisx is required to match here
+    this->switchFlag = PARAMS_GET_U(this->dyna.actor.params, 0, 16);
+    thisx->params = PARAMS_GET_U(thisx->params, 8, 8); // thisx is required to match here
 
     if (this->dyna.actor.params == 0) {
         triInit = &sTrisElementsInit[0];
@@ -148,7 +148,7 @@ void func_808BF078(BgYdanMaruta* this, PlayState* play) {
     if (this->collider.base.acFlags & AC_HIT) {
         this->unk_16A = 20;
         Flags_SetSwitch(play, this->switchFlag);
-        func_80078884(NA_SE_SY_CORRECT_CHIME);
+        Sfx_PlaySfxCentered(NA_SE_SY_CORRECT_CHIME);
         this->actionFunc = func_808BF108;
         OnePointCutscene_Init(play, 3010, 50, &this->dyna.actor, CAM_ID_MAIN);
     } else {
@@ -184,7 +184,7 @@ void func_808BF108(BgYdanMaruta* this, PlayState* play) {
 void func_808BF1EC(BgYdanMaruta* this, PlayState* play) {
     this->dyna.actor.velocity.y += 1.0f;
     if (Math_StepToF(&this->dyna.actor.world.pos.y, this->dyna.actor.home.pos.y, this->dyna.actor.velocity.y)) {
-        Audio_PlayActorSfx2(&this->dyna.actor, NA_SE_EV_LADDER_DOUND);
+        Actor_PlaySfx(&this->dyna.actor, NA_SE_EV_LADDER_DOUND);
         this->actionFunc = BgYdanMaruta_DoNothing;
     }
 }

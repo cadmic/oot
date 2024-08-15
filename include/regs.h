@@ -48,9 +48,11 @@
 #define R_ENV_TIME_SPEED_OLD                     REG(15) // Most likely used during development. Unused in the final game.
 #define R_RUN_SPEED_LIMIT                        REG(45)
 #define R_ENABLE_ARENA_DBG                       SREG(0)
+#define R_AUDIOMGR_DEBUG_LEVEL                   SREG(20)
 #define R_ROOM_IMAGE_NODRAW_FLAGS                SREG(25)
 #define R_ROOM_BG2D_FORCE_SCALEBG                SREG(26)
 #define R_UPDATE_RATE                            SREG(30)
+#define R_GRAPH_TASKSET00_FLAGS                  SREG(33)
 #define R_ENABLE_AUDIO_DBG                       SREG(36)
 #define R_VI_MODE_EDIT_STATE                     SREG(48)
 #define R_VI_MODE_EDIT_WIDTH                     SREG(49)
@@ -64,7 +66,7 @@
 #define R_FB_FILTER_A                            SREG(84)
 #define R_FB_FILTER_ENV_COLOR(c)                 SREG(85 + (c))
 #define R_ENABLE_FB_FILTER                       SREG(88)
-#define R_PAUSE_MENU_MODE                        SREG(94)
+#define R_PAUSE_BG_PRERENDER_STATE               SREG(94) // `PauseBgPreRenderState`
 #define R_CAM_XZ_OFFSET_UPDATE_RATE              OREG(2)
 #define R_CAM_Y_OFFSET_UPDATE_RATE               OREG(3)
 #define R_CAM_FOV_UPDATE_RATE                    OREG(4)
@@ -89,7 +91,8 @@
 #define R_CAM_AT_LERP_STEP_SCALE_FAC             OREG(42)
 #define R_CAM_YOFFSET_NORM                       OREG(46)
 #define R_CAM_DATA(type)                         PREG(0 + (type))
-#define R_DBG_CAM_UPDATE                         PREG(80)
+#define R_CAM_PARALLEL_LOCKON_CALC_SLOPE_Y_ADJ   PREG(76)
+#define R_DEBUG_CAM_UPDATE                       PREG(80)
 #define R_DBG_REG_UPDATE                         PREG(82)
 #define R_RELOAD_CAM_PARAMS                      QREG(0)
 #define R_SCENE_CAM_TYPE                         YREG(15)
@@ -97,6 +100,14 @@
 #define R_TEXTBOX_TEXHEIGHT                      YREG(17)
 #define R_TEXTBOX_WIDTH                          YREG(22)
 #define R_TEXTBOX_HEIGHT                         YREG(23)
+#if OOT_NTSC
+#define R_KALEIDO_UNK1(i)                        YREG(48 + (i))
+#define R_KALEIDO_UNK2(i)                        YREG(50 + (i))
+#define R_KALEIDO_UNK3(i)                        YREG(52 + (i))
+#define R_KALEIDO_UNK4(i)                        YREG(54 + (i))
+#define R_KALEIDO_UNK5(i)                        YREG(56 + (i))
+#define R_KALEIDO_UNK6(i)                        YREG(58 + (i))
+#endif
 #define R_TEXTBOX_ICON_XPOS                      YREG(71)
 #define R_TEXTBOX_ICON_YPOS                      YREG(72)
 #define R_TEXTBOX_ICON_DIMENSION                 YREG(75)
@@ -104,12 +115,23 @@
 #define R_MESSAGE_DEBUGGER_TEXTID                YREG(79)
 #define R_C_UP_ICON_X                            YREG(88)
 #define R_C_UP_ICON_Y                            YREG(89)
+#define R_EPONAS_SONG_PLAYED                     DREG(53)
 #define R_MAGIC_FILL_COLOR(i)                    ZREG(0 + (i))
+#define R_PAUSE_PAGE_SWITCH_FRAME_ADVANCE_ON     ZREG(13)
 #define R_C_BTN_COLOR(i)                         ZREG(39 + (i))
 #define R_B_BTN_COLOR(i)                         ZREG(43 + (i))
+#if OOT_NTSC
+#define R_START_LABEL_SCALE                      ZREG(48)
+#define R_START_LABEL_DD(i)                      ZREG(49 + (i))
+#define R_START_LABEL_WIDTH                      ZREG(51)
+#define R_START_LABEL_HEIGHT                     ZREG(52)
+#define R_START_LABEL_Y(i)                       ZREG(53 + (i))
+#define R_START_LABEL_X(i)                       ZREG(55 + (i))
+#else
 #define R_START_LABEL_DD(i)                      ZREG(48 + (i))
 #define R_START_LABEL_Y(i)                       ZREG(51 + (i))
 #define R_START_LABEL_X(i)                       ZREG(54 + (i))
+#endif
 #define R_C_UP_BTN_X                             ZREG(62)
 #define R_C_UP_BTN_Y                             ZREG(63)
 #define R_START_BTN_X                            ZREG(68)
@@ -153,16 +175,33 @@
 #define R_TEXTBOX_TEXHEIGHT_TARGET               XREG(77)
 #define R_ENV_LIGHT1_DIR(i)                      cREG(3 + (i))
 #define R_ENV_LIGHT2_DIR(i)                      cREG(6 + (i))
+#define R_TRANS_FADE_FLASH_ALPHA_STEP            iREG(50) // Set to a negative number to start the flash
 #define R_ROOM_CULL_DEBUG_MODE                   iREG(86)
 #define R_ROOM_CULL_NUM_ENTRIES                  iREG(87)
 #define R_ROOM_CULL_USED_ENTRIES                 iREG(88)
 #define R_ROOM_CULL_DEBUG_TARGET                 iREG(89)
 #define R_B_LABEL_DD                             WREG(0)
+#if OOT_NTSC
+#define R_B_LABEL_SCALE(i)                       WREG(8 + (i))
+#define R_B_LABEL_X(i)                           WREG(10 + (i))
+#define R_B_LABEL_Y(i)                           WREG(12 + (i))
+#define R_A_LABEL_Z(i)                           WREG(14 + (i))
+#endif
 #define R_OW_MINIMAP_X                           WREG(29)
 #define R_OW_MINIMAP_Y                           WREG(30)
 #define R_MINIMAP_DISABLED                       WREG(31)
+#if OOT_PAL
+#define R_B_LABEL_SCALE(i)                       WREG(37 + (i))
 #define R_B_LABEL_X(i)                           WREG(40 + (i))
 #define R_B_LABEL_Y(i)                           WREG(43 + (i))
+#define R_A_LABEL_Z(i)                           WREG(46 + (i))
+#define R_KALEIDO_UNK1(i)                        WREG(49 + (i))
+#define R_KALEIDO_UNK2(i)                        WREG(52 + (i))
+#define R_KALEIDO_UNK3(i)                        WREG(55 + (i))
+#define R_KALEIDO_UNK4(i)                        WREG(58 + (i))
+#define R_KALEIDO_UNK5(i)                        WREG(61 + (i))
+#define R_KALEIDO_UNK6(i)                        WREG(64 + (i))
+#endif
 #define R_DGN_MINIMAP_X                          WREG(68)
 #define R_DGN_MINIMAP_Y                          WREG(69)
 #define R_TEXTBOX_X                              VREG(0)
@@ -194,15 +233,17 @@
 #define R_GAME_OVER_RUMBLE_STRENGTH              VREG(90)
 #define R_GAME_OVER_RUMBLE_DURATION              VREG(91)
 #define R_GAME_OVER_RUMBLE_DECREASE_RATE         VREG(92)
+#define R_ENABLE_ACTOR_DEBUG_PRINTF              HREG(20)
 #define R_DISABLE_INPUT_DISPLAY                  HREG(47)
 #define R_ENABLE_PLAY_LOGS                       HREG(63)
 #define R_EN_GOROIWA_SPEED                       mREG(12)
 #define R_NAVI_MSG_REGION_ALPHA                  nREG(87)
+#define R_USE_DEBUG_CUTSCENE                     dREG(95)
 
 
 #define R_HREG_MODE  HREG(80) // see `HRegMode` for mode options
 
-typedef enum {
+typedef enum HRegMode {
     /*  6 */ HREG_MODE_PRINT_HILITE_INFO = 6, // print hilite information
     /*  7 */ HREG_MODE_UCODE_DISAS, // various controls for the ucode disas system
     /*  8 */ HREG_MODE_PRINT_MEMORY, // print memory at a specified address
@@ -344,5 +385,16 @@ typedef enum {
 #define R_VI_NEXT_ADDI_SCAN_LINES  HREG(82)
 #define R_VI_CUR_ADDI_SCAN_LINES   HREG(83)
 #define R_VI_CUR_Y_SCALE_MODE      HREG(84)
+
+typedef struct RegEditor {
+    /* 0x00 */ s32  regPage; // 0: no page selected (reg editor is not active); 1: first page; `REG_PAGES`: last page
+    /* 0x04 */ s32  regGroup; // Indexed from 0 to `REG_GROUPS`-1. Each group has its own character to identify it.
+    /* 0x08 */ s32  regCur; // Selected reg, indexed from 0 as the page start
+    /* 0x0C */ s32  dPadInputPrev;
+    /* 0x10 */ s32  inputRepeatTimer;
+    /* 0x14 */ s16  data[REG_GROUPS * REGS_PER_GROUP]; // Accessed through *REG macros, see regs.h
+} RegEditor; // size = 0x15D4
+
+extern RegEditor* gRegEditor;
 
 #endif

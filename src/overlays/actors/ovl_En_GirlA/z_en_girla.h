@@ -15,7 +15,7 @@ typedef struct EnGirlA {
     /* 0x0000 */ Actor actor;
     /* 0x014C */ SkelAnime skelAnime;
     /* 0x0190 */ EnGirlAActionFunc actionFunc;
-    /* 0x0194 */ s8 objBankIndex;
+    /* 0x0194 */ s8 requiredObjectSlot;
     /* 0x0198 */ EnGirlAActionFunc actionFunc2;
     /* 0x019C */ s32 isInitialized;
     /* 0x01A0 */ s16 itemBuyPromptTextId;
@@ -35,7 +35,7 @@ typedef struct EnGirlA {
     /* 0x01D0 */ EnGirlA3Func hiliteFunc;
 } EnGirlA; // size = 0x01D4
 
-typedef enum {
+typedef enum EnGirlAShopItem {
     /* 0x00 */ SI_DEKU_NUTS_5,
     /* 0x01 */ SI_ARROWS_30,
     /* 0x02 */ SI_ARROWS_50,
@@ -89,7 +89,7 @@ typedef enum {
     /* 0x32 */ SI_MAX
 } EnGirlAShopItem;
 
-typedef enum {
+typedef enum EnGirlACanBuyResult {
     /* 0 */ CANBUY_RESULT_SUCCESS_FANFARE,
     /* 1 */ CANBUY_RESULT_SUCCESS,
     /* 2 */ CANBUY_RESULT_CANT_GET_NOW,

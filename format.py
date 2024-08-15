@@ -4,6 +4,7 @@ import argparse
 import glob
 import multiprocessing
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -14,8 +15,8 @@ from typing import List
 
 
 # clang-format, clang-tidy and clang-apply-replacements default version
-# Version 11 is used when available for more consistency between contributors
-CLANG_VER = 11
+# This specific version is used when available, for more consistency between contributors
+CLANG_VER = 14
 
 # Clang-Format options (see .clang-format for rules applied)
 FORMAT_OPTS = "-i -style=file"
@@ -29,8 +30,8 @@ APPLY_OPTS = "--format --style=file"
 
 # Compiler options used with Clang-Tidy
 # Normal warnings are disabled with -Wno-everything to focus only on tidying
-INCLUDES = "-Iinclude -Isrc -Ibuild -I."
-DEFINES = "-D_LANGUAGE_C -DNON_MATCHING"
+INCLUDES = "-Iinclude -Isrc -Ibuild/gc-eu-mq-dbg -I."
+DEFINES = "-D_LANGUAGE_C -DNON_MATCHING -DF3DEX_GBI_2"
 COMPILER_OPTS = f"-fno-builtin -std=gnu90 -m32 -Wno-everything {INCLUDES} {DEFINES}"
 
 
@@ -94,21 +95,32 @@ def run_clang_apply_replacements(tmp_dir: str):
     subprocess.run(exec_str, shell=True)
 
 
-def add_final_new_line(file: str):
-    # https://backreference.org/2010/05/23/sanitizing-files-with-no-trailing-newline/index.html
-    # "gets the last character of the file pipes it into read, which will exit with a nonzero exit
-    # code if it encounters EOF before newline (so, if the last character of the file isn't a newline).
-    # If read exits nonzero, then append a newline onto the file using echo (if read exits 0,
-    # that satisfies the ||, so the echo command isn't run)." (https://stackoverflow.com/a/34865616)
-    exec_str = f"tail -c1 {file} | read -r _ || echo >> {file}"
-    subprocess.run(exec_str, shell=True)
+def cleanup_whitespace(file: str):
+    """
+    Remove whitespace at the end of lines,
+    ensure the file ends with an empty line.
+    """
+    file_p = Path(file)
+    contents = file_p.read_text(encoding="UTF-8")
+    modified = False
+
+    contents, n_subst = re.subn(r"[^\S\n]+\n", "\n", contents)
+    if n_subst != 0:
+        modified = True
+
+    if not contents.endswith("\n"):
+        contents += "\n"
+        modified = True
+
+    if modified:
+        file_p.write_text(contents, encoding="UTF-8")
 
 
 def format_files(src_files: List[str], extra_files: List[str], nb_jobs: int):
     if nb_jobs != 1:
         print(f"Formatting files with {nb_jobs} jobs")
     else:
-        print(f"Formatting files with a single job (consider using -j to make this faster)")
+        print("Formatting files with a single job (consider using -j to make this faster)")
 
     # Format files in chunks to improve performance while still utilizing jobs
     file_chunks = list(list_chunks(src_files, (len(src_files) // nb_jobs) + 1))
@@ -134,16 +146,32 @@ def format_files(src_files: List[str], extra_files: List[str], nb_jobs: int):
     else:
         run_clang_tidy(src_files)
 
-    print("Adding missing final new lines...")
-    # Adding final new lines is safe to do in parallel and can be applied to all types of files
+    print("Cleaning up whitespace...")
+    # Safe to do in parallel and can be applied to all types of files
     with multiprocessing.get_context("fork").Pool(nb_jobs) as pool:
-        pool.map(add_final_new_line, src_files + extra_files)
+        pool.map(cleanup_whitespace, src_files + extra_files)
 
     print("Done formatting files.")
 
 
+def list_files_to_format():
+    files = glob.glob("src/**/*.c", recursive=True)
+    extra_files = (
+        glob.glob("assets/**/*.xml", recursive=True)
+        + glob.glob("include/**/*.h", recursive=True)
+        + glob.glob("src/**/*.h", recursive=True)
+    )
+    return files, extra_files
+
+
 def main():
     parser = argparse.ArgumentParser(description="Format files in the codebase to enforce most style rules")
+    parser.add_argument(
+        "--show-paths",
+        dest="show_paths",
+        action="store_true",
+        help="Print the paths to the clang-* binaries used",
+    )
     parser.add_argument("files", metavar="file", nargs="*")
     parser.add_argument(
         "-j",
@@ -154,6 +182,13 @@ def main():
         help="number of jobs to run (default: 1 without -j, number of cpus with -j)",
     )
     args = parser.parse_args()
+
+    if args.show_paths:
+        import shutil
+
+        print("CLANG_FORMAT             ->", shutil.which(CLANG_FORMAT))
+        print("CLANG_TIDY               ->", shutil.which(CLANG_TIDY))
+        print("CLANG_APPLY_REPLACEMENTS ->", shutil.which(CLANG_APPLY_REPLACEMENTS))
 
     nb_jobs = args.jobs or multiprocessing.cpu_count()
     if nb_jobs > 1:
@@ -166,8 +201,7 @@ def main():
         files = args.files
         extra_files = []
     else:
-        files = glob.glob("src/**/*.c", recursive=True)
-        extra_files = glob.glob("assets/**/*.xml", recursive=True)
+        files, extra_files = list_files_to_format()
 
     format_files(files, extra_files, nb_jobs)
 

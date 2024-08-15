@@ -2,7 +2,7 @@
 #include "rcp.h"
 #include "piint.h"
 
-typedef struct {
+typedef struct __osExceptionVector {
     u32 inst1; // lui     $k0, %hi(__osException)
     u32 inst2; // addiu   $k0, $k0, %lo(__osException)
     u32 inst3; // jr      $k0

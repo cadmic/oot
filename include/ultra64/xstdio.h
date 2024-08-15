@@ -10,7 +10,7 @@
 #define LONG_DOUBLE_TYPE long double
 #endif
 
-typedef struct {
+typedef struct _Pft {
     /* 0x00 */ union {
         long long ll;
         LONG_DOUBLE_TYPE ld;
@@ -35,10 +35,10 @@ int _Printf(PrintCallback, void* arg, const char* fmt, va_list ap);
 void _Litob(_Pft* args, char code);
 void _Ldtob(_Pft* args, char code);
 
-#define FLAGS_SPACE 1
-#define FLAGS_PLUS  2
-#define FLAGS_MINUS 4
-#define FLAGS_HASH  8
-#define FLAGS_ZERO  16
+#define FLAGS_SPACE (1 << 0)
+#define FLAGS_PLUS  (1 << 1)
+#define FLAGS_MINUS (1 << 2)
+#define FLAGS_HASH  (1 << 3)
+#define FLAGS_ZERO  (1 << 4)
 
 #endif

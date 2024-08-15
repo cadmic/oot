@@ -9,7 +9,7 @@
 #include "assets/objects/gameplay_keep/gameplay_keep.h"
 #include "terminal.h"
 
-#define FLAGS ACTOR_FLAG_22
+#define FLAGS ACTOR_FLAG_IGNORE_POINT_LIGHTS
 
 void ObjBean_Init(Actor* thisx, PlayState* play);
 void ObjBean_Destroy(Actor* thisx, PlayState* play);
@@ -72,16 +72,16 @@ void ObjBean_WaitForStepOff(ObjBean* this, PlayState* play);
 
 static ObjBean* D_80B90E30 = NULL;
 
-ActorInit Obj_Bean_InitVars = {
-    ACTOR_OBJ_BEAN,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_MAMENOKI,
-    sizeof(ObjBean),
-    (ActorFunc)ObjBean_Init,
-    (ActorFunc)ObjBean_Destroy,
-    (ActorFunc)ObjBean_Update,
-    (ActorFunc)ObjBean_Draw,
+ActorProfile Obj_Bean_Profile = {
+    /**/ ACTOR_OBJ_BEAN,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_MAMENOKI,
+    /**/ sizeof(ObjBean),
+    /**/ ObjBean_Init,
+    /**/ ObjBean_Destroy,
+    /**/ ObjBean_Update,
+    /**/ ObjBean_Draw,
 };
 
 static ColliderCylinderInit sCylinderInit = {
@@ -97,14 +97,14 @@ static ColliderCylinderInit sCylinderInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 64, 30, -31, { 0, 0, 0 } },
 };
 
-typedef struct {
+typedef struct BeenSpeedInfo {
     f32 velocity;
     f32 accel;
 } BeenSpeedInfo;
@@ -135,19 +135,20 @@ void ObjBean_InitCollider(Actor* thisx, PlayState* play) {
 
 void ObjBean_InitDynaPoly(ObjBean* this, PlayState* play, CollisionHeader* collision, s32 moveFlag) {
     s32 pad;
-    CollisionHeader* colHeader;
-    s32 pad2;
-
-    colHeader = NULL;
+    CollisionHeader* colHeader = NULL;
 
     DynaPolyActor_Init(&this->dyna, moveFlag);
     CollisionHeader_GetVirtual(collision, &colHeader);
-
     this->dyna.bgId = DynaPoly_SetBgActor(play, &play->colCtx.dyna, &this->dyna.actor, colHeader);
+
+#if OOT_DEBUG
     if (this->dyna.bgId == BG_ACTOR_MAX) {
-        osSyncPrintf("Warning : move BG 登録失敗(%s %d)(name %d)(arg_data 0x%04x)\n", "../z_obj_bean.c", 374,
-                     this->dyna.actor.id, this->dyna.actor.params);
+        s32 pad2;
+
+        PRINTF("Warning : move BG 登録失敗(%s %d)(name %d)(arg_data 0x%04x)\n", "../z_obj_bean.c", 374,
+               this->dyna.actor.id, this->dyna.actor.params);
     }
+#endif
 }
 
 void ObjBean_FindFloor(ObjBean* this, PlayState* play) {
@@ -226,13 +227,13 @@ void ObjBean_SetDrawMode(ObjBean* this, u8 drawFlag) {
 }
 
 void ObjBean_SetupPathCount(ObjBean* this, PlayState* play) {
-    this->pathCount = play->pathList[(this->dyna.actor.params >> 8) & 0x1F].count - 1;
+    this->pathCount = play->pathList[PARAMS_GET_U(this->dyna.actor.params, 8, 5)].count - 1;
     this->currentPointIndex = 0;
     this->nextPointIndex = 1;
 }
 
 void ObjBean_SetupPath(ObjBean* this, PlayState* play) {
-    Path* path = &play->pathList[(this->dyna.actor.params >> 8) & 0x1F];
+    Path* path = &play->pathList[PARAMS_GET_U(this->dyna.actor.params, 8, 5)];
     Math_Vec3s_ToVec3f(&this->pathPoints, SEGMENTED_TO_VIRTUAL(path->points));
 }
 
@@ -240,25 +241,24 @@ void ObjBean_FollowPath(ObjBean* this, PlayState* play) {
     Path* path;
     Vec3f acell;
     Vec3f pathPointsFloat;
-    f32 speed;
-    Vec3s* nextPathPoint;
-    Vec3s* currentPoint;
-    Vec3s* sp4C;
-    Vec3f sp40;
-    Vec3f sp34;
-    f32 sp30;
     f32 mag;
+    Vec3s* nextPathPoint;
 
-    Math_StepToF(&this->dyna.actor.speedXZ, sBeanSpeeds[this->unk_1F6].velocity, sBeanSpeeds[this->unk_1F6].accel);
-    path = &play->pathList[(this->dyna.actor.params >> 8) & 0x1F];
+    Math_StepToF(&this->dyna.actor.speed, sBeanSpeeds[this->unk_1F6].velocity, sBeanSpeeds[this->unk_1F6].accel);
+    path = &play->pathList[PARAMS_GET_U(this->dyna.actor.params, 8, 5)];
     nextPathPoint = &((Vec3s*)SEGMENTED_TO_VIRTUAL(path->points))[this->nextPointIndex];
 
     Math_Vec3s_ToVec3f(&pathPointsFloat, nextPathPoint);
 
     Math_Vec3f_Diff(&pathPointsFloat, &this->pathPoints, &acell);
     mag = Math3D_Vec3fMagnitude(&acell);
-    speed = CLAMP_MIN(this->dyna.actor.speedXZ, 0.5f);
-    if (speed > mag) {
+    if (CLAMP_MIN(this->dyna.actor.speed, 0.5f) > mag) {
+        Vec3s* currentPoint;
+        Vec3s* sp4C;
+        Vec3f sp40;
+        Vec3f sp34;
+        f32 sp30;
+
         currentPoint = &((Vec3s*)SEGMENTED_TO_VIRTUAL(path->points))[this->currentPointIndex];
 
         Math_Vec3f_Copy(&this->pathPoints, &pathPointsFloat);
@@ -273,12 +273,12 @@ void ObjBean_FollowPath(ObjBean* this, PlayState* play) {
         Math_Vec3s_DiffToVec3f(&sp40, nextPathPoint, currentPoint);
         Math_Vec3s_DiffToVec3f(&sp34, sp4C, nextPathPoint);
         if (Math3D_CosOut(&sp40, &sp34, &sp30)) {
-            this->dyna.actor.speedXZ = 0.0f;
+            this->dyna.actor.speed = 0.0f;
         } else {
-            this->dyna.actor.speedXZ *= (sp30 + 1.0f) * 0.5f;
+            this->dyna.actor.speed *= (sp30 + 1.0f) * 0.5f;
         }
     } else {
-        Math_Vec3f_Scale(&acell, this->dyna.actor.speedXZ / mag);
+        Math_Vec3f_Scale(&acell, this->dyna.actor.speed / mag);
         this->pathPoints.x += acell.x;
         this->pathPoints.y += acell.y;
         this->pathPoints.z += acell.z;
@@ -469,23 +469,21 @@ void ObjBean_Init(Actor* thisx, PlayState* play) {
 
     Actor_ProcessInitChain(&this->dyna.actor, sInitChain);
     if (LINK_AGE_IN_YEARS == YEARS_ADULT) {
-        if (Flags_GetSwitch(play, this->dyna.actor.params & 0x3F) || (mREG(1) == 1)) {
-            path = (this->dyna.actor.params >> 8) & 0x1F;
+        if (Flags_GetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6)) || (OOT_DEBUG && mREG(1) == 1)) {
+            path = PARAMS_GET_U(this->dyna.actor.params, 8, 5);
             if (path == 0x1F) {
-                osSyncPrintf(VT_COL(RED, WHITE));
+                PRINTF(VT_COL(RED, WHITE));
                 // "No path data?"
-                osSyncPrintf("パスデータが無い？(%s %d)(arg_data %xH)\n", "../z_obj_bean.c", 909,
-                             this->dyna.actor.params);
-                osSyncPrintf(VT_RST);
+                PRINTF("パスデータが無い？(%s %d)(arg_data %xH)\n", "../z_obj_bean.c", 909, this->dyna.actor.params);
+                PRINTF(VT_RST);
                 Actor_Kill(&this->dyna.actor);
                 return;
             }
             if (play->pathList[path].count < 3) {
-                osSyncPrintf(VT_COL(RED, WHITE));
+                PRINTF(VT_COL(RED, WHITE));
                 // "Incorrect number of path data"
-                osSyncPrintf("パスデータ数が不正(%s %d)(arg_data %xH)\n", "../z_obj_bean.c", 921,
-                             this->dyna.actor.params);
-                osSyncPrintf(VT_RST);
+                PRINTF("パスデータ数が不正(%s %d)(arg_data %xH)\n", "../z_obj_bean.c", 921, this->dyna.actor.params);
+                PRINTF(VT_RST);
                 Actor_Kill(&this->dyna.actor);
                 return;
             }
@@ -506,14 +504,15 @@ void ObjBean_Init(Actor* thisx, PlayState* play) {
             Actor_Kill(&this->dyna.actor);
             return;
         }
-    } else if ((Flags_GetSwitch(play, this->dyna.actor.params & 0x3F) != 0) || (mREG(1) == 1)) {
+    } else if ((Flags_GetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6)) != 0) ||
+               (OOT_DEBUG && mREG(1) == 1)) {
         ObjBean_SetupWaitForWater(this);
     } else {
         ObjBean_SetupWaitForBean(this);
     }
     this->dyna.actor.world.rot.z = this->dyna.actor.home.rot.z = this->dyna.actor.shape.rot.z = 0;
     // "Magic bean tree lift"
-    osSyncPrintf("(魔法の豆の木リフト)(arg_data 0x%04x)\n", this->dyna.actor.params);
+    PRINTF("(魔法の豆の木リフト)(arg_data 0x%04x)\n", this->dyna.actor.params);
 }
 
 void ObjBean_Destroy(Actor* thisx, PlayState* play) {
@@ -537,13 +536,13 @@ void ObjBean_SetupWaitForBean(ObjBean* this) {
 }
 
 void ObjBean_WaitForBean(ObjBean* this, PlayState* play) {
-    if (Actor_ProcessTalkRequest(&this->dyna.actor, play)) {
+    if (Actor_TalkOfferAccepted(&this->dyna.actor, play)) {
         if (func_8002F368(play) == EXCH_ITEM_MAGIC_BEAN) {
             func_80B8FE00(this);
-            Flags_SetSwitch(play, this->dyna.actor.params & 0x3F);
+            Flags_SetSwitch(play, PARAMS_GET_U(this->dyna.actor.params, 0, 6));
         }
     } else {
-        func_8002F298(&this->dyna.actor, play, 40.0f, EXCH_ITEM_MAGIC_BEAN);
+        Actor_OfferTalkExchangeEquiCylinder(&this->dyna.actor, play, 40.0f, EXCH_ITEM_MAGIC_BEAN);
     }
 }
 
@@ -632,7 +631,7 @@ void ObjBean_SetupWaitForWater(ObjBean* this) {
 void ObjBean_WaitForWater(ObjBean* this, PlayState* play) {
     this->transformFunc(this);
 
-    if (!(this->stateFlags & BEAN_STATE_BEEN_WATERED) && Flags_GetEnv(play, 5) && (D_80B90E30 == NULL) &&
+    if (!(this->stateFlags & BEAN_STATE_BEEN_WATERED) && CutsceneFlags_Get(play, 5) && (D_80B90E30 == NULL) &&
         (this->dyna.actor.xzDistToPlayer < 50.0f)) {
         ObjBean_SetupGrowWaterPhase1(this);
         D_80B90E30 = this;
@@ -641,7 +640,7 @@ void ObjBean_WaitForWater(ObjBean* this, PlayState* play) {
         return;
     }
 
-    if ((D_80B90E30 == this) && !Flags_GetEnv(play, 5)) {
+    if ((D_80B90E30 == this) && !CutsceneFlags_Get(play, 5)) {
         D_80B90E30 = NULL;
         if (D_80B90E30) {}
     }
@@ -703,8 +702,8 @@ void ObjBean_GrowWaterPhase3(ObjBean* this, PlayState* play) {
                 Item_DropCollectible(play, &itemDropPos, ITEM00_FLEXIBLE);
             }
             this->stateFlags |= BEAN_STATE_BEEN_WATERED;
-            Audio_PlayActorSfx2(&this->dyna.actor, NA_SE_EV_BUTTERFRY_TO_FAIRY);
-            func_80078884(NA_SE_SY_TRE_BOX_APPEAR);
+            Actor_PlaySfx(&this->dyna.actor, NA_SE_EV_BUTTERFRY_TO_FAIRY);
+            Sfx_PlaySfxCentered(NA_SE_SY_TRE_BOX_APPEAR);
         }
     } else if (this->timer <= 0) {
         ObjBean_SetupGrowWaterPhase4(this);
@@ -753,9 +752,9 @@ void ObjBean_WaitForPlayer(ObjBean* this, PlayState* play) {
     if (DynaPolyActor_IsPlayerOnTop(&this->dyna)) {
         ObjBean_SetupFly(this);
         if (play->sceneId == SCENE_LOST_WOODS) {
-            Camera_ChangeSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_LOST_WOODS);
+            Camera_RequestSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_LOST_WOODS);
         } else {
-            Camera_ChangeSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_GENERIC);
+            Camera_RequestSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_GENERIC);
         }
     }
     ObjBean_UpdatePosition(this);
@@ -764,7 +763,7 @@ void ObjBean_WaitForPlayer(ObjBean* this, PlayState* play) {
 void ObjBean_SetupFly(ObjBean* this) {
     this->actionFunc = ObjBean_Fly;
     ObjBean_SetDrawMode(this, BEAN_STATE_DRAW_PLANT);
-    this->dyna.actor.speedXZ = 0.0f;
+    this->dyna.actor.speed = 0.0f;
     this->dyna.actor.flags |= ACTOR_FLAG_4; // Never stop updating
 }
 
@@ -781,7 +780,7 @@ void ObjBean_Fly(ObjBean* this, PlayState* play) {
         mainCam = play->cameraPtrs[CAM_ID_MAIN];
 
         if ((mainCam->setting == CAM_SET_BEAN_LOST_WOODS) || (mainCam->setting == CAM_SET_BEAN_GENERIC)) {
-            Camera_ChangeSetting(mainCam, CAM_SET_NORMAL0);
+            Camera_RequestSetting(mainCam, CAM_SET_NORMAL0);
         }
 
     } else if (DynaPolyActor_IsPlayerOnTop(&this->dyna)) {
@@ -789,15 +788,15 @@ void ObjBean_Fly(ObjBean* this, PlayState* play) {
         func_8002F974(&this->dyna.actor, NA_SE_PL_PLANT_MOVE - SFX_FLAG);
 
         if (play->sceneId == SCENE_LOST_WOODS) {
-            Camera_ChangeSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_LOST_WOODS);
+            Camera_RequestSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_LOST_WOODS);
         } else {
-            Camera_ChangeSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_GENERIC);
+            Camera_RequestSetting(play->cameraPtrs[CAM_ID_MAIN], CAM_SET_BEAN_GENERIC);
         }
     } else if (this->stateFlags & BEAN_STATE_PLAYER_ON_TOP) {
         mainCam = play->cameraPtrs[CAM_ID_MAIN];
 
         if ((mainCam->setting == CAM_SET_BEAN_LOST_WOODS) || (mainCam->setting == CAM_SET_BEAN_GENERIC)) {
-            Camera_ChangeSetting(mainCam, CAM_SET_NORMAL0);
+            Camera_RequestSetting(mainCam, CAM_SET_NORMAL0);
         }
     }
 
@@ -889,10 +888,10 @@ void ObjBean_Update(Actor* thisx, PlayState* play) {
         this->dyna.actor.shape.shadowScale = this->dyna.actor.scale.x * 88.0f;
 
         if (ObjBean_CheckForHorseTrample(this, play)) {
-            osSyncPrintf(VT_FGCOL(CYAN));
+            PRINTF(VT_FGCOL(CYAN));
             // "Horse and bean tree lift collision"
-            osSyncPrintf("馬と豆の木リフト衝突！！！\n");
-            osSyncPrintf(VT_RST);
+            PRINTF("馬と豆の木リフト衝突！！！\n");
+            PRINTF(VT_RST);
             ObjBean_Break(this, play);
             DynaPoly_DisableCollision(play, &play->colCtx.dyna, this->dyna.bgId);
             func_80B908EC(this);

@@ -285,7 +285,7 @@ void GfxPrint_PrintChar(GfxPrint* this, u8 c) {
     }
 }
 
-void GfxPrint_PrintStringWithSize(GfxPrint* this, const void* buffer, u32 charSize, size_t charCount) {
+void GfxPrint_PrintStringWithSize(GfxPrint* this, const void* buffer, size_t charSize, size_t charCount) {
     const char* str = (const char*)buffer;
     size_t count = charSize * charCount;
 
@@ -341,7 +341,7 @@ void GfxPrint_Open(GfxPrint* this, Gfx* dList) {
         this->dList = dList;
         GfxPrint_Setup(this);
     } else {
-        osSyncPrintf("gfxprint_open:２重オープンです\n");
+        PRINTF("gfxprint_open:２重オープンです\n");
     }
 }
 

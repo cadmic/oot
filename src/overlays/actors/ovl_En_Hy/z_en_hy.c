@@ -32,16 +32,16 @@ void func_80A7127C(EnHy* this, PlayState* play);
 void EnHy_DoNothing(EnHy* this, PlayState* play);
 void func_80A714C4(EnHy* this, PlayState* play);
 
-ActorInit En_Hy_InitVars = {
-    ACTOR_EN_HY,
-    ACTORCAT_NPC,
-    FLAGS,
-    OBJECT_GAMEPLAY_KEEP,
-    sizeof(EnHy),
-    (ActorFunc)EnHy_Init,
-    (ActorFunc)EnHy_Destroy,
-    (ActorFunc)EnHy_Update,
-    (ActorFunc)EnHy_Draw,
+ActorProfile En_Hy_Profile = {
+    /**/ ACTOR_EN_HY,
+    /**/ ACTORCAT_NPC,
+    /**/ FLAGS,
+    /**/ OBJECT_GAMEPLAY_KEEP,
+    /**/ sizeof(EnHy),
+    /**/ EnHy_Init,
+    /**/ EnHy_Destroy,
+    /**/ EnHy_Update,
+    /**/ EnHy_Draw,
 };
 
 static ColliderCylinderInit sColCylInit = {
@@ -57,8 +57,8 @@ static ColliderCylinderInit sColCylInit = {
         ELEMTYPE_UNK0,
         { 0x00000000, 0x00, 0x00 },
         { 0x00000000, 0x00, 0x00 },
-        TOUCH_NONE,
-        BUMP_NONE,
+        ATELEM_NONE,
+        ACELEM_NONE,
         OCELEM_ON,
     },
     { 20, 46, 0, { 0, 0, 0 } },
@@ -74,13 +74,13 @@ static void* sEyeTexturesBJI13[] = { object_bji_Tex_0005FC, object_bji_Tex_0009F
 static void* sEyeTexturesBOJ2[] = { object_boj_Tex_0005FC, object_boj_Tex_0006FC, object_boj_Tex_0007FC, NULL };
 static void* sEyeTexturesBOB[] = { object_bob_Tex_0007C8, object_bob_Tex_000FC8, object_bob_Tex_0017C8, NULL };
 
-typedef struct {
+typedef struct EnHyHeadInfo {
     /* 0x00 */ s16 objectId;
     /* 0x04 */ Gfx* headDList;
     /* 0x08 */ void** eyeTextures;
 } EnHyHeadInfo; // size = 0xC
 
-typedef enum {
+typedef enum EnHyHeadIndex {
     /*  0 */ ENHY_HEAD_AOB,
     /*  1 */ ENHY_HEAD_BOB,
     /*  2 */ ENHY_HEAD_BOJ_2,
@@ -118,12 +118,12 @@ static EnHyHeadInfo sHeadInfo[] = {
     /* ENHY_HEAD_COB */ { OBJECT_COB, object_cob_DL_001300, NULL },
 };
 
-typedef struct {
+typedef struct EnHySkeletonInfo {
     /* 0x00 */ s16 objectId;
     /* 0x04 */ FlexSkeletonHeader* skeleton;
 } EnHySkeletonInfo; // size = 0x8
 
-typedef enum {
+typedef enum EnHySkeletonIndex {
     /* 0 */ ENHY_SKEL_AOB,
     /* 1 */ ENHY_SKEL_BOB,
     /* 2 */ ENHY_SKEL_BOJ,
@@ -145,7 +145,7 @@ static EnHySkeletonInfo sSkeletonInfo[] = {
     /* ENHY_SKEL_COB */ { OBJECT_COB, &object_cob_Skel_0021F8 },
 };
 
-typedef enum {
+typedef enum EnHyAnimationIndex {
     /*  0 */ ENHY_ANIM_0,
     /*  1 */ ENHY_ANIM_1,
     /*  2 */ ENHY_ANIM_2,
@@ -205,11 +205,11 @@ static AnimationInfo sAnimationInfo[] = {
     /* ENHY_ANIM_26 */ { &gObjOsAnim_0BFC, 1.0f, 0.0f, -1.0f, 0x00, -8.0f },
 };
 
-typedef struct {
+typedef struct EnHyModelInfo {
     /* 0x00 */ u8 headInfoIndex;  // EnHyHeadIndex
-    /* 0x01 */ u8 skelInfoIndex2; // EnHySkeletonIndex, see EnHy.objBankIndexSkel2
+    /* 0x01 */ u8 skelInfoIndex2; // EnHySkeletonIndex, see EnHy.objectSlotSkel2
     /* 0x02 */ Color_RGBA8 envColorSeg8;
-    /* 0x06 */ u8 skelInfoIndex1; // EnHySkeletonIndex, see EnHy.objBankIndexSkel1
+    /* 0x06 */ u8 skelInfoIndex1; // EnHySkeletonIndex, see EnHy.objectSlotSkel1
     /* 0x07 */ Color_RGBA8 envColorSeg9;
     /* 0x0B */ u8 animInfoIndex; // EnHyAnimationIndex
 } EnHyModelInfo;                 // size = 0xC
@@ -259,7 +259,7 @@ static EnHyModelInfo sModelInfo[] = {
     { ENHY_HEAD_AHG_9, ENHY_SKEL_AHG, { 160, 230, 0, 0 }, ENHY_SKEL_AHG, { 0, 150, 110, 0 }, ENHY_ANIM_12 },
 };
 
-typedef struct {
+typedef struct EnHyColliderInfo {
     /* 0x00 */ Vec3s offset;
     /* 0x06 */ s16 radius;
     /* 0x08 */ s16 height;
@@ -289,13 +289,13 @@ static EnHyColliderInfo sColliderInfo[] = {
     /* ENHY_TYPE_AHG_20 */ { { 0, 0, 8 }, 20, 58 },
 };
 
-typedef struct {
-    /* 0x00 */ u8 unkPresetIndex;
-    /* 0x04 */ f32 unkValueChild;
-    /* 0x08 */ f32 unkValueAdult;
-} EnHyInit1Info; // size = 0xC
+typedef struct EnHyPlayerTrackingInfo {
+    /* 0x00 */ u8 presetIndex;
+    /* 0x04 */ f32 childYOffset;
+    /* 0x08 */ f32 adultYOffset;
+} EnHyPlayerTrackingInfo; // size = 0xC
 
-static EnHyInit1Info sInit1Info[] = {
+static EnHyPlayerTrackingInfo sPlayerTrackingInfo[] = {
     /* ENHY_TYPE_AOB */ { 0x06, 20.0f, 10.0f },
     /* ENHY_TYPE_COB */ { 0x06, 20.0f, 10.0f },
     /* ENHY_TYPE_AHG_2 */ { 0x07, 40.0f, 20.0f },
@@ -319,12 +319,12 @@ static EnHyInit1Info sInit1Info[] = {
     /* ENHY_TYPE_AHG_20 */ { 0x0A, 20.0f, 0.0f },
 };
 
-typedef struct {
+typedef struct EnHyInit2Info {
     /* 0x00 */ f32 shadowScale;
     /* 0x04 */ Vec3f modelOffset;
     /* 0x10 */ f32 scale;
     /* 0x14 */ s8 targetMode;
-    /* 0x18 */ f32 unkRange;
+    /* 0x18 */ f32 interactRange;
 } EnHyInit2Info; // size = 0x1C
 
 static EnHyInit2Info sInit2Info[] = {
@@ -352,22 +352,22 @@ static EnHyInit2Info sInit2Info[] = {
 };
 
 s32 EnHy_FindSkelAndHeadObjects(EnHy* this, PlayState* play) {
-    u8 headInfoIndex = sModelInfo[this->actor.params & 0x7F].headInfoIndex;
-    u8 skelInfoIndex2 = sModelInfo[this->actor.params & 0x7F].skelInfoIndex2;
-    u8 skelInfoIndex1 = sModelInfo[this->actor.params & 0x7F].skelInfoIndex1;
+    u8 headInfoIndex = sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].headInfoIndex;
+    u8 skelInfoIndex2 = sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].skelInfoIndex2;
+    u8 skelInfoIndex1 = sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].skelInfoIndex1;
 
-    this->objBankIndexSkel1 = Object_GetIndex(&play->objectCtx, sSkeletonInfo[skelInfoIndex1].objectId);
-    if (this->objBankIndexSkel1 < 0) {
+    this->objectSlotSkel1 = Object_GetSlot(&play->objectCtx, sSkeletonInfo[skelInfoIndex1].objectId);
+    if (this->objectSlotSkel1 < 0) {
         return false;
     }
 
-    this->objBankIndexSkel2 = Object_GetIndex(&play->objectCtx, sSkeletonInfo[skelInfoIndex2].objectId);
-    if (this->objBankIndexSkel2 < 0) {
+    this->objectSlotSkel2 = Object_GetSlot(&play->objectCtx, sSkeletonInfo[skelInfoIndex2].objectId);
+    if (this->objectSlotSkel2 < 0) {
         return false;
     }
 
-    this->objBankIndexHead = Object_GetIndex(&play->objectCtx, sHeadInfo[headInfoIndex].objectId);
-    if (this->objBankIndexHead < 0) {
+    this->objectSlotHead = Object_GetSlot(&play->objectCtx, sHeadInfo[headInfoIndex].objectId);
+    if (this->objectSlotHead < 0) {
         return false;
     }
 
@@ -375,15 +375,15 @@ s32 EnHy_FindSkelAndHeadObjects(EnHy* this, PlayState* play) {
 }
 
 s32 EnHy_AreSkelAndHeadObjectsLoaded(EnHy* this, PlayState* play) {
-    if (!Object_IsLoaded(&play->objectCtx, this->objBankIndexSkel1)) {
+    if (!Object_IsLoaded(&play->objectCtx, this->objectSlotSkel1)) {
         return false;
     }
 
-    if (!Object_IsLoaded(&play->objectCtx, this->objBankIndexSkel2)) {
+    if (!Object_IsLoaded(&play->objectCtx, this->objectSlotSkel2)) {
         return false;
     }
 
-    if (!Object_IsLoaded(&play->objectCtx, this->objBankIndexHead)) {
+    if (!Object_IsLoaded(&play->objectCtx, this->objectSlotHead)) {
         return false;
     }
 
@@ -391,9 +391,9 @@ s32 EnHy_AreSkelAndHeadObjectsLoaded(EnHy* this, PlayState* play) {
 }
 
 s32 EnHy_FindOsAnimeObject(EnHy* this, PlayState* play) {
-    this->objBankIndexOsAnime = Object_GetIndex(&play->objectCtx, OBJECT_OS_ANIME);
+    this->objectSlotOsAnime = Object_GetSlot(&play->objectCtx, OBJECT_OS_ANIME);
 
-    if (this->objBankIndexOsAnime < 0) {
+    if (this->objectSlotOsAnime < 0) {
         return false;
     }
 
@@ -401,7 +401,7 @@ s32 EnHy_FindOsAnimeObject(EnHy* this, PlayState* play) {
 }
 
 s32 EnHy_IsOsAnimeObjectLoaded(EnHy* this, PlayState* play) {
-    if (!Object_IsLoaded(&play->objectCtx, this->objBankIndexOsAnime)) {
+    if (!Object_IsLoaded(&play->objectCtx, this->objectSlotOsAnime)) {
         return false;
     }
 
@@ -414,19 +414,19 @@ void func_80A6F7CC(EnHy* this, PlayState* play, s32 getItemId) {
                        fabsf(this->actor.yDistToPlayer) + 1.0f);
 }
 
-u16 func_80A6F810(PlayState* play, Actor* thisx) {
+u16 EnHy_GetTextId(PlayState* play, Actor* thisx) {
     Player* player = GET_PLAYER(play);
     EnHy* this = (EnHy*)thisx;
-    u16 textId = Text_GetFaceReaction(play, (this->actor.params & 0x7F) + 37);
+    u16 textId = MaskReaction_GetTextId(play, MASK_REACTION_SET_37 + PARAMS_GET_S(this->actor.params, 0, 7));
 
     if (textId != 0) {
-        if ((this->actor.params & 0x7F) == ENHY_TYPE_BOJ_5) {
+        if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_5) {
             player->exchangeItemId = EXCH_ITEM_BOTTLE_BLUE_FIRE;
         }
         return textId;
     }
 
-    switch (this->actor.params & 0x7F) {
+    switch (PARAMS_GET_S(this->actor.params, 0, 7)) {
         case ENHY_TYPE_AOB:
             if (play->sceneId == SCENE_KAKARIKO_CENTER_GUEST_HOUSE) {
                 return (this->unk_330 & EVENTCHKINF_TALON_RETURNED_FROM_KAKARIKO_MASK)
@@ -461,7 +461,7 @@ u16 func_80A6F810(PlayState* play, Actor* thisx) {
                 return GET_INFTABLE(INFTABLE_C3) ? 0x701A : 0x7047;
             } else if (GET_EVENTCHKINF(EVENTCHKINF_TALON_RETURNED_FROM_CASTLE)) {
                 return 0x701A;
-            } else if (GET_EVENTCHKINF(EVENTCHKINF_10)) {
+            } else if (GET_EVENTCHKINF(EVENTCHKINF_TALKED_TO_MALON_FIRST_TIME)) {
                 return 0x701B;
             } else if (GET_INFTABLE(INFTABLE_C2)) {
                 return 0x701C;
@@ -508,7 +508,8 @@ u16 func_80A6F810(PlayState* play, Actor* thisx) {
                 return GET_EVENTCHKINF(EVENTCHKINF_80) ? 0x7046 : (GET_INFTABLE(INFTABLE_CD) ? 0x7019 : 0x7018);
             }
         case ENHY_TYPE_CNE_11:
-            return GET_INFTABLE(INFTABLE_8B) ? (GET_INFTABLE(INFTABLE_CC) ? 0x7014 : 0x70A4) : 0x7014;
+            return GET_INFTABLE(INFTABLE_MALON_SPAWNED_AT_HYRULE_CASTLE) ? (GET_INFTABLE(INFTABLE_CC) ? 0x7014 : 0x70A4)
+                                                                         : 0x7014;
         case ENHY_TYPE_BOJ_12:
             if (play->sceneId == SCENE_KAKARIKO_VILLAGE) {
                 return !IS_DAY ? 0x5084 : 0x5083;
@@ -552,7 +553,7 @@ u16 func_80A6F810(PlayState* play, Actor* thisx) {
     }
 }
 
-s16 func_80A70058(PlayState* play, Actor* thisx) {
+s16 EnHy_UpdateTalkState(PlayState* play, Actor* thisx) {
     EnHy* this = (EnHy*)thisx;
     s16 beggarItems[] = { ITEM_BOTTLE_BLUE_FIRE, ITEM_BOTTLE_FISH, ITEM_BOTTLE_BUG, ITEM_BOTTLE_FAIRY };
     s16 beggarRewards[] = { 150, 100, 50, 25 };
@@ -677,7 +678,7 @@ s16 func_80A70058(PlayState* play, Actor* thisx) {
 
 void EnHy_UpdateEyes(EnHy* this) {
     if (DECR(this->nextEyeIndexTimer) == 0) {
-        u8 headInfoIndex = sModelInfo[this->actor.params & 0x7F].headInfoIndex;
+        u8 headInfoIndex = sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].headInfoIndex;
 
         this->curEyeIndex++;
         if ((sHeadInfo[headInfoIndex].eyeTextures != NULL) &&
@@ -689,21 +690,21 @@ void EnHy_UpdateEyes(EnHy* this) {
 }
 
 void EnHy_InitCollider(EnHy* this) {
-    u8 type = this->actor.params & 0x7F;
+    u8 type = PARAMS_GET_S(this->actor.params, 0, 7);
 
     this->collider.dim.radius = sColliderInfo[type].radius;
     this->collider.dim.height = sColliderInfo[type].height;
 }
 
 void EnHy_InitSetProperties(EnHy* this) {
-    u8 type = this->actor.params & 0x7F;
+    u8 type = PARAMS_GET_S(this->actor.params, 0, 7);
 
     this->actor.shape.shadowScale = sInit2Info[type].shadowScale;
     Actor_SetScale(&this->actor, sInit2Info[type].scale);
     this->actor.targetMode = sInit2Info[type].targetMode;
     this->modelOffset = sInit2Info[type].modelOffset;
-    this->unkRange = sInit2Info[type].unkRange;
-    this->unkRange += this->collider.dim.radius;
+    this->interactRange = sInit2Info[type].interactRange;
+    this->interactRange += this->collider.dim.radius;
 }
 
 void EnHy_UpdateCollider(EnHy* this, PlayState* play) {
@@ -712,9 +713,9 @@ void EnHy_UpdateCollider(EnHy* this, PlayState* play) {
     pos.x = this->actor.world.pos.x;
     pos.y = this->actor.world.pos.y;
     pos.z = this->actor.world.pos.z;
-    pos.x += sColliderInfo[this->actor.params & 0x7F].offset.x;
-    pos.y += sColliderInfo[this->actor.params & 0x7F].offset.y;
-    pos.z += sColliderInfo[this->actor.params & 0x7F].offset.z;
+    pos.x += sColliderInfo[PARAMS_GET_S(this->actor.params, 0, 7)].offset.x;
+    pos.y += sColliderInfo[PARAMS_GET_S(this->actor.params, 0, 7)].offset.y;
+    pos.z += sColliderInfo[PARAMS_GET_S(this->actor.params, 0, 7)].offset.z;
     this->collider.dim.pos = pos;
     CollisionCheck_SetOC(play, &play->colChkCtx, &this->collider.base);
 }
@@ -722,7 +723,7 @@ void EnHy_UpdateCollider(EnHy* this, PlayState* play) {
 void func_80A70834(EnHy* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
-    if ((this->actor.params & 0x7F) == ENHY_TYPE_BOJ_5) {
+    if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_5) {
         if (!Inventory_HasSpecificBottle(ITEM_BOTTLE_BLUE_FIRE) && !Inventory_HasSpecificBottle(ITEM_BOTTLE_BUG) &&
             !Inventory_HasSpecificBottle(ITEM_BOTTLE_FISH)) {
             switch (func_8002F368(play)) {
@@ -764,7 +765,7 @@ void func_80A70978(EnHy* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     s16 trackingMode;
 
-    switch (this->actor.params & 0x7F) {
+    switch (PARAMS_GET_S(this->actor.params, 0, 7)) {
         case ENHY_TYPE_BOJ_3:
         case ENHY_TYPE_BJI_7:
         case ENHY_TYPE_BOJ_9:
@@ -792,16 +793,16 @@ void func_80A70978(EnHy* this, PlayState* play) {
     this->interactInfo.trackPos = player->actor.world.pos;
 
     if (LINK_IS_ADULT) {
-        this->interactInfo.yOffset = sInit1Info[this->actor.params & 0x7F].unkValueAdult;
+        this->interactInfo.yOffset = sPlayerTrackingInfo[PARAMS_GET_S(this->actor.params, 0, 7)].adultYOffset;
     } else {
-        this->interactInfo.yOffset = sInit1Info[this->actor.params & 0x7F].unkValueChild;
+        this->interactInfo.yOffset = sPlayerTrackingInfo[PARAMS_GET_S(this->actor.params, 0, 7)].childYOffset;
     }
 
-    Npc_TrackPoint(&this->actor, &this->interactInfo, sInit1Info[this->actor.params & 0x7F].unkPresetIndex,
-                   trackingMode);
+    Npc_TrackPoint(&this->actor, &this->interactInfo,
+                   sPlayerTrackingInfo[PARAMS_GET_S(this->actor.params, 0, 7)].presetIndex, trackingMode);
 
-    if (Npc_UpdateTalking(play, &this->actor, &this->interactInfo.talkState, this->unkRange, func_80A6F810,
-                          func_80A70058)) {
+    if (Npc_UpdateTalking(play, &this->actor, &this->interactInfo.talkState, this->interactRange, EnHy_GetTextId,
+                          EnHy_UpdateTalkState)) {
         func_80A70834(this, play);
     }
 }
@@ -809,29 +810,31 @@ void func_80A70978(EnHy* this, PlayState* play) {
 s32 EnHy_ShouldSpawn(EnHy* this, PlayState* play) {
     switch (play->sceneId) {
         case SCENE_KAKARIKO_VILLAGE:
-            if (!((this->actor.params & 0x7F) == ENHY_TYPE_BOJ_9 || (this->actor.params & 0x7F) == ENHY_TYPE_BOJ_10 ||
-                  (this->actor.params & 0x7F) == ENHY_TYPE_BOJ_12 || (this->actor.params & 0x7F) == ENHY_TYPE_AHG_2 ||
-                  (this->actor.params & 0x7F) == ENHY_TYPE_BJI_7)) {
+            if (!(PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_9 ||
+                  PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_10 ||
+                  PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_12 ||
+                  PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_AHG_2 ||
+                  PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BJI_7)) {
                 return true;
             } else if (!LINK_IS_ADULT) {
                 return true;
-            } else if ((this->actor.params & 0x7F) != ENHY_TYPE_BOJ_12 && IS_NIGHT) {
+            } else if (PARAMS_GET_S(this->actor.params, 0, 7) != ENHY_TYPE_BOJ_12 && IS_NIGHT) {
                 return false;
             } else {
                 return true;
             }
         case SCENE_IMPAS_HOUSE:
-            if ((this->actor.params & 0x7F) != ENHY_TYPE_BOJ_10) {
+            if (PARAMS_GET_S(this->actor.params, 0, 7) != ENHY_TYPE_BOJ_10) {
                 return true;
             } else if (LINK_IS_CHILD) {
                 return false;
-            } else if ((this->actor.params & 0x7F) == ENHY_TYPE_BOJ_10 && IS_DAY) {
+            } else if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_10 && IS_DAY) {
                 return false;
             } else {
                 return true;
             }
         case SCENE_DOG_LADY_HOUSE:
-            if ((this->actor.params & 0x7F) != ENHY_TYPE_AOB) {
+            if (PARAMS_GET_S(this->actor.params, 0, 7) != ENHY_TYPE_AOB) {
                 return true;
             } else if (IS_DAY) {
                 return false;
@@ -839,11 +842,11 @@ s32 EnHy_ShouldSpawn(EnHy* this, PlayState* play) {
                 return true;
             }
         case SCENE_KAKARIKO_CENTER_GUEST_HOUSE:
-            if ((this->actor.params & 0x7F) == ENHY_TYPE_AOB) {
+            if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_AOB) {
                 return !LINK_IS_ADULT ? false : true;
-            } else if (!((this->actor.params & 0x7F) == ENHY_TYPE_BOJ_9 ||
-                         (this->actor.params & 0x7F) == ENHY_TYPE_AHG_2 ||
-                         (this->actor.params & 0x7F) == ENHY_TYPE_BJI_7)) {
+            } else if (!(PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_9 ||
+                         PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_AHG_2 ||
+                         PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BJI_7)) {
                 return true;
             } else if (IS_DAY) {
                 return false;
@@ -854,7 +857,7 @@ s32 EnHy_ShouldSpawn(EnHy* this, PlayState* play) {
             }
         case SCENE_BACK_ALLEY_DAY:
         case SCENE_BACK_ALLEY_NIGHT:
-            if ((this->actor.params & 0x7F) != ENHY_TYPE_BOJ_14) {
+            if (PARAMS_GET_S(this->actor.params, 0, 7) != ENHY_TYPE_BOJ_14) {
                 return true;
             } else if (IS_NIGHT) {
                 return false;
@@ -864,7 +867,7 @@ s32 EnHy_ShouldSpawn(EnHy* this, PlayState* play) {
                 return true;
             }
         default:
-            switch (this->actor.params & 0x7F) {
+            switch (PARAMS_GET_S(this->actor.params, 0, 7)) {
                 case ENHY_TYPE_BJI_19:
                 case ENHY_TYPE_AHG_20:
                     if (LINK_IS_ADULT) {
@@ -878,7 +881,7 @@ s32 EnHy_ShouldSpawn(EnHy* this, PlayState* play) {
 void EnHy_Init(Actor* thisx, PlayState* play) {
     EnHy* this = (EnHy*)thisx;
 
-    if ((this->actor.params & 0x7F) >= ENHY_TYPE_MAX || !EnHy_FindOsAnimeObject(this, play) ||
+    if (PARAMS_GET_S(this->actor.params, 0, 7) >= ENHY_TYPE_MAX || !EnHy_FindOsAnimeObject(this, play) ||
         !EnHy_FindSkelAndHeadObjects(this, play)) {
         Actor_Kill(&this->actor);
     }
@@ -898,18 +901,19 @@ void EnHy_Destroy(Actor* thisx, PlayState* play) {
 
 void EnHy_InitImpl(EnHy* this, PlayState* play) {
     if (EnHy_IsOsAnimeObjectLoaded(this, play) && EnHy_AreSkelAndHeadObjectsLoaded(this, play)) {
-        this->actor.objBankIndex = this->objBankIndexSkel1;
-        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.status[this->actor.objBankIndex].segment);
+        this->actor.objectSlot = this->objectSlotSkel1;
+        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.slots[this->actor.objectSlot].segment);
         SkelAnime_InitFlex(play, &this->skelAnime,
-                           sSkeletonInfo[sModelInfo[this->actor.params & 0x7F].skelInfoIndex1].skeleton, NULL,
-                           this->jointTable, this->morphTable, 16);
+                           sSkeletonInfo[sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].skelInfoIndex1].skeleton,
+                           NULL, this->jointTable, this->morphTable, 16);
         ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawCircle, 0.0f);
-        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.status[this->objBankIndexOsAnime].segment);
+        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.slots[this->objectSlotOsAnime].segment);
         Collider_InitCylinder(play, &this->collider);
         Collider_SetCylinder(play, &this->collider, &this->actor, &sColCylInit);
         EnHy_InitCollider(this);
         CollisionCheck_SetInfo2(&this->actor.colChkInfo, NULL, &sColChkInfoInit);
-        Animation_ChangeByInfo(&this->skelAnime, sAnimationInfo, sModelInfo[this->actor.params & 0x7F].animInfoIndex);
+        Animation_ChangeByInfo(&this->skelAnime, sAnimationInfo,
+                               sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].animInfoIndex);
 
         if ((play->sceneId == SCENE_BACK_ALLEY_DAY) || (play->sceneId == SCENE_MARKET_DAY)) {
             this->actor.flags &= ~ACTOR_FLAG_4;
@@ -917,16 +921,16 @@ void EnHy_InitImpl(EnHy* this, PlayState* play) {
         }
 
         if (play->sceneId == SCENE_KAKARIKO_CENTER_GUEST_HOUSE) {
-            this->unk_330 = gSaveContext.eventChkInf[EVENTCHKINF_TALON_RETURNED_FROM_KAKARIKO_INDEX];
+            this->unk_330 = gSaveContext.save.info.eventChkInf[EVENTCHKINF_TALON_RETURNED_FROM_KAKARIKO_INDEX];
         }
 
         EnHy_InitSetProperties(this);
-        this->path = Path_GetByIndex(play, (this->actor.params & 0x780) >> 7, 15);
+        this->path = Path_GetByIndex(play, PARAMS_GET_S(this->actor.params, 7, 4), 15);
 
-        switch (this->actor.params & 0x7F) {
+        switch (PARAMS_GET_S(this->actor.params, 0, 7)) {
             case ENHY_TYPE_BOJ_3:
                 if (this->path != NULL) {
-                    this->actor.speedXZ = 3.0f;
+                    this->actor.speed = 3.0f;
                 }
                 this->actionFunc = func_80A711B4;
                 break;
@@ -1009,7 +1013,7 @@ void EnHy_DoNothing(EnHy* this, PlayState* play) {
 void func_80A712C0(EnHy* this, PlayState* play) {
     if ((this->actor.xzDistToPlayer <= 100.0f) && (this->path != NULL)) {
         Animation_ChangeByInfo(&this->skelAnime, sAnimationInfo, ENHY_ANIM_7);
-        this->actor.speedXZ = 0.4f;
+        this->actor.speed = 0.4f;
         this->actionFunc = func_80A7134C;
     }
 
@@ -1028,7 +1032,7 @@ void func_80A7134C(EnHy* this, PlayState* play) {
         Animation_ChangeByInfo(&this->skelAnime, sAnimationInfo, ENHY_ANIM_7);
     }
 
-    this->actor.speedXZ = 0.4f;
+    this->actor.speed = 0.4f;
     distSq = Path_OrientAndGetDistSq(&this->actor, this->path, this->waypoint, &yaw);
     Math_SmoothStepToS(&this->actor.world.rot.y, yaw, 10, 1000, 1);
     this->actor.shape.rot = this->actor.world.rot;
@@ -1082,12 +1086,12 @@ void EnHy_Update(Actor* thisx, PlayState* play) {
     EnHy* this = (EnHy*)thisx;
 
     if (this->actionFunc != EnHy_InitImpl) {
-        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.status[this->objBankIndexOsAnime].segment);
+        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.slots[this->objectSlotOsAnime].segment);
         SkelAnime_Update(&this->skelAnime);
         EnHy_UpdateEyes(this);
 
         if (this->interactInfo.talkState == NPC_TALK_STATE_IDLE) {
-            Actor_MoveForward(&this->actor);
+            Actor_MoveXZGravity(&this->actor);
         }
 
         Actor_UpdateBgCheckInfo(play, &this->actor, 0.0f, 0.0f, 0.0f, UPDBGCHECKINFO_FLAG_2);
@@ -1101,18 +1105,16 @@ void EnHy_Update(Actor* thisx, PlayState* play) {
 s32 EnHy_OverrideLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f* pos, Vec3s* rot, void* thisx) {
     EnHy* this = (EnHy*)thisx;
     s32 pad;
-    Vec3s sp48;
+    Vec3s limbRot;
     u8 i;
     void* ptr;
-
-    if (1) {}
 
     OPEN_DISPS(play->state.gfxCtx, "../z_en_hy.c", 2170);
 
     if (limbIndex == 15) {
-        gSPSegment(POLY_OPA_DISP++, 0x06, play->objectCtx.status[this->objBankIndexHead].segment);
-        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.status[this->objBankIndexHead].segment);
-        i = sModelInfo[this->actor.params & 0x7F].headInfoIndex;
+        gSPSegment(POLY_OPA_DISP++, 0x06, play->objectCtx.slots[this->objectSlotHead].segment);
+        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.slots[this->objectSlotHead].segment);
+        i = sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].headInfoIndex;
         *dList = sHeadInfo[i].headDList;
 
         if (sHeadInfo[i].eyeTextures != NULL) {
@@ -1120,21 +1122,21 @@ s32 EnHy_OverrideLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f* po
             gSPSegment(POLY_OPA_DISP++, 0x0A, SEGMENTED_TO_VIRTUAL(ptr));
         }
 
-        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.status[this->objBankIndexSkel1].segment);
+        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.slots[this->objectSlotSkel1].segment);
     }
 
     if (limbIndex == 15) {
         Matrix_Translate(1400.0f, 0.0f, 0.0f, MTXMODE_APPLY);
-        sp48 = this->interactInfo.headRot;
-        Matrix_RotateX(BINANG_TO_RAD_ALT(sp48.y), MTXMODE_APPLY);
-        Matrix_RotateZ(BINANG_TO_RAD_ALT(sp48.x), MTXMODE_APPLY);
+        limbRot = this->interactInfo.headRot;
+        Matrix_RotateX(BINANG_TO_RAD_ALT(limbRot.y), MTXMODE_APPLY);
+        Matrix_RotateZ(BINANG_TO_RAD_ALT(limbRot.x), MTXMODE_APPLY);
         Matrix_Translate(-1400.0f, 0.0f, 0.0f, MTXMODE_APPLY);
     }
 
     if (limbIndex == 8) {
-        sp48 = this->interactInfo.torsoRot;
-        Matrix_RotateX(BINANG_TO_RAD_ALT(-sp48.y), MTXMODE_APPLY);
-        Matrix_RotateZ(BINANG_TO_RAD_ALT(sp48.x), MTXMODE_APPLY);
+        limbRot = this->interactInfo.torsoRot;
+        Matrix_RotateX(BINANG_TO_RAD_ALT(-limbRot.y), MTXMODE_APPLY);
+        Matrix_RotateZ(BINANG_TO_RAD_ALT(limbRot.x), MTXMODE_APPLY);
     }
 
     if ((limbIndex == 8) || (limbIndex == 9) || (limbIndex == 12)) {
@@ -1155,11 +1157,11 @@ void EnHy_PostLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3s* rot, 
     OPEN_DISPS(play->state.gfxCtx, "../z_en_hy.c", 2255);
 
     if (limbIndex == 7) {
-        gSPSegment(POLY_OPA_DISP++, 0x06, play->objectCtx.status[this->objBankIndexSkel2].segment);
-        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.status[this->objBankIndexSkel2].segment);
+        gSPSegment(POLY_OPA_DISP++, 0x06, play->objectCtx.slots[this->objectSlotSkel2].segment);
+        gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.slots[this->objectSlotSkel2].segment);
     }
 
-    if ((this->actor.params & 0x7F) == ENHY_TYPE_BOJ_3 && limbIndex == 8) {
+    if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_BOJ_3 && limbIndex == 8) {
         gSPDisplayList(POLY_OPA_DISP++, object_boj_DL_005BC8);
     }
 
@@ -1173,7 +1175,7 @@ void EnHy_PostLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3s* rot, 
 Gfx* EnHy_SetEnvColor(GraphicsContext* play, u8 envR, u8 envG, u8 envB, u8 envA) {
     Gfx* dList;
 
-    dList = Graph_Alloc(play, 2 * sizeof(Gfx));
+    dList = GRAPH_ALLOC(play, 2 * sizeof(Gfx));
     gDPSetEnvColor(dList, envR, envG, envB, envA);
     gSPEndDisplayList(dList + 1);
 
@@ -1191,10 +1193,10 @@ void EnHy_Draw(Actor* thisx, PlayState* play) {
     if (this->actionFunc != EnHy_InitImpl) {
         Gfx_SetupDL_25Opa(play->state.gfxCtx);
         Matrix_Translate(this->modelOffset.x, this->modelOffset.y, this->modelOffset.z, MTXMODE_APPLY);
-        envColorSeg8 = sModelInfo[this->actor.params & 0x7F].envColorSeg8;
-        envColorSeg9 = sModelInfo[this->actor.params & 0x7F].envColorSeg9;
+        envColorSeg8 = sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].envColorSeg8;
+        envColorSeg9 = sModelInfo[PARAMS_GET_S(this->actor.params, 0, 7)].envColorSeg9;
 
-        switch (this->actor.params & 0x7F) {
+        switch (PARAMS_GET_S(this->actor.params, 0, 7)) {
             // ENHY_TYPE_AOB
             // ENHY_TYPE_COB
             case ENHY_TYPE_AHG_2:
@@ -1223,11 +1225,12 @@ void EnHy_Draw(Actor* thisx, PlayState* play) {
                            EnHy_SetEnvColor(play->state.gfxCtx, envColorSeg9.r, envColorSeg9.g, envColorSeg9.b,
                                             envColorSeg9.a));
 
-                if ((this->actor.params & 0x7F) == ENHY_TYPE_CNE_8 || (this->actor.params & 0x7F) == ENHY_TYPE_CNE_11) {
-                    if ((this->actor.params & 0x7F) == ENHY_TYPE_CNE_8) {
+                if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_CNE_8 ||
+                    PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_CNE_11) {
+                    if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_CNE_8) {
                         envColorSeg10 = envColorSeg8;
                     }
-                    if ((this->actor.params & 0x7F) == ENHY_TYPE_CNE_11) {
+                    if (PARAMS_GET_S(this->actor.params, 0, 7) == ENHY_TYPE_CNE_11) {
                         envColorSeg10.r = envColorSeg10.g = envColorSeg10.b = 255;
                         envColorSeg10.a = 0;
                     }

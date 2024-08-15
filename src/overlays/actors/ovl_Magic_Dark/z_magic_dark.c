@@ -18,16 +18,16 @@ void MagicDark_DiamondDraw(Actor* thisx, PlayState* play);
 
 void MagicDark_DimLighting(PlayState* play, f32 intensity);
 
-ActorInit Magic_Dark_InitVars = {
-    ACTOR_MAGIC_DARK,
-    ACTORCAT_ITEMACTION,
-    FLAGS,
-    OBJECT_GAMEPLAY_KEEP,
-    sizeof(MagicDark),
-    (ActorFunc)MagicDark_Init,
-    (ActorFunc)MagicDark_Destroy,
-    (ActorFunc)MagicDark_OrbUpdate,
-    (ActorFunc)MagicDark_OrbDraw,
+ActorProfile Magic_Dark_Profile = {
+    /**/ ACTOR_MAGIC_DARK,
+    /**/ ACTORCAT_ITEMACTION,
+    /**/ FLAGS,
+    /**/ OBJECT_GAMEPLAY_KEEP,
+    /**/ sizeof(MagicDark),
+    /**/ MagicDark_Init,
+    /**/ MagicDark_Destroy,
+    /**/ MagicDark_OrbUpdate,
+    /**/ MagicDark_OrbDraw,
 };
 
 #include "assets/overlays/ovl_Magic_Dark/ovl_Magic_Dark.c"
@@ -76,8 +76,6 @@ void MagicDark_DiamondUpdate(Actor* thisx, PlayState* play) {
     s16 nayrusLoveTimer = gSaveContext.nayrusLoveTimer;
     s32 msgMode = play->msgCtx.msgMode;
 
-    if (1) {}
-
     // See `ACTOROVL_ALLOC_ABSOLUTE`
     //! @bug This condition is too broad, the actor will also be killed by warp songs. But warp songs do not use an
     //! actor which uses `ACTOROVL_ALLOC_ABSOLUTE`. There is no reason to kill the actor in this case.
@@ -90,6 +88,8 @@ void MagicDark_DiamondUpdate(Actor* thisx, PlayState* play) {
     }
 
     if (nayrusLoveTimer >= 1200) {
+        if (1) {}
+
         player->invincibilityTimer = 0;
         gSaveContext.nayrusLoveTimer = 0;
         Actor_Kill(thisx);
@@ -225,7 +225,7 @@ void MagicDark_DiamondDraw(Actor* thisx, PlayState* play) {
         Matrix_Translate(this->actor.world.pos.x, this->actor.world.pos.y, this->actor.world.pos.z, MTXMODE_NEW);
         Matrix_Scale(this->actor.scale.x, this->actor.scale.y, this->actor.scale.z, MTXMODE_APPLY);
         Matrix_RotateY(BINANG_TO_RAD(this->actor.shape.rot.y), MTXMODE_APPLY);
-        gSPMatrix(POLY_XLU_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_magic_dark.c", 553),
+        gSPMatrix(POLY_XLU_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_magic_dark.c", 553),
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gDPSetPrimColor(POLY_XLU_DISP++, 0, 0, 170, 255, 255, (s32)(this->primAlpha * 0.6f) & 0xFF);
         gDPSetEnvColor(POLY_XLU_DISP++, 0, 100, 255, 128);
@@ -240,10 +240,10 @@ void MagicDark_DiamondDraw(Actor* thisx, PlayState* play) {
 }
 
 void MagicDark_OrbDraw(Actor* thisx, PlayState* play) {
-    MagicDark* this = (MagicDark*)thisx;
+    PlayState* play2 = (PlayState*)play;
     Vec3f pos;
-    Player* player = GET_PLAYER(play);
-    s32 pad;
+    Player* player = GET_PLAYER(play2);
+    MagicDark* this = (MagicDark*)thisx;
     f32 sp6C = play->state.frames & 0x1F;
 
     if (this->timer < 32) {
@@ -263,11 +263,11 @@ void MagicDark_OrbDraw(Actor* thisx, PlayState* play) {
         return;
     }
 
-    pos.x -= (this->actor.scale.x * 300.0f * Math_SinS(Camera_GetCamDirYaw(GET_ACTIVE_CAM(play))) *
-              Math_CosS(Camera_GetCamDirPitch(GET_ACTIVE_CAM(play))));
-    pos.y -= (this->actor.scale.x * 300.0f * Math_SinS(Camera_GetCamDirPitch(GET_ACTIVE_CAM(play))));
-    pos.z -= (this->actor.scale.x * 300.0f * Math_CosS(Camera_GetCamDirYaw(GET_ACTIVE_CAM(play))) *
-              Math_CosS(Camera_GetCamDirPitch(GET_ACTIVE_CAM(play))));
+    pos.x -= (this->actor.scale.x * 300.0f * Math_SinS(Camera_GetCamDirYaw(GET_ACTIVE_CAM(play2))) *
+              Math_CosS(Camera_GetCamDirPitch(GET_ACTIVE_CAM(play2))));
+    pos.y -= (this->actor.scale.x * 300.0f * Math_SinS(Camera_GetCamDirPitch(GET_ACTIVE_CAM(play2))));
+    pos.z -= (this->actor.scale.x * 300.0f * Math_CosS(Camera_GetCamDirYaw(GET_ACTIVE_CAM(play2))) *
+              Math_CosS(Camera_GetCamDirPitch(GET_ACTIVE_CAM(play2))));
 
     OPEN_DISPS(play->state.gfxCtx, "../z_magic_dark.c", 619);
 
@@ -276,15 +276,15 @@ void MagicDark_OrbDraw(Actor* thisx, PlayState* play) {
     gDPSetEnvColor(POLY_XLU_DISP++, 0, 150, 255, 255);
     Matrix_Translate(pos.x, pos.y, pos.z, MTXMODE_NEW);
     Matrix_Scale(this->actor.scale.x, this->actor.scale.y, this->actor.scale.z, MTXMODE_APPLY);
-    Matrix_Mult(&play->billboardMtxF, MTXMODE_APPLY);
+    Matrix_Mult(&play2->billboardMtxF, MTXMODE_APPLY);
     Matrix_Push();
-    gSPMatrix(POLY_XLU_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_magic_dark.c", 632),
+    gSPMatrix(POLY_XLU_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_magic_dark.c", 632),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     Matrix_RotateZ(sp6C * (M_PI / 32), MTXMODE_APPLY);
     gSPDisplayList(POLY_XLU_DISP++, gEffFlash1DL);
     Matrix_Pop();
     Matrix_RotateZ(-sp6C * (M_PI / 32), MTXMODE_APPLY);
-    gSPMatrix(POLY_XLU_DISP++, Matrix_NewMtx(play->state.gfxCtx, "../z_magic_dark.c", 639),
+    gSPMatrix(POLY_XLU_DISP++, MATRIX_NEW(play->state.gfxCtx, "../z_magic_dark.c", 639),
               G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     gSPDisplayList(POLY_XLU_DISP++, gEffFlash1DL);
 

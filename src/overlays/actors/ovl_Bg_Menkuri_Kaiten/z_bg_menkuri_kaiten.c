@@ -14,16 +14,16 @@ void BgMenkuriKaiten_Destroy(Actor* thisx, PlayState* play);
 void BgMenkuriKaiten_Update(Actor* thisx, PlayState* play);
 void BgMenkuriKaiten_Draw(Actor* thisx, PlayState* play);
 
-ActorInit Bg_Menkuri_Kaiten_InitVars = {
-    ACTOR_BG_MENKURI_KAITEN,
-    ACTORCAT_BG,
-    FLAGS,
-    OBJECT_MENKURI_OBJECTS,
-    sizeof(BgMenkuriKaiten),
-    (ActorFunc)BgMenkuriKaiten_Init,
-    (ActorFunc)BgMenkuriKaiten_Destroy,
-    (ActorFunc)BgMenkuriKaiten_Update,
-    (ActorFunc)BgMenkuriKaiten_Draw,
+ActorProfile Bg_Menkuri_Kaiten_Profile = {
+    /**/ ACTOR_BG_MENKURI_KAITEN,
+    /**/ ACTORCAT_BG,
+    /**/ FLAGS,
+    /**/ OBJECT_MENKURI_OBJECTS,
+    /**/ sizeof(BgMenkuriKaiten),
+    /**/ BgMenkuriKaiten_Init,
+    /**/ BgMenkuriKaiten_Destroy,
+    /**/ BgMenkuriKaiten_Update,
+    /**/ BgMenkuriKaiten_Draw,
 };
 
 static InitChainEntry sInitChain[] = {

@@ -4,10 +4,22 @@
 #include "ultra64.h"
 #include "z64math.h"
 
+typedef enum Language {
+#if OOT_NTSC
+    /* 0 */ LANGUAGE_JPN,
+    /* 1 */ LANGUAGE_ENG,
+#else
+    /* 0 */ LANGUAGE_ENG,
+    /* 1 */ LANGUAGE_GER,
+    /* 2 */ LANGUAGE_FRA,
+#endif
+    /*   */ LANGUAGE_MAX
+} Language;
+
 // `_FORCE` means that this request will respond to `forceRisingButtonAlphas`.
 // If set, the buttons will also raise alphas but will also account for disabled buttons
 
-typedef enum {
+typedef enum HudVisibilityMode {
     /*  0 */ HUD_VISIBILITY_NO_CHANGE,
     /*  1 */ HUD_VISIBILITY_NOTHING,
     /*  2 */ HUD_VISIBILITY_NOTHING_ALT, // Identical to HUD_VISIBILITY_NOTHING
@@ -26,7 +38,7 @@ typedef enum {
     /* 52 */ HUD_VISIBILITY_NOTHING_INSTANT = 52
 } HudVisibilityMode;
 
-typedef enum {
+typedef enum MagicState {
     /* 0x0 */ MAGIC_STATE_IDLE, // Regular gameplay
     /* 0x1 */ MAGIC_STATE_CONSUME_SETUP, // Sets the speed at which magic border flashes
     /* 0x2 */ MAGIC_STATE_CONSUME, // Consume magic until target is reached or no more magic is available
@@ -40,7 +52,7 @@ typedef enum {
     /* 0xA */ MAGIC_STATE_ADD // Add requested magic
 } MagicState;
 
-typedef enum {
+typedef enum MagicChangeType {
     /* 0 */ MAGIC_CONSUME_NOW, // Consume Magic immediately without preview
     /* 1 */ MAGIC_CONSUME_WAIT_NO_PREVIEW, // Sets consume target but waits to consume. No yellow magic preview to target consumption. Unused
     /* 2 */ MAGIC_CONSUME_NOW_ALT, // Identical behaviour to MAGIC_CONSUME_NOW. Unused
@@ -52,13 +64,13 @@ typedef enum {
 #define MAGIC_NORMAL_METER 0x30
 #define MAGIC_DOUBLE_METER (2 * MAGIC_NORMAL_METER)
 
-typedef struct {
+typedef struct ItemEquips {
     /* 0x00 */ u8 buttonItems[4];
     /* 0x04 */ u8 cButtonSlots[3];
     /* 0x08 */ u16 equipment; // a mask where each nibble corresponds to a type of equipment `EquipmentType`, and each nibble is a piece `EquipValue*`
 } ItemEquips; // size = 0x0A
 
-typedef struct {
+typedef struct Inventory {
     /* 0x00 */ u8 items[24];
     /* 0x18 */ s8 ammo[16];
     /* 0x28 */ u16 equipment; // a mask where each nibble corresponds to a type of equipment `EquipmentType`, and each bit to an owned piece `EquipInv*`
@@ -70,7 +82,7 @@ typedef struct {
     /* 0x5C */ s16 gsTokens;
 } Inventory; // size = 0x5E
 
-typedef struct {
+typedef struct SavedSceneFlags {
     /* 0x00 */ u32 chest;
     /* 0x04 */ u32 swch;
     /* 0x08 */ u32 clear;
@@ -80,7 +92,7 @@ typedef struct {
     /* 0x18 */ u32 floors;
 } SavedSceneFlags; // size = 0x1C
 
-typedef struct {
+typedef struct HorseData {
     /* 0x00 */ s16 sceneId;
     /* 0x02 */ Vec3s pos;
     /* 0x08 */ s16 angle;
@@ -92,14 +104,14 @@ typedef struct {
  * "return": coming from the ground
  * "top": coming from the air
  */
-typedef enum {
+typedef enum RespawnMode {
     /* 0x00 */ RESPAWN_MODE_DOWN,   /* Normal Void Outs */
     /* 0x01 */ RESPAWN_MODE_RETURN, /* Grotto Returnpoints */
     /* 0x02 */ RESPAWN_MODE_TOP,    /* Farore's Wind */
     /* 0x03 */ RESPAWN_MODE_MAX
 } RespawnMode;
 
-typedef struct {
+typedef struct RespawnData {
     /* 0x00 */ Vec3f pos;
     /* 0x0C */ s16 yaw;
     /* 0x0E */ s16 playerParams;
@@ -110,7 +122,7 @@ typedef struct {
     /* 0x18 */ u32 tempCollectFlags;
 } RespawnData; // size = 0x1C
 
-typedef struct {
+typedef struct FaroresWindData {
     /* 0x00 */ Vec3i pos;
     /* 0x0C */ s32 yaw;
     /* 0x10 */ s32 playerParams;
@@ -121,7 +133,7 @@ typedef struct {
     /* 0x24 */ s32 tempCollectFlags;
 } FaroresWindData; // size = 0x28
 
-typedef enum {
+typedef enum TimerState {
     /* 0x0 */ TIMER_STATE_OFF,
     /* 0x1 */ TIMER_STATE_ENV_HAZARD_INIT, // Init env timer that counts down, total time based on health, resets on void-out, kills at 0
     /* 0x2 */ TIMER_STATE_ENV_HAZARD_PREVIEW, // Display initial time, keep it fixed at the screen center
@@ -139,7 +151,7 @@ typedef enum {
     /* 0xF */ TIMER_STATE_UP_FREEZE  // Stop counting the timer
 } TimerState;
 
-typedef enum {
+typedef enum SubTimerState {
     /* 0x0 */ SUBTIMER_STATE_OFF,
     /* 0x1 */ SUBTIMER_STATE_DOWN_INIT, // Init timer that counts down
     /* 0x2 */ SUBTIMER_STATE_DOWN_PREVIEW, // Display initial time, keep it fixed at the screen center
@@ -153,7 +165,7 @@ typedef enum {
     /* 0xA */ SUBTIMER_STATE_UP_TICK // Counting up
 } SubTimerState;
 
-typedef enum {
+typedef enum TimerId {
     /* 0 */ TIMER_ID_MAIN, // Takes priority in both counting and drawing. See `timerState` and `timerSeconds`
     /* 1 */ TIMER_ID_SUB, // See `subTimerState` and `subTimerSeconds`
     /* 2 */ TIMER_ID_MAX
@@ -164,58 +176,72 @@ typedef enum {
 #define ENV_HAZARD_TEXT_TRIGGER_HOTROOM (1 << 0)
 #define ENV_HAZARD_TEXT_TRIGGER_UNDERWATER (1 << 1)
 
-typedef struct {
-    /* 0x0000 */ s32 entranceIndex; // start of `save` substruct, originally called "memory"
-    /* 0x0004 */ s32 linkAge; // 0: Adult; 1: Child (see enum `LinkAge`)
-    /* 0x0008 */ s32 cutsceneIndex;
-    /* 0x000C */ u16 dayTime; // "zelda_time"
-    /* 0x0010 */ s32 nightFlag;
-    /* 0x0014 */ s32 totalDays;
-    /* 0x0018 */ s32 bgsDayCount; // increments with totalDays, can be cleared with `Environment_ClearBgsDayCount`
-    /* 0x001C */ char newf[6]; // string "ZELDAZ". start of `info` substruct, originally called "information"
-    /* 0x0022 */ u16 deaths;
-    /* 0x0024 */ char playerName[8];
-    /* 0x002C */ s16 n64ddFlag;
-    /* 0x002E */ s16 healthCapacity; // "max_life"
-    /* 0x0030 */ s16 health; // "now_life"
-    /* 0x0032 */ s8 magicLevel; // 0 for no magic/new load, 1 for magic, 2 for double magic
-    /* 0x0033 */ s8 magic; // current magic available for use
-    /* 0x0034 */ s16 rupees;
-    /* 0x0036 */ u16 swordHealth;
-    /* 0x0038 */ u16 naviTimer;
-    /* 0x003A */ u8 isMagicAcquired;
-    /* 0x003B */ char unk_3B[0x01];
-    /* 0x003C */ u8 isDoubleMagicAcquired;
-    /* 0x003D */ u8 isDoubleDefenseAcquired;
-    /* 0x003E */ u8 bgsFlag;
-    /* 0x003F */ u8 ocarinaGameRoundNum;
-    /* 0x0040 */ ItemEquips childEquips;
-    /* 0x004A */ ItemEquips adultEquips;
-    /* 0x0054 */ u32 unk_54; // this may be incorrect, currently used for alignment
-    /* 0x0058 */ char unk_58[0x0E];
-    /* 0x0066 */ s16 savedSceneId;
-    /* 0x0068 */ ItemEquips equips;
-    /* 0x0074 */ Inventory inventory;
-    /* 0x00D4 */ SavedSceneFlags sceneFlags[124];
-    /* 0x0E64 */ FaroresWindData fw;
-    /* 0x0E8C */ char unk_E8C[0x10];
-    /* 0x0E9C */ s32 gsFlags[6];
-    /* 0x0EB4 */ char unk_EB4[0x4];
-    /* 0x0EB8 */ s32 highScores[7];
-    /* 0x0ED4 */ u16 eventChkInf[14]; // "event_chk_inf"
-    /* 0x0EF0 */ u16 itemGetInf[4]; // "item_get_inf"
-    /* 0x0EF8 */ u16 infTable[30]; // "inf_table"
-    /* 0x0F34 */ char unk_F34[0x04];
-    /* 0x0F38 */ u32 worldMapAreaData; // "area_arrival"
-    /* 0x0F3C */ char unk_F3C[0x4];
-    /* 0x0F40 */ u8 scarecrowLongSongSet;
-    /* 0x0F41 */ u8 scarecrowLongSong[0x360];
-    /* 0x12A1 */ char unk_12A1[0x24];
-    /* 0x12C5 */ u8 scarecrowSpawnSongSet;
-    /* 0x12C6 */ u8 scarecrowSpawnSong[0x80];
-    /* 0x1346 */ char unk_1346[0x02];
-    /* 0x1348 */ HorseData horseData;
-    /* 0x1352 */ u16 checksum; // "check_sum"
+// offsets in SavePlayerData and SaveContext/Save
+typedef struct SavePlayerData {
+    /* 0x00  0x001C */ char newf[6]; // string "ZELDAZ"
+    /* 0x06  0x0022 */ u16 deaths;
+    /* 0x08  0x0024 */ char playerName[8];
+    /* 0x10  0x002C */ s16 n64ddFlag;
+    /* 0x12  0x002E */ s16 healthCapacity; // "max_life"
+    /* 0x14  0x0030 */ s16 health; // "now_life"
+    /* 0x16  0x0032 */ s8 magicLevel; // 0 for no magic/new load, 1 for magic, 2 for double magic
+    /* 0x17  0x0033 */ s8 magic; // current magic available for use
+    /* 0x18  0x0034 */ s16 rupees;
+    /* 0x1A  0x0036 */ u16 swordHealth;
+    /* 0x1C  0x0038 */ u16 naviTimer;
+    /* 0x1E  0x003A */ u8 isMagicAcquired;
+    /* 0x1F  0x003B */ char unk_3B[0x01];
+    /* 0x20  0x003C */ u8 isDoubleMagicAcquired;
+    /* 0x21  0x003D */ u8 isDoubleDefenseAcquired;
+    /* 0x22  0x003E */ u8 bgsFlag;
+    /* 0x23  0x003F */ u8 ocarinaGameRoundNum;
+    /* 0x24  0x0040 */ ItemEquips childEquips;
+    /* 0x2E  0x004A */ ItemEquips adultEquips;
+    /* 0x38  0x0054 */ u32 unk_54; // this may be incorrect, currently used for alignment
+    /* 0x3C  0x0058 */ char unk_58[0x0E];
+    /* 0x4A  0x0066 */ s16 savedSceneId;
+} SavePlayerData;
+
+// offsets in SaveInfo and SaveContext/Save
+typedef struct SaveInfo {
+    /* 0x0000  0x001C */ SavePlayerData playerData; // "S_Private"
+    /* 0x004C  0x0068 */ ItemEquips equips;
+    /* 0x0058  0x0074 */ Inventory inventory;
+    /* 0x00B8  0x00D4 */ SavedSceneFlags sceneFlags[124];
+    /* 0x0E48  0x0E64 */ FaroresWindData fw;
+    /* 0x0E70  0x0E8C */ char unk_E8C[0x10];
+    /* 0x0E80  0x0E9C */ s32 gsFlags[6];
+    /* 0x0E98  0x0EB4 */ char unk_EB4[0x4];
+    /* 0x0E9C  0x0EB8 */ s32 highScores[7];
+    /* 0x0EB8  0x0ED4 */ u16 eventChkInf[14]; // "event_chk_inf"
+    /* 0x0ED4  0x0EF0 */ u16 itemGetInf[4]; // "item_get_inf"
+    /* 0x0EDC  0x0EF8 */ u16 infTable[30]; // "inf_table"
+    /* 0x0F18  0x0F34 */ char unk_F34[0x04];
+    /* 0x0F1C  0x0F38 */ u32 worldMapAreaData; // "area_arrival"
+    /* 0x0F20  0x0F3C */ char unk_F3C[0x4];
+    /* 0x0F24  0x0F40 */ u8 scarecrowLongSongSet;
+    /* 0x0F25  0x0F41 */ u8 scarecrowLongSong[0x360];
+    /* 0x1285  0x12A1 */ char unk_12A1[0x24];
+    /* 0x12A9  0x12C5 */ u8 scarecrowSpawnSongSet;
+    /* 0x12AA  0x12C6 */ u8 scarecrowSpawnSong[0x80];
+    /* 0x132A  0x1346 */ char unk_1346[0x02];
+    /* 0x132C  0x1348 */ HorseData horseData;
+    /* 0x1336  0x1352 */ u16 checksum; // "check_sum"
+} SaveInfo;
+
+typedef struct Save {
+    /* 0x00 */ s32 entranceIndex;
+    /* 0x04 */ s32 linkAge; // 0: Adult; 1: Child (see enum `LinkAge`)
+    /* 0x08 */ s32 cutsceneIndex;
+    /* 0x0C */ u16 dayTime; // "zelda_time"
+    /* 0x10 */ s32 nightFlag;
+    /* 0x14 */ s32 totalDays;
+    /* 0x18 */ s32 bgsDayCount; // increments with totalDays, can be cleared with `Environment_ClearBgsDayCount`
+    /* 0x1C */ SaveInfo info; // "information"
+} Save;
+
+typedef struct SaveContext {
+    /* 0x0000 */ Save save; // "memory"
     /* 0x1354 */ s32 fileNum; // "file_no"
     /* 0x1358 */ char unk_1358[0x0004];
     /* 0x135C */ s32 gameMode;
@@ -279,21 +305,21 @@ typedef struct {
     /* 0x1424 */ s16 healthAccumulator;
 } SaveContext; // size = 0x1428
 
-typedef enum {
+typedef enum ButtonStatus {
     /* 0x00 */ BTN_ENABLED,
     /* 0xFF */ BTN_DISABLED = 0xFF
 } ButtonStatus;
 
-typedef enum {
-    /* 0x00 */ CHAMBER_CS_FOREST,
-    /* 0x01 */ CHAMBER_CS_FIRE,
-    /* 0x02 */ CHAMBER_CS_WATER,
-    /* 0x03 */ CHAMBER_CS_SPIRIT,
-    /* 0x04 */ CHAMBER_CS_SHADOW,
-    /* 0x05 */ CHAMBER_CS_LIGHT
+typedef enum ChamberCutsceneNum {
+    /* 0 */ CHAMBER_CS_FOREST,
+    /* 1 */ CHAMBER_CS_FIRE,
+    /* 2 */ CHAMBER_CS_WATER,
+    /* 3 */ CHAMBER_CS_SPIRIT,
+    /* 4 */ CHAMBER_CS_SHADOW,
+    /* 5 */ CHAMBER_CS_LIGHT
 } ChamberCutsceneNum;
 
-typedef enum {
+typedef enum HighScores {
     /* 0x00 */ HS_HBA,          // horseback archery
     /* 0x01 */ HS_POE_POINTS,
     /* 0x02 */ HS_FISHING,
@@ -303,21 +329,33 @@ typedef enum {
     /* 0x06 */ HS_DAMPE_RACE
 } HighScores;
 
-typedef enum {
+// the score value for the fishing minigame also stores many flags.
+#define HS_FISH_LENGTH_CHILD 0x7F // mask for record length of catch as child.
+#define HS_FISH_LENGTH_ADULT 0x7F000000 // mask for record length of catch as adult.
+#define HS_FISH_PLAYED_CHILD 0x100 // set when first talking to owner as child
+#define HS_FISH_PLAYED_ADULT 0x200 // set when first talking to owner as adult
+#define HS_FISH_PRIZE_CHILD 0x400 // won the Piece of Heart
+#define HS_FISH_PRIZE_ADULT 0x800 // won the Golden Scale
+#define HS_FISH_STOLE_HAT 0x1000 // Pond owner is visibly bald as Adult Link.
+#define HS_FISH_CHEAT_CHILD 0x80 // used Sinking Lure as child to catch record fish
+#define HS_FISH_CHEAT_ADULT 0x80000000 // used Sinking Lure as adult to catch record fish
+#define HS_FISH_PLAYED 0x10000 // incremented for every play. controls weather.
+
+typedef enum SunsSongState {
     /* 0 */ SUNSSONG_INACTIVE,
     /* 1 */ SUNSSONG_START, // the suns ocarina effect signals that the song has finished playing
     /* 2 */ SUNSSONG_SPEED_TIME, // suns was played where time passes, speed up the advancement of time
     /* 3 */ SUNSSONG_SPECIAL // time does not advance, but signals the song was played. used for freezing redeads
 } SunsSongState;
 
-typedef enum {
+typedef enum GameMode {
     /* 0 */ GAMEMODE_NORMAL,
     /* 1 */ GAMEMODE_TITLE_SCREEN,
     /* 2 */ GAMEMODE_FILE_SELECT, // Note: only instance type transitions swap to file select
     /* 3 */ GAMEMODE_END_CREDITS
 } GameMode;
 
-typedef enum {
+typedef enum SceneLayer {
     /* 0 */ SCENE_LAYER_CHILD_DAY,
     /* 1 */ SCENE_LAYER_CHILD_NIGHT,
     /* 2 */ SCENE_LAYER_ADULT_DAY,
@@ -327,7 +365,7 @@ typedef enum {
 
 #define IS_CUTSCENE_LAYER (gSaveContext.sceneLayer >= SCENE_LAYER_CUTSCENE_FIRST)
 
-typedef enum {
+typedef enum LinkAge {
     /* 0 */ LINK_AGE_ADULT,
     /* 1 */ LINK_AGE_CHILD
 } LinkAge;
@@ -355,18 +393,18 @@ typedef enum {
 #define EVENTCHKINF_0B 0x0B
 #define EVENTCHKINF_0C 0x0C
 #define EVENTCHKINF_0F 0x0F
-#define EVENTCHKINF_10 0x10
+#define EVENTCHKINF_TALKED_TO_MALON_FIRST_TIME 0x10
 #define EVENTCHKINF_11 0x11
-#define EVENTCHKINF_12 0x12
+#define EVENTCHKINF_RECEIVED_WEIRD_EGG 0x12
 #define EVENTCHKINF_TALON_WOKEN_IN_CASTLE 0x13
 #define EVENTCHKINF_TALON_RETURNED_FROM_CASTLE 0x14
-#define EVENTCHKINF_15 0x15
-#define EVENTCHKINF_16 0x16
+#define EVENTCHKINF_TALKED_TO_CHILD_MALON_AT_RANCH 0x15
+#define EVENTCHKINF_CAN_LEARN_EPONAS_SONG 0x16
 #define EVENTCHKINF_EPONA_OBTAINED 0x18
 #define EVENTCHKINF_1B 0x1B
 #define EVENTCHKINF_1C 0x1C
 #define EVENTCHKINF_1D 0x1D
-#define EVENTCHKINF_1E 0x1E
+#define EVENTCHKINF_HORSE_RACE_COW_UNLOCK 0x1E
 #define EVENTCHKINF_20 0x20
 #define EVENTCHKINF_21 0x21
 #define EVENTCHKINF_22 0x22
@@ -405,7 +443,7 @@ typedef enum {
 #define EVENTCHKINF_4C 0x4C
 #define EVENTCHKINF_4D 0x4D
 #define EVENTCHKINF_4E 0x4E
-#define EVENTCHKINF_4F 0x4F
+#define EVENTCHKINF_WATCHED_SHEIK_AFTER_MASTER_SWORD_CS 0x4F // Cutscene in Temple of Time as adult after pulling the Master Sword for the first time
 #define EVENTCHKINF_50 0x50
 #define EVENTCHKINF_51 0x51
 #define EVENTCHKINF_52 0x52
@@ -457,7 +495,7 @@ typedef enum {
     | EVENTCHKINF_CARPENTERS_FREE_MASK(2)     \
     | EVENTCHKINF_CARPENTERS_FREE_MASK(3)    )
 #define GET_EVENTCHKINF_CARPENTERS_FREE_ALL() \
-    CHECK_FLAG_ALL(gSaveContext.eventChkInf[EVENTCHKINF_CARPENTERS_FREE_INDEX], EVENTCHKINF_CARPENTERS_FREE_MASK_ALL)
+    CHECK_FLAG_ALL(gSaveContext.save.info.eventChkInf[EVENTCHKINF_CARPENTERS_FREE_INDEX], EVENTCHKINF_CARPENTERS_FREE_MASK_ALL)
 
 #define EVENTCHKINF_94 0x94
 #define EVENTCHKINF_95 0x95
@@ -547,7 +585,7 @@ typedef enum {
 #define ITEMGETINF_08 0x08
 #define ITEMGETINF_09 0x09
 #define ITEMGETINF_0A 0x0A
-#define ITEMGETINF_0B 0x0B
+#define ITEMGETINF_DEKU_HEART_PIECE 0x0B
 #define ITEMGETINF_0C 0x0C
 #define ITEMGETINF_0D 0x0D
 #define ITEMGETINF_0E 0x0E
@@ -629,9 +667,9 @@ typedef enum {
 #define INFTABLE_76 0x76
 #define INFTABLE_77 0x77
 #define INFTABLE_TALKED_TO_TALON_IN_RANCH_HOUSE 0x7E
-#define INFTABLE_84 0x84
-#define INFTABLE_85 0x85
-#define INFTABLE_8B 0x8B
+#define INFTABLE_TALKED_TO_MALON_FIRST_TIME 0x84
+#define INFTABLE_TOLD_EPONA_IS_SCARED 0x85
+#define INFTABLE_MALON_SPAWNED_AT_HYRULE_CASTLE 0x8B
 #define INFTABLE_8C 0x8C
 #define INFTABLE_8D 0x8D
 #define INFTABLE_8E 0x8E
@@ -717,8 +755,8 @@ typedef enum {
 #define INFTABLE_17F 0x17F
 #define INFTABLE_190 0x190
 #define INFTABLE_191 0x191
-#define INFTABLE_192 0x192
-#define INFTABLE_193 0x193
+#define INFTABLE_HAS_DEKU_STICK_UPGRADE 0x192
+#define INFTABLE_HAS_DEKU_NUT_UPGRADE 0x193
 #define INFTABLE_195 0x195
 #define INFTABLE_196 0x196
 #define INFTABLE_197 0x197
@@ -782,7 +820,7 @@ typedef enum {
 #define EVENTINF_HORSES_0A ((EVENTINF_HORSES_INDEX << 4) | EVENTINF_HORSES_0A_SHIFT)
 #define EVENTINF_CUCCO_GAME_FINISHED EVENTINF_HORSES_0A
 
-typedef enum {
+typedef enum EventInfHorsesState {
     /* 0 */ EVENTINF_HORSES_STATE_0,
     /* 1 */ EVENTINF_HORSES_STATE_1,
     /* 2 */ EVENTINF_HORSES_STATE_2,

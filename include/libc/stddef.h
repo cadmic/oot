@@ -5,12 +5,14 @@
 
 #if !defined(_SIZE_T) && !defined(_SIZE_T_)
 #define _SIZE_T
-#if (_MIPS_SZLONG == 32)
+
+#if !defined(_MIPS_SZLONG) || (_MIPS_SZLONG == 32)
 typedef unsigned int    size_t;
 #endif
-#if (_MIPS_SZLONG == 64)
+#if defined(_MIPS_SZLONG) && (_MIPS_SZLONG == 64)
 typedef unsigned long   size_t;
 #endif
+
 #endif
 
 #ifdef __GNUC__
