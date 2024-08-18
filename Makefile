@@ -141,8 +141,12 @@ CPP_DEFINES += -DOOT_REGION=REGION_$(REGION)
 
 ifeq ($(PLATFORM),N64)
   CPP_DEFINES += -DPLATFORM_N64=1 -DPLATFORM_GC=0
+  ULTRALIB_TARGET  := libultra_rom
+  ULTRALIB_VERSION := I
 else ifeq ($(PLATFORM),GC)
   CPP_DEFINES += -DPLATFORM_N64=0 -DPLATFORM_GC=1
+  ULTRALIB_TARGET  := libultra_rom
+  ULTRALIB_VERSION := L
 else
   $(error Unsupported platform $(PLATFORM))
 endif
@@ -207,6 +211,7 @@ ifeq ($(ORIG_COMPILER),1)
   CC_OLD    = $(QEMU_IRIX) -L tools/ido5.3_compiler tools/ido5.3_compiler/usr/bin/cc
 endif
 
+AR      := $(MIPS_BINUTILS_PREFIX)ar
 AS      := $(MIPS_BINUTILS_PREFIX)as
 LD      := $(MIPS_BINUTILS_PREFIX)ld
 OBJCOPY := $(MIPS_BINUTILS_PREFIX)objcopy
@@ -378,9 +383,13 @@ TEXTURE_FILES_OUT := $(foreach f,$(TEXTURE_FILES_PNG_EXTRACTED:.png=.inc.c),$(f:
                      $(foreach f,$(TEXTURE_FILES_JPG_EXTRACTED:.jpg=.jpg.inc.c),$(f:$(EXTRACTED_DIR)/%=$(BUILD_DIR)/%)) \
                      $(foreach f,$(TEXTURE_FILES_JPG_COMMITTED:.jpg=.jpg.inc.c),$(BUILD_DIR)/$f)
 
+# Libraries
+ULTRALIB_LIB := $(BUILD_DIR)/lib/ultralib.a
+
 # create build directories
 $(shell mkdir -p $(BUILD_DIR)/baserom \
-                 $(BUILD_DIR)/assets/text)
+                 $(BUILD_DIR)/assets/text \
+                 $(BUILD_DIR)/lib)
 $(shell mkdir -p $(foreach dir, \
                       $(SRC_DIRS) \
                       $(UNDECOMPILED_DATA_DIRS) \
@@ -509,6 +518,7 @@ assetclean:
 distclean:
 	$(RM) -r extracted/
 	$(RM) -r build/
+	$(MAKE) -C lib/ultralib distclean
 	$(MAKE) -C tools distclean
 
 venv:
@@ -554,9 +564,13 @@ $(ROMC): $(ROM) $(ELF) $(BUILD_DIR)/compress_ranges.txt
 	$(PYTHON) tools/compress.py --in $(ROM) --out $@ --dmadata-start `./tools/dmadata_start.sh $(NM) $(ELF)` --compress `cat $(BUILD_DIR)/compress_ranges.txt` --threads $(N_THREADS)
 	$(PYTHON) -m ipl3checksum sum --cic 6105 --update $@
 
-$(ELF): $(TEXTURE_FILES_OUT) $(ASSET_FILES_OUT) $(O_FILES) $(OVL_RELOC_FILES) $(LDSCRIPT) $(BUILD_DIR)/undefined_syms.txt \
-        $(SAMPLEBANK_O_FILES)
-	$(LD) -T $(LDSCRIPT) -T $(BUILD_DIR)/undefined_syms.txt --no-check-sections --accept-unknown-input-arch --emit-relocs -Map $(MAP) -o $@
+$(ELF): $(TEXTURE_FILES_OUT) $(ASSET_FILES_OUT) $(O_FILES) $(SAMPLEBANK_O_FILES) $(OVL_RELOC_FILES) \
+        $(LDSCRIPT) $(ULTRALIB_LIB) $(BUILD_DIR)/undefined_syms.txt
+	$(LD) -T $(LDSCRIPT) -T $(BUILD_DIR)/undefined_syms.txt --no-check-sections --accept-unknown-input-arch --emit-relocs -Map $(MAP) $(ULTRALIB_LIB) -o $@
+
+$(ULTRALIB_LIB):
+	$(MAKE) -C lib/ultralib VERSION=$(ULTRALIB_VERSION) TARGET=$(ULTRALIB_TARGET) FIXUPS=1 CROSS=$(MIPS_BINUTILS_PREFIX) COMPILER_DIR=$(abspath $(dir $(CC_OLD))) AR=$(AR)
+	cp lib/ultralib/build/$(ULTRALIB_VERSION)/$(ULTRALIB_TARGET)/$(ULTRALIB_TARGET).a $(ULTRALIB_LIB)
 
 ## Order-only prerequisites
 # These ensure e.g. the O_FILES are built before the OVL_RELOC_FILES.
