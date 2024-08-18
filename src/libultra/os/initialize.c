@@ -38,10 +38,10 @@ void __osInitialize_common(void) {
     __osSetFpcCsr(FPCSR_FS | FPCSR_EV);
     __osSetWatchLo(0x04900000);
 
-    while (__osSiRawReadIo((void*)(PIF_RAM_END - 3), &pifdata)) {
+    while (__osSiRawReadIo(PIF_RAM_END - 3, &pifdata)) {
         ;
     }
-    while (__osSiRawWriteIo((void*)(PIF_RAM_END - 3), pifdata | 8)) {
+    while (__osSiRawWriteIo(PIF_RAM_END - 3, pifdata | 8)) {
         ;
     }
 

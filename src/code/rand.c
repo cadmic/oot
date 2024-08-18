@@ -42,6 +42,7 @@
  * @note Original name: qrand.c
  */
 #include "rand.h"
+#include "ultra64/guint.h" // TODO
 
 #define RAND_MULTIPLIER 1664525
 #define RAND_INCREMENT 1013904223
