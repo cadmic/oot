@@ -447,24 +447,7 @@ $(BUILD_DIR)/src/audio/general.o: CFLAGS += -signed
 $(BUILD_DIR)/src/audio/sfx.o: CFLAGS += -use_readwrite_const
 $(BUILD_DIR)/src/audio/sequence.o: CFLAGS += -use_readwrite_const
 
-$(BUILD_DIR)/src/libultra/libc/ll.o: OPTFLAGS := -O1
-$(BUILD_DIR)/src/libultra/libc/ll.o: MIPS_VERSION := -mips3 -32
-$(BUILD_DIR)/src/libultra/libc/llcvt.o: OPTFLAGS := -O1
-$(BUILD_DIR)/src/libultra/libc/llcvt.o: MIPS_VERSION := -mips3 -32
-
-$(BUILD_DIR)/src/libultra/os/%.o: OPTFLAGS := -O1
-$(BUILD_DIR)/src/libultra/io/%.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/libultra/libc/%.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/libultra/rmon/%.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/libultra/gu/%.o: OPTFLAGS := -O2
-
 $(BUILD_DIR)/assets/misc/z_select_static/%.o: GBI_DEFINES := -DF3DEX_GBI
-
-$(BUILD_DIR)/src/libultra/gu/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/io/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/libc/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/os/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/rmon/%.o: CC := $(CC_OLD)
 
 $(BUILD_DIR)/src/code/jpegutils.o: CC := $(CC_OLD)
 $(BUILD_DIR)/src/code/jpegdecoder.o: CC := $(CC_OLD)
@@ -481,7 +464,6 @@ else
 # Note that if adding additional assets directories for modding reasons these flags must also be used there
 $(BUILD_DIR)/assets/%.o: CFLAGS += -fno-zero-initialized-in-bss -fno-toplevel-reorder
 $(BUILD_DIR)/src/%.o: CFLAGS += -fexec-charset=euc-jp
-$(BUILD_DIR)/src/libultra/libc/ll.o: OPTFLAGS := -Ofast
 $(BUILD_DIR)/src/overlays/%.o: CFLAGS += -fno-merge-constants -mno-explicit-relocs -mno-split-addresses
 endif
 
@@ -657,22 +639,6 @@ ifneq ($(RUN_CC_CHECK),0)
 	$(CC_CHECK) $<
 endif
 	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
-	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > $(@:.o=.s)
-
-$(BUILD_DIR)/src/libultra/libc/ll.o: src/libultra/libc/ll.c
-ifneq ($(RUN_CC_CHECK),0)
-	$(CC_CHECK) $<
-endif
-	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
-	$(PYTHON) tools/set_o32abi_bit.py $@
-	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > $(@:.o=.s)
-
-$(BUILD_DIR)/src/libultra/libc/llcvt.o: src/libultra/libc/llcvt.c
-ifneq ($(RUN_CC_CHECK),0)
-	$(CC_CHECK) $<
-endif
-	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
-	$(PYTHON) tools/set_o32abi_bit.py $@
 	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > $(@:.o=.s)
 
 $(BUILD_DIR)/src/overlays/%_reloc.o: $(BUILD_DIR)/$(SPEC)
