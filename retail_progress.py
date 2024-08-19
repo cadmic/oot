@@ -299,7 +299,9 @@ def print_summary(version: str, csv: bool, only_not_ok: bool):
     expected_dir = Path("expected/build") / version
     build_dir = Path("build") / version
 
-    expected_object_files = sorted(expected_dir.glob("src/**/*.o"))
+    src_object_files = sorted(expected_dir.glob("src/**/*.o"))
+    lib_object_files = sorted(expected_dir.glob("lib/**/*.o"))
+    expected_object_files = src_object_files + lib_object_files
 
     comparison_data_list: List[multiprocessing.pool.AsyncResult] = []
 

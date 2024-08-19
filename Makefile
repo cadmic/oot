@@ -140,8 +140,10 @@ CPP_DEFINES += -DOOT_VERSION=$(VERSION_MACRO)
 CPP_DEFINES += -DOOT_REGION=REGION_$(REGION)
 
 ifeq ($(PLATFORM),N64)
+  LIBULTRA_VERSION := I  # Some files use version J, see overrides below
   CPP_DEFINES += -DPLATFORM_N64=1 -DPLATFORM_GC=0
 else ifeq ($(PLATFORM),GC)
+  LIBULTRA_VERSION := K
   CPP_DEFINES += -DPLATFORM_N64=0 -DPLATFORM_GC=1
 else
   $(error Unsupported platform $(PLATFORM))
@@ -188,6 +190,7 @@ endif
 # Detect compiler and set variables appropriately.
 ifeq ($(COMPILER),gcc)
   CC       := $(MIPS_BINUTILS_PREFIX)gcc
+  CCAS     := $(CC) -x assembler-with-cpp
 else ifeq ($(COMPILER),ido)
   CC       := tools/ido_recomp/$(DETECTED_OS)/7.1/cc
   CC_OLD   := tools/ido_recomp/$(DETECTED_OS)/5.3/cc
@@ -211,9 +214,9 @@ AS      := $(MIPS_BINUTILS_PREFIX)as
 LD      := $(MIPS_BINUTILS_PREFIX)ld
 OBJCOPY := $(MIPS_BINUTILS_PREFIX)objcopy
 OBJDUMP := $(MIPS_BINUTILS_PREFIX)objdump
-NM      := $(MIPS_BINUTILS_PREFIX)nm
+STRIP   := $(MIPS_BINUTILS_PREFIX)strip
 
-INC := -Iinclude -Iinclude/libc -Isrc -I$(BUILD_DIR) -I. -I$(EXTRACTED_DIR)
+INC := -Iinclude -Iinclude/libc -Isrc -Ilib/ultralib/include -I$(BUILD_DIR) -I. -I$(EXTRACTED_DIR)
 
 # Check code syntax with host compiler
 CHECK_WARNINGS := -Wall -Wextra -Wno-format-security -Wno-unknown-pragmas -Wno-unused-parameter -Wno-unused-variable -Wno-missing-braces
@@ -257,11 +260,14 @@ ifeq ($(DEBUG),1)
 endif
 
 CFLAGS += $(GBI_DEFINES)
+CFLAGS += -DBUILD_VERSION=VERSION_$(LIBULTRA_VERSION)
 
 ASFLAGS := -march=vr4300 -32 -no-pad-sections -Iinclude -I$(EXTRACTED_DIR)
 
 ifeq ($(COMPILER),gcc)
-  CFLAGS += -G 0 -nostdinc $(INC) -march=vr4300 -mfix4300 -mabi=32 -mno-abicalls -mdivide-breaks -fno-PIC -fno-common -ffreestanding -fbuiltin -fno-builtin-sinf -fno-builtin-cosf $(CHECK_WARNINGS) -funsigned-char
+  CFLAGS += \
+    -G 0 -nostdinc $(INC) -march=vr4300 -mfix4300 -mabi=32 -mno-abicalls -mdivide-breaks -Wa,-no-pad-sections \
+    -fno-PIC -fno-common -ffreestanding -fbuiltin -fno-builtin-sinf -fno-builtin-cosf -funsigned-char $(CHECK_WARNINGS)
   MIPS_VERSION := -mips3
 else
   # Suppress warnings for wrong number of macro arguments (to fake variadic
@@ -304,6 +310,15 @@ SRC_DIRS := $(shell find src -type d -not -path src/gcc_fix)
 else
 SRC_DIRS := $(shell find src -type d)
 endif
+
+SRC_DIRS += \
+  lib/ultralib/src/debug \
+  lib/ultralib/src/gu \
+  lib/ultralib/src/io \
+  lib/ultralib/src/libc \
+  lib/ultralib/src/mgu \
+  lib/ultralib/src/os \
+  lib/ultralib/src/vimodes
 
 ifneq ($(wildcard $(EXTRACTED_DIR)/assets/audio),)
   SAMPLE_EXTRACT_DIRS := $(shell find $(EXTRACTED_DIR)/assets/audio/samples -type d)
@@ -398,71 +413,143 @@ $(shell mkdir -p $(foreach dir, \
                     $(dir:$(EXTRACTED_DIR)/%=$(BUILD_DIR)/%)))
 endif
 
-ifeq ($(COMPILER),ido)
-$(BUILD_DIR)/src/boot/driverominit.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/boot/logutils.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/boot/sprintf.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/boot/stackcheck.o: OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/%.o: INC := -Ilib/ultralib/include -Ilib/ultralib/include/PR
+$(BUILD_DIR)/lib/ultralib/src/%.o: CFLAGS += -DNDEBUG -D_FINALROM
 
-$(BUILD_DIR)/src/code/__osMalloc.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/code_800FC620.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/fp_math.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/rand.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/gfxprint.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/jpegutils.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/jpegdecoder.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/load.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/loadfragment2.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/mtxuty-cvt.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/padsetup.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/padutils.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/printutils.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/relocation.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/sleep.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/code/system_malloc.o: OPTFLAGS := -O2
-
-$(BUILD_DIR)/src/code/fault.o: CFLAGS += -trapuv
-$(BUILD_DIR)/src/code/fault.o: OPTFLAGS := -O2 -g3
-$(BUILD_DIR)/src/code/fault_drawer.o: CFLAGS += -trapuv
-$(BUILD_DIR)/src/code/fault_drawer.o: OPTFLAGS := -O2 -g3
-$(BUILD_DIR)/src/code/ucode_disas.o: OPTFLAGS := -O2 -g3
-
-ifeq ($(DEBUG),1)
-$(BUILD_DIR)/src/libc/%.o: OPTFLAGS := -g
-else
-$(BUILD_DIR)/src/libc/%.o: OPTFLAGS := -O2
+ifeq ($(PLATFORM),N64)
+$(BUILD_DIR)/lib/ultralib/src/gu/us2dex.o:          LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/aisetfreq.o:       LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/cartrominit.o:     LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/contpfs.o:         LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/contramread.o:     LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/contramwrite.o:    LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/contreaddata.o:    LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/crc.o:             LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/devmgr.o:          LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/epiread.o:         LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/epiwrite.o:        LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/epirawdma.o:       LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/epirawread.o:      LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/epirawwrite.o:     LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/motor.o:           LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/pfsgetstatus.o:    LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/pfsselectbank.o:   LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/pimgr.o:           LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/pirawdma.o:        LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/sirawdma.o:        LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/sirawread.o:       LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/sirawwrite.o:      LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/vimgr.o:           LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/visetspecial.o:    LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/io/viswapcontext.o:   LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/os/exceptasm.o:       LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/os/interrupt.o:       LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/os/gethwinterrupt.o:  LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/os/getmemsize.o:      LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/os/initialize.o:      LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/os/seteventmesg.o:    LIBULTRA_VERSION := J
+$(BUILD_DIR)/lib/ultralib/src/os/sethwinterrupt.o:  LIBULTRA_VERSION := J
 endif
 
-$(BUILD_DIR)/src/audio/%.o: OPTFLAGS := -O2
+ifeq ($(COMPILER),ido)
+$(BUILD_DIR)/src/boot/driverominit.o:               OPTFLAGS := -O2
+$(BUILD_DIR)/src/boot/logutils.o:                   OPTFLAGS := -O2
+$(BUILD_DIR)/src/boot/sprintf.o:                    OPTFLAGS := -O2
+$(BUILD_DIR)/src/boot/stackcheck.o:                 OPTFLAGS := -O2
+
+$(BUILD_DIR)/src/code/__osMalloc.o:                 OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/code_800FC620.o:              OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/fp_math.o:                    OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/rand.o:                       OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/gfxprint.o:                   OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/jpegutils.o:                  OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/jpegdecoder.o:                OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/load.o:                       OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/loadfragment2.o:              OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/logutils.o:                   OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/mtxuty-cvt.o:                 OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/padsetup.o:                   OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/padutils.o:                   OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/printutils.o:                 OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/relocation.o:                 OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/sleep.o:                      OPTFLAGS := -O2
+$(BUILD_DIR)/src/code/system_malloc.o:              OPTFLAGS := -O2
+
+$(BUILD_DIR)/src/code/fault.o:                      CFLAGS += -trapuv
+$(BUILD_DIR)/src/code/fault.o:                      OPTFLAGS := -O2 -g3
+$(BUILD_DIR)/src/code/fault_drawer.o:               CFLAGS += -trapuv
+$(BUILD_DIR)/src/code/fault_drawer.o:               OPTFLAGS := -O2 -g3
+$(BUILD_DIR)/src/code/ucode_disas.o:                OPTFLAGS := -O2 -g3
+
+$(BUILD_DIR)/src/code/jpegutils.o:                  CC := $(CC_OLD)
+$(BUILD_DIR)/src/code/jpegdecoder.o:                CC := $(CC_OLD)
+
+ifeq ($(DEBUG),1)
+$(BUILD_DIR)/src/libc/%.o:                          OPTFLAGS := -g
+else
+$(BUILD_DIR)/src/libc/%.o:                          OPTFLAGS := -O2
+endif
+
+$(BUILD_DIR)/src/audio/%.o:                         OPTFLAGS := -O2
 
 # Use signed chars instead of unsigned for this audio file (needed to match AudioDebug_ScrPrt)
-$(BUILD_DIR)/src/audio/general.o: CFLAGS += -signed
+$(BUILD_DIR)/src/audio/general.o:                   CFLAGS += -signed
 
 # Put string literals in .data for some audio files (needed to match these files with literals)
-$(BUILD_DIR)/src/audio/sfx.o: CFLAGS += -use_readwrite_const
-$(BUILD_DIR)/src/audio/sequence.o: CFLAGS += -use_readwrite_const
+$(BUILD_DIR)/src/audio/sfx.o:                       CFLAGS += -use_readwrite_const
+$(BUILD_DIR)/src/audio/sequence.o:                  CFLAGS += -use_readwrite_const
 
-$(BUILD_DIR)/src/libultra/libc/ll.o: OPTFLAGS := -O1
-$(BUILD_DIR)/src/libultra/libc/ll.o: MIPS_VERSION := -mips3 -32
-$(BUILD_DIR)/src/libultra/libc/llcvt.o: OPTFLAGS := -O1
-$(BUILD_DIR)/src/libultra/libc/llcvt.o: MIPS_VERSION := -mips3 -32
+$(BUILD_DIR)/assets/misc/z_select_static/%.o:       GBI_DEFINES := -DF3DEX_GBI
 
-$(BUILD_DIR)/src/libultra/os/%.o: OPTFLAGS := -O1
-$(BUILD_DIR)/src/libultra/io/%.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/libultra/libc/%.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/libultra/rmon/%.o: OPTFLAGS := -O2
-$(BUILD_DIR)/src/libultra/gu/%.o: OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/%.o:                  CC := $(CC_OLD)
+$(BUILD_DIR)/lib/ultralib/src/%.o:                  INC += -Ilib/ultralib/include/ido
+$(BUILD_DIR)/lib/ultralib/src/%.o:                  ASOPTFLAGS := -O1
+$(BUILD_DIR)/lib/ultralib/src/%.o:                  OPTFLAGS := -O2
 
-$(BUILD_DIR)/assets/misc/z_select_static/%.o: GBI_DEFINES := -DF3DEX_GBI
+# Suppresses "Unknown control character \015 ignored" warning for ultralib files containing \r
+$(BUILD_DIR)/lib/ultralib/src/%.o:                  CFLAGS += -woff 513
 
-$(BUILD_DIR)/src/libultra/gu/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/io/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/libc/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/os/%.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/libultra/rmon/%.o: CC := $(CC_OLD)
+$(BUILD_DIR)/lib/ultralib/src/libc/%.o:             ASOPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/mgu/%.o:              ASOPTFLAGS := -O2
 
-$(BUILD_DIR)/src/code/jpegutils.o: CC := $(CC_OLD)
-$(BUILD_DIR)/src/code/jpegdecoder.o: CC := $(CC_OLD)
+$(BUILD_DIR)/lib/ultralib/src/os/%.o:               OPTFLAGS := -O1
+$(BUILD_DIR)/lib/ultralib/src/libc/ll.o:            OPTFLAGS := -O1
+$(BUILD_DIR)/lib/ultralib/src/libc/llcvt.o:         OPTFLAGS := -O1
+
+$(BUILD_DIR)/lib/ultralib/src/libc/ll.o:            MIPS_VERSION := -mips3 -32
+$(BUILD_DIR)/lib/ultralib/src/libc/llcvt.o:         MIPS_VERSION := -mips3 -32
+$(BUILD_DIR)/lib/ultralib/src/os/exceptasm.o:       MIPS_VERSION := -mips3 -32
+
+ifeq ($(PLATFORM),N64)
+$(BUILD_DIR)/lib/ultralib/src/gu/%.o:               OPTFLAGS := -O3
+$(BUILD_DIR)/lib/ultralib/src/io/%.o:               OPTFLAGS := -O1
+$(BUILD_DIR)/lib/ultralib/src/libc/%.o:             OPTFLAGS := -O3
+
+$(BUILD_DIR)/lib/ultralib/src/io/aisetfreq.o:       OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/cartrominit.o:     OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/contpfs.o:         OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/contramread.o:     OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/contramwrite.o:    OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/contreaddata.o:    OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/crc.o:             OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/devmgr.o:          OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/epiread.o:         OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/epiwrite.o:        OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/epirawdma.o:       OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/epirawread.o:      OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/epirawwrite.o:     OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/motor.o:           OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/pfsgetstatus.o:    OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/pfsselectbank.o:   OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/pimgr.o:           OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/pirawdma.o:        OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/sirawdma.o:        OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/sirawread.o:       OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/sirawwrite.o:      OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/vimgr.o:           OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/visetspecial.o:    OPTFLAGS := -O2
+$(BUILD_DIR)/lib/ultralib/src/io/viswapcontext.o:   OPTFLAGS := -O2
+endif
 
 # For using asm_processor on some files:
 #$(BUILD_DIR)/.../%.o: CC := $(PYTHON) tools/asm_processor/build.py $(CC) -- $(AS) $(ASFLAGS) --
@@ -472,12 +559,16 @@ ifeq ($(PERMUTER),)  # permuter + preprocess.py misbehaves, permuter doesn't car
 $(BUILD_DIR)/src/%.o: CC := ./tools/preprocess.sh -v $(VERSION) -- $(CC)
 endif
 
-else
+else ifeq ($(COMPILER),gcc)
 # Note that if adding additional assets directories for modding reasons these flags must also be used there
 $(BUILD_DIR)/assets/%.o: CFLAGS += -fno-zero-initialized-in-bss -fno-toplevel-reorder
 $(BUILD_DIR)/src/%.o: CFLAGS += -fexec-charset=euc-jp
-$(BUILD_DIR)/src/libultra/libc/ll.o: OPTFLAGS := -Ofast
 $(BUILD_DIR)/src/overlays/%.o: CFLAGS += -fno-merge-constants -mno-explicit-relocs -mno-split-addresses
+
+$(BUILD_DIR)/lib/ultralib/src/%.o: INC += -Ilib/ultralib/include/gcc
+$(BUILD_DIR)/lib/ultralib/src/%.o: CFLAGS += -DFIXUPS
+
+$(BUILD_DIR)/lib/ultralib/src/libc/ll.o: OPTFLAGS := -Ofast
 endif
 
 #### Main Targets ###
@@ -622,13 +713,6 @@ $(BUILD_DIR)/assets/%.o: $(EXTRACTED_DIR)/assets/%.c
 	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
 	$(OBJCOPY) -O binary $@ $@.bin
 
-$(BUILD_DIR)/src/%.o: src/%.s
-	$(CPP) $(CPPFLAGS) -Iinclude $< | $(AS) $(ASFLAGS) -o $@
-
-# Incremental link to move z_message and z_game_over data into rodata
-$(BUILD_DIR)/src/code/z_message_z_game_over.o: $(BUILD_DIR)/src/code/z_message.o $(BUILD_DIR)/src/code/z_game_over.o
-	$(LD) -r -T linker_scripts/data_with_rodata.ld -o $@ $^
-
 $(BUILD_DIR)/dmadata_table_spec.h $(BUILD_DIR)/compress_ranges.txt: $(BUILD_DIR)/$(SPEC)
 	$(MKDMADATA) $< $(BUILD_DIR)/dmadata_table_spec.h $(BUILD_DIR)/compress_ranges.txt
 
@@ -646,6 +730,9 @@ $(BUILD_DIR)/src/code/z_effect_soft_sprite_dlftbls.o: include/tables/effect_ss_t
 $(BUILD_DIR)/src/code/z_game_dlftbls.o: include/tables/gamestate_table.h
 $(BUILD_DIR)/src/code/z_scene_table.o: include/tables/scene_table.h include/tables/entrance_table.h
 
+$(BUILD_DIR)/src/%.o: src/%.s
+	$(CPP) $(CPPFLAGS) -Iinclude $< | $(AS) $(ASFLAGS) -o $@
+
 $(BUILD_DIR)/src/%.o: src/%.c
 ifneq ($(RUN_CC_CHECK),0)
 	$(CC_CHECK) $<
@@ -653,20 +740,29 @@ endif
 	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
 	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > $(@:.o=.s)
 
-$(BUILD_DIR)/src/libultra/libc/ll.o: src/libultra/libc/ll.c
-ifneq ($(RUN_CC_CHECK),0)
-	$(CC_CHECK) $<
+# Incremental link to move z_message and z_game_over data into rodata
+$(BUILD_DIR)/src/code/z_message_z_game_over.o: $(BUILD_DIR)/src/code/z_message.o $(BUILD_DIR)/src/code/z_game_over.o
+	$(LD) -r -T linker_scripts/data_with_rodata.ld -o $@ $^
+
+$(BUILD_DIR)/lib/ultralib/src/%.o: lib/ultralib/src/%.s
+ifeq ($(COMPILER),ido)
+	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(ASOPTFLAGS) -o $(@:.o=.tmp.o) $<
+# IDO assembler generates bad symbol tables, fix the symbol table with strip...
+	$(STRIP) $(@:.o=.tmp.o) -N dummy-symbol-name
+# but strip doesn't know about file-relative offsets in .mdebug and doesn't relocate them, ld will
+# segfault unless .mdebug is removed
+	$(OBJCOPY) --remove-section .mdebug $(@:.o=.tmp.o) $@
+	$(if $(findstring -mips3,$(MIPS_VERSION)),$(PYTHON) tools/set_o32abi_bit.py $@)
+else
+	$(CCAS) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) $< -o $@
 endif
-	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
-	$(PYTHON) tools/set_o32abi_bit.py $@
 	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > $(@:.o=.s)
 
-$(BUILD_DIR)/src/libultra/libc/llcvt.o: src/libultra/libc/llcvt.c
-ifneq ($(RUN_CC_CHECK),0)
-	$(CC_CHECK) $<
-endif
+$(BUILD_DIR)/lib/ultralib/src/%.o: lib/ultralib/src/%.c
 	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
-	$(PYTHON) tools/set_o32abi_bit.py $@
+ifeq ($(COMPILER),ido)
+	$(if $(findstring -mips3,$(MIPS_VERSION)),$(PYTHON) tools/set_o32abi_bit.py $@)
+endif
 	@$(OBJDUMP) $(OBJDUMP_FLAGS) $@ > $(@:.o=.s)
 
 $(BUILD_DIR)/src/overlays/%_reloc.o: $(BUILD_DIR)/$(SPEC)
