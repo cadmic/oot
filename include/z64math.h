@@ -12,6 +12,19 @@ typedef union FloatInt {
     s32 i;
 } FloatInt;
 
+typedef f32 MtxF_t[4][4];
+typedef union MtxF {
+    MtxF_t mf;
+    struct {
+        // Note: The order displayed here is the transpose of the order in which matrices are typically written.
+        // For example, [xw, yw, zw] is the translation part of the matrix, not [wx, wy, wz].
+        f32 xx, yx, zx, wx,
+            xy, yy, zy, wy,
+            xz, yz, zz, wz,
+            xw, yw, zw, ww;
+    };
+} MtxF;
+
 typedef struct Vec2f {
     f32 x, y;
 } Vec2f; // size = 0x08

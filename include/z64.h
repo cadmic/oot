@@ -2,7 +2,6 @@
 #define Z64_H
 
 #include "ultra64.h"
-#include "ultra64/gs2dex.h"
 #include "attributes.h"
 #include "audiomgr.h"
 #include "z64save.h"

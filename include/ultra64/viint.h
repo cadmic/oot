@@ -1,6 +1,9 @@
 #ifndef ULTRA64_VIINT_H
 #define ULTRA64_VIINT_H
 
+#include "PR/os_internal.h"
+#include "PR/rcp.h"
+
 #define VI_STATE_MODE_SET           (1 << 0)
 #define VI_STATE_XSCALE_SET         (1 << 1)
 #define VI_STATE_YSCALE_FACTOR_SET  (1 << 2)
@@ -33,5 +36,31 @@
 #define ORIGIN(v) v
 #define VINTR(v) v
 #define HSTART START
+
+typedef struct __OSViScale {
+    /* 0x00 */ f32 factor;
+    /* 0x04 */ u16 offset;
+    /* 0x08 */ u32 scale;
+} __OSViScale; // size = 0xC
+
+typedef struct __OSViContext {
+    /* 0x00 */ u16 state;
+    /* 0x02 */ u16 retraceCount;
+    /* 0x04 */ void *framep;
+    /* 0x08 */ OSViMode *modep;
+    /* 0x0C */ u32 control;
+    /* 0x10 */ OSMesgQueue *msgq;
+    /* 0x14 */ OSMesg msg;
+    /* 0x18 */ __OSViScale x;
+    /* 0x24 */ __OSViScale y;
+} __OSViContext; // size = 0x30
+
+void __osViInit(void);
+void __osViSwapContext(void);
+__OSViContext* __osViGetCurrentContext(void);
+
+extern __OSViContext* __osViCurr;
+extern __OSViContext* __osViNext;
+extern u32 __additional_scanline;
 
 #endif

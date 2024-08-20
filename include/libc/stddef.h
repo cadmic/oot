@@ -1,6 +1,10 @@
 #ifndef STDDEF_H
 #define STDDEF_H
 
+#if defined(NULL)
+#undef NULL
+#endif
+
 #define NULL ((void*)0)
 
 #if !defined(_SIZE_T) && !defined(_SIZE_T_)

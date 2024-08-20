@@ -698,7 +698,7 @@ $(BUILD_DIR)/src/code/z_message.o: assets/text/message_data.h assets/text/messag
 $(BUILD_DIR)/assets/text/%.o: assets/text/%.c
 ifneq ($(COMPILER),gcc)
 # Preprocess text with modern cpp for varargs macros
-	$(CPP) -undef -D_LANGUAGE_C -D__sgi $(CPPFLAGS) $(INC) $< -o $(@:.o=.c)
+	$(CPP) -undef -D_LANGUAGE_C -D__sgi -D_MIPS_SZLONG=32 $(CPPFLAGS) $(INC) $< -o $(@:.o=.c)
 	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $(@:.o=.c)
 else
 	$(CC) -c $(CFLAGS) $(MIPS_VERSION) $(OPTFLAGS) -o $@ $<
