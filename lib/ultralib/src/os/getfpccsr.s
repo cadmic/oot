@@ -6,4 +6,8 @@
 LEAF(__osGetFpcCsr)
     STAY2(cfc1 v0, fcr31)
     jr ra
+#ifndef FIXUPS
 END(__osGetSR) # @bug: Should be __osGetFpcCsr
+#else
+END(__osGetFpcCsr)
+#endif

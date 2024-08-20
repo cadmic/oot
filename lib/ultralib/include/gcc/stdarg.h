@@ -12,6 +12,15 @@
 
 /* Define __gnuc_va_list.  */
 
+#if 1  // TODO
+
+#define va_list  __builtin_va_list
+#define va_start __builtin_va_start
+#define va_arg   __builtin_va_arg
+#define va_end   __builtin_va_end
+
+#else
+
 #ifndef __GNUC_VA_LIST
 #define __GNUC_VA_LIST
 typedef char * __gnuc_va_list;
@@ -118,4 +127,6 @@ void va_end (__gnuc_va_list);		/* Defined in libgcc.a */
 typedef __gnuc_va_list va_list;
 
 #endif /* defined (_STDARG_H) || defined (_VARARGS_H) */
+
+#endif
 #endif
