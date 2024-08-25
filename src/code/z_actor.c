@@ -772,11 +772,11 @@ void TitleCard_Update(PlayState* play, TitleCardContext* titleCtx) {
 void TitleCard_Draw(PlayState* play, TitleCardContext* titleCtx) {
     s32 width;
     s32 height;
-    s32 unused;
-    s32 titleX;
     s32 doubleWidth;
+    s32 titleX;
+    s32 temp1;
     s32 titleY;
-    s32 titleSecondY;
+    s32 temp2;
     s32 textureLanguageOffset;
 
     if (titleCtx->alpha != 0) {
@@ -797,8 +797,13 @@ void TitleCard_Draw(PlayState* play, TitleCardContext* titleCtx) {
 #else
         textureLanguageOffset = width * height * gSaveContext.language;
 #endif
-        height = (width * height > 0x1000) ? 0x1000 / width : height;
-        titleSecondY = titleY + (height * 4);
+
+        if (width * height > 0x1000) {
+            height = 0x1000 / width;
+        }
+
+        temp1 = titleX + (doubleWidth * 2);
+        temp2 = titleY + (height * 4);
 
         OVERLAY_DISP = Gfx_SetupDL_52NoCD(OVERLAY_DISP);
 
@@ -809,8 +814,8 @@ void TitleCard_Draw(PlayState* play, TitleCardContext* titleCtx) {
                             width, height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK,
                             G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
 
-        gSPTextureRectangle(OVERLAY_DISP++, titleX, titleY, ((doubleWidth * 2) + titleX) - 4, titleY + (height * 4) - 1,
-                            G_TX_RENDERTILE, 0, 0, 1 << 10, 1 << 10);
+        gSPTextureRectangle(OVERLAY_DISP++, titleX, titleY, temp1 - 4, temp2 - 1, G_TX_RENDERTILE, 0, 0, 1 << 10,
+                            1 << 10);
 
         height = titleCtx->height - height;
 
@@ -820,8 +825,8 @@ void TitleCard_Draw(PlayState* play, TitleCardContext* titleCtx) {
                                 G_IM_SIZ_8b, width, height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP,
                                 G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
 
-            gSPTextureRectangle(OVERLAY_DISP++, titleX, titleSecondY, ((doubleWidth * 2) + titleX) - 4,
-                                titleSecondY + (height * 4) - 1, G_TX_RENDERTILE, 0, 0, 1 << 10, 1 << 10);
+            gSPTextureRectangle(OVERLAY_DISP++, titleX, temp2, temp1 - 4, temp2 + (height * 4) - 1, G_TX_RENDERTILE, 0,
+                                0, 1 << 10, 1 << 10);
         }
 
         CLOSE_DISPS(play->state.gfxCtx, "../z_actor.c", 2880);
