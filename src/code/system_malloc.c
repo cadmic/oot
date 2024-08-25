@@ -7,11 +7,15 @@
 Arena gSystemArena;
 
 #if PLATFORM_N64
-#define DECLARE_INTERRUPT_MASK OSIntMask __mask;
-#define DISABLE_INTERRUPTS() __mask = osSetIntMask(OS_IM_NONE)
-#define RESTORE_INTERRUPTS() osSetIntMask(__mask)
+#define DISABLE_INTERRUPTS()                         \
+    {                                                \
+        OSIntMask __mask = osSetIntMask(OS_IM_NONE); \
+        (void)0
+#define RESTORE_INTERRUPTS() \
+    osSetIntMask(__mask);    \
+    }                        \
+    (void)0
 #else
-#define DECLARE_INTERRUPT_MASK
 #define DISABLE_INTERRUPTS() (void)0
 #define RESTORE_INTERRUPTS() (void)0
 #endif
@@ -39,7 +43,6 @@ void SystemArena_CheckPointer(void* ptr, u32 size, const char* name, const char*
 #endif
 
 void* SystemArena_Malloc(u32 size) {
-    DECLARE_INTERRUPT_MASK
     void* ptr;
 
     DISABLE_INTERRUPTS();
@@ -52,7 +55,6 @@ void* SystemArena_Malloc(u32 size) {
 
 #if OOT_DEBUG
 void* SystemArena_MallocDebug(u32 size, const char* file, int line) {
-    DECLARE_INTERRUPT_MASK
     void* ptr;
 
     DISABLE_INTERRUPTS();
@@ -65,7 +67,6 @@ void* SystemArena_MallocDebug(u32 size, const char* file, int line) {
 #endif
 
 void* SystemArena_MallocR(u32 size) {
-    DECLARE_INTERRUPT_MASK
     void* ptr;
 
     DISABLE_INTERRUPTS();
@@ -78,7 +79,6 @@ void* SystemArena_MallocR(u32 size) {
 
 #if OOT_DEBUG
 void* SystemArena_MallocRDebug(u32 size, const char* file, int line) {
-    DECLARE_INTERRUPT_MASK
     void* ptr;
 
     DISABLE_INTERRUPTS();
@@ -91,7 +91,6 @@ void* SystemArena_MallocRDebug(u32 size, const char* file, int line) {
 #endif
 
 void* SystemArena_Realloc(void* ptr, u32 newSize) {
-    DECLARE_INTERRUPT_MASK
 
     DISABLE_INTERRUPTS();
     ptr = __osRealloc(&gSystemArena, ptr, newSize);
@@ -103,7 +102,6 @@ void* SystemArena_Realloc(void* ptr, u32 newSize) {
 
 #if OOT_DEBUG
 void* SystemArena_ReallocDebug(void* ptr, u32 newSize, const char* file, int line) {
-    DECLARE_INTERRUPT_MASK
 
     DISABLE_INTERRUPTS();
     ptr = __osReallocDebug(&gSystemArena, ptr, newSize, file, line);
@@ -115,7 +113,6 @@ void* SystemArena_ReallocDebug(void* ptr, u32 newSize, const char* file, int lin
 #endif
 
 void SystemArena_Free(void* ptr) {
-    DECLARE_INTERRUPT_MASK
 
     DISABLE_INTERRUPTS();
     __osFree(&gSystemArena, ptr);
@@ -124,7 +121,6 @@ void SystemArena_Free(void* ptr) {
 
 #if OOT_DEBUG
 void SystemArena_FreeDebug(void* ptr, const char* file, int line) {
-    DECLARE_INTERRUPT_MASK
 
     DISABLE_INTERRUPTS();
     __osFreeDebug(&gSystemArena, ptr, file, line);
@@ -133,7 +129,6 @@ void SystemArena_FreeDebug(void* ptr, const char* file, int line) {
 #endif
 
 void* SystemArena_Calloc(u32 num, u32 size) {
-    DECLARE_INTERRUPT_MASK
     void* ret;
     u32 n = num * size;
 
