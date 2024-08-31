@@ -1583,9 +1583,13 @@ void Environment_DrawLensFlare(PlayState* play, EnvironmentContext* envCtx, View
         lensFlareAlphaScaleTarget = cosAngle;
     }
 
+#if PLATFORM_N64
+    if (!(cosAngle < 0.0f)) {
+#else
     if (cosAngle < 0.0f) {
         // don't draw lens flare
     } else {
+#endif
         if (isSun) {
             Play_GetScreenPos(play, &pos, &screenPos);
             sSunDepthTestX = (s16)screenPos.x;
@@ -1625,7 +1629,9 @@ void Environment_DrawLensFlare(PlayState* play, EnvironmentContext* envCtx, View
 
             alpha *= 1.0f - fogInfluence;
 
+#if !PLATFORM_N64
             if (1) {}
+#endif
 
             if (!(isOffScreen ^ 0)) {
                 Math_SmoothStepToF(&envCtx->lensFlareAlphaScale, lensFlareAlphaScaleTarget, 0.5f, 0.05f, 0.001f);
