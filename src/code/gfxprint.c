@@ -132,9 +132,17 @@ static u8 sDefaultSpecialFlags;
 #endif
 
 void GfxPrint_Setup(GfxPrint* this) {
-    s32 width = 16;
-    s32 height = 256;
+    s32 width;
+    s32 height;
     s32 i;
+    s32 pal;
+    s32 cm;
+    s32 masks;
+    s32 maskt;
+    s32 shift;
+    s32 line;
+    s32 tmem = 0;
+    s32 fmt = G_IM_FMT_CI;
 
     gDPPipeSync(this->dList++);
     gDPSetOtherMode(this->dList++,
@@ -142,27 +150,116 @@ void GfxPrint_Setup(GfxPrint* this) {
                         G_TD_CLAMP | G_TP_NONE | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                     G_AC_NONE | G_ZS_PRIM | G_RM_XLU_SURF | G_RM_XLU_SURF2);
     gDPSetCombineMode(this->dList++, G_CC_DECALRGBA, G_CC_DECALRGBA);
-    gDPLoadTextureBlock_4b(this->dList++, sGfxPrintFontData, G_IM_FMT_CI, width, height, 0, G_TX_NOMIRROR | G_TX_WRAP,
-                           G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
-    gDPLoadTLUT(this->dList++, 64, 0x100, sGfxPrintFontTLUT);
+
+    width = 16;
+    height = 256;
+    cm = G_TX_NOMIRROR | G_TX_WRAP;
+    masks = G_TX_NOMASK;
+    maskt = G_TX_NOMASK;
+    shift = G_TX_NOLOD;
+    gDPLoadMultiBlock_4b(
+        /* pkt    */ this->dList++,
+        /* timg   */ sGfxPrintFontData,
+        /* tmem   */ 0,
+        /* rtile  */ G_TX_RENDERTILE,
+        /* fmt    */ G_IM_FMT_CI,
+        /* width  */ width,
+        /* height */ height,
+        /* pal    */ 0,
+        /* cms    */ cm,
+        /* cmt    */ cm,
+        /* masks  */ masks,
+        /* maskt  */ maskt,
+        /* shifts */ shift,
+        /* shiftt */ shift);
+    gDPLoadTLUT(
+        /* pkt   */ this->dList++,
+        /* count */ 64,
+        /* tmem  */ 0x100,
+        /* dram  */ sGfxPrintFontTLUT);
 
     for (i = 1; i < 4; i++) {
-        gDPSetTile(this->dList++, G_IM_FMT_CI, G_IM_SIZ_4b, 1, 0, i * 2, i, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK,
-                   G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        gDPSetTileSize(this->dList++, i * 2, 0, 0, 15 << 2, 255 << 2);
+        gDPSetTile(
+            /* pkt    */ this->dList++,
+            /* fmt    */ G_IM_FMT_CI,
+            /* siz    */ G_IM_SIZ_4b,
+            /* line   */ 1,
+            /* tmem   */ 0,
+            /* tile   */ i * 2,
+            /* pal    */ i,
+            /* cmt    */ cm,
+            /* maskt  */ maskt,
+            /* shiftt */ shift,
+            /* cms    */ cm,
+            /* masks  */ masks,
+            /* shifts */ shift);
+        gDPSetTileSize(
+            /* pkt */ this->dList++,
+            /* t   */ i * 2,
+            /* uls */ 0 << 2,
+            /* ult */ 0 << 2,
+            /* lrs */ (width - 1) << 2,
+            /* lrt */ (height - 1) << 2);
     }
-
+    
     gDPSetColor(this->dList++, G_SETPRIMCOLOR, this->color.rgba);
 
-    gDPLoadMultiTile_4b(this->dList++, sGfxPrintRainbowData, 0, 1, G_IM_FMT_CI, 2, 8, 0, 0, 1, 7, 4,
-                        G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, 1, 3, G_TX_NOLOD, G_TX_NOLOD);
+    width = 2;
+    height = 8;
+    cm = G_TX_NOMIRROR | G_TX_WRAP;
+    masks = 1;
+    maskt = 3;
+    shift = G_TX_NOLOD;
+    pal = 4;
+    line = 1;
 
-    gDPLoadTLUT(this->dList++, 16, 0x140, sGfxPrintRainbowTLUT);
+    gDPLoadMultiTile_4b(
+        /* pkt    */ this->dList++,
+        /* timg   */ sGfxPrintRainbowData,
+        /* tmem   */ 0,
+        /* rtile  */ 1,
+        /* fmt    */ G_IM_FMT_CI,
+        /* width  */ width,
+        /* height */ height,
+        /* uls    */ 0,
+        /* ult    */ 0,
+        /* lrs    */ width - 1,
+        /* lrt    */ height - 1,
+        /* pal    */ pal,
+        /* cms    */ cm,
+        /* cmt    */ cm,
+        /* masks  */ masks,
+        /* maskt  */ maskt,
+        /* shifts */ shift,
+        /* shiftt */ shift);
+    gDPLoadTLUT(
+        /* pkt   */ this->dList++,
+        /* count */ 16,
+        /* tmem  */ 0x140,
+        /* dram  */ sGfxPrintRainbowTLUT);
 
     for (i = 1; i < 4; i++) {
-        gDPSetTile(this->dList++, G_IM_FMT_CI, G_IM_SIZ_4b, 1, 0, i * 2 + 1, 4, G_TX_NOMIRROR | G_TX_WRAP, 3,
-                   G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, 1, G_TX_NOLOD);
-        gDPSetTileSize(this->dList++, i * 2 + 1, 0, 0, 1 << 2, 7 << 2);
+        gDPSetTile(
+            /* pkt    */ this->dList++,
+            /* fmt    */ fmt,
+            /* siz    */ G_IM_SIZ_4b,
+            /* line   */ line,
+            /* tmem   */ tmem,
+            /* tile   */ i * 2 + 1,
+            /* pal    */ pal,
+            /* cmt    */ cm,
+            /* maskt  */ maskt,
+            /* shiftt */ shift,
+            /* cms    */ cm,
+            /* masks  */ masks,
+            /* shifts */ shift);
+        gDPSetTileSize(
+            /* pkt */ this->dList++,
+            /* t   */ i * 2 + 1,
+            /* uls */ 0 << 2,
+            /* ult */ 0 << 2,
+            /* lrs */ (width - 1) << 2,
+            /* lrt */ (height - 1) << 2);
     }
 }
 
