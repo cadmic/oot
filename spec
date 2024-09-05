@@ -130,6 +130,9 @@ beginseg
     include "$(BUILD_DIR)/src/libultra/libc/ldiv.o"
     include "$(BUILD_DIR)/src/libultra/libc/xldtob.o"
 #endif
+#if PLATFORM_N64
+    include "$(BUILD_DIR)/src/libultra/os/settimer.o"
+#endif
     include "$(BUILD_DIR)/src/libultra/io/sirawwrite.o"
     include "$(BUILD_DIR)/src/libultra/io/vimgr.o"
     include "$(BUILD_DIR)/src/libultra/io/vigetcurrcontext.o"
@@ -730,8 +733,14 @@ beginseg
 #if !OOT_DEBUG
     include "$(BUILD_DIR)/src/libultra/io/pfsisplug.o"
 #endif
+#if !PLATFORM_N64
     include "$(BUILD_DIR)/src/libultra/os/settimer.o"
-#if !OOT_DEBUG
+#endif
+#if PLATFORM_N64
+    include "$(BUILD_DIR)/src/libultra/libc/xlitob.o"
+    include "$(BUILD_DIR)/src/libultra/libc/ldiv.o"
+    include "$(BUILD_DIR)/src/libultra/libc/xldtob.o"
+#elif !OOT_DEBUG
     include "$(BUILD_DIR)/src/libultra/libc/xldtob.o"
     include "$(BUILD_DIR)/src/libultra/libc/ldiv.o"
     include "$(BUILD_DIR)/src/libultra/libc/xlitob.o"
@@ -779,6 +788,9 @@ endseg
 #if PLATFORM_N64
 beginseg
     name "n64dd"
+    compress
+    // TODO: 0x20 bytes of padding between buffers end and n64dd start?
+    address 0x801C7740
     include "$(BUILD_DIR)/src/n64dd/z_n64dd.o"
     include "$(BUILD_DIR)/src/n64dd/n64dd_data_buffer.o"
     include "$(BUILD_DIR)/src/n64dd/n64dd_801C8000.o"
