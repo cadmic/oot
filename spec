@@ -397,6 +397,15 @@ beginseg
     number 11
 endseg
 
+#if PLATFORM_N64
+beginseg
+    name "map_i_static"
+    romalign 0x1000
+    include "$(BUILD_DIR)/assets/textures/map_i_static/map_i_static.o"
+    number 11
+endseg
+#endif
+
 beginseg
     name "map_48x85_static"
     romalign 0x1000
@@ -404,12 +413,14 @@ beginseg
     number 11
 endseg
 
+#if !PLATFORM_N64
 beginseg
     name "map_i_static"
     romalign 0x1000
     include "$(BUILD_DIR)/assets/textures/map_i_static/map_i_static.o"
     number 11
 endseg
+#endif
 
 beginseg
     name "code"
