@@ -1,6 +1,123 @@
 #!/usr/bin/env python3
 import csv
 
+DUNGEON_SCENES = [
+    "Bmori1",
+    "FIRE_bs",
+    "HAKAdan",
+    "HAKAdanCH",
+    "HAKAdan_bs",
+    "HIDAN",
+    "MIZUsin",
+    "MIZUsin_bs",
+    "bdan",
+    "bdan_boss",
+    "ddan",
+    "ddan_boss",
+    "ganon",
+    "ganon_boss",
+    "ganon_demo",
+    "ganon_final",
+    "ganon_sonogo",
+    "ganontika",
+    "ganontikasonogo",
+    "gerudoway",
+    "ice_doukutu",
+    "jyasinboss",
+    "jyasinzou",
+    "men",
+    "moribossroom",
+    "ydan",
+    "ydan_boss",
+]
+
+INDOOR_SCENES = [
+    "bowling",
+    "daiyousei_izumi",
+    "hairal_niwa",
+    "hairal_niwa_n",
+    "hakasitarelay",
+    "hut",
+    "hylia_labo",
+    "impa",
+    "kakariko",
+    "kenjyanoma",
+    "kokiri_home",
+    "kokiri_home3",
+    "kokiri_home4",
+    "kokiri_home5",
+    "labo",
+    "link_home",
+    "mahouya",
+    "malon_stable",
+    "miharigoya",
+    "nakaniwa",
+    "souko",
+    "syatekijyou",
+    "takaraya",
+    "tent",
+    "tokinoma",
+    "yousei_izumi_tate",
+    "yousei_izumi_yoko",
+]
+
+MISC_SCENES = [
+    "enrui",
+    "entra",
+    "entra_n",
+    "hakaana",
+    "hakaana2",
+    "hakaana_ouke",
+    "hiral_demo",
+    "kakariko3",
+    "kakusiana",
+    "kinsuta",
+    "market_alley",
+    "market_alley_n",
+    "market_day",
+    "market_night",
+    "market_ruins",
+    "shrine",
+    "shrine_n",
+    "shrine_r",
+    "turibori",
+]
+
+OVERWORLD_SCENES = [
+    "ganon_tou",
+    "spot00",
+    "spot01",
+    "spot02",
+    "spot03",
+    "spot04",
+    "spot05",
+    "spot06",
+    "spot07",
+    "spot08",
+    "spot09",
+    "spot10",
+    "spot11",
+    "spot12",
+    "spot13",
+    "spot15",
+    "spot16",
+    "spot17",
+    "spot18",
+    "spot20",
+]
+
+SHOP_SCENES = [
+    "alley_shop",
+    "drag",
+    "face_shop",
+    "golon",
+    "kokiri_shop",
+    "night_shop",
+    "shop1",
+    "zoora",
+]
+
+
 def get_z_name_for_overlay(filename: str) -> str:
     if filename == "ovl_player_actor":
         return "z_player"
@@ -53,6 +170,47 @@ def gen_overlay_spec():
             print(f"    include \"$(BUILD_DIR)/src/overlays/{category}/{name}/{name}_reloc.o\"")
             print("endseg")
 
+def gen_scene_spec():
+    segments_csv = "baseroms/ntsc-1.2/segments.csv"
+    with open(segments_csv, "r") as f:
+        reader = csv.reader(f)
+        first = True
+        for row in reader:
+            name = row[0]
+            if not (name.endswith("_scene") or "_room_" in name):
+                continue
+            if not first:
+                print()
+            first = False
+
+            if name.endswith("_scene"):
+                stem = name[:-len("_scene")]
+                number = 2
+            else:
+                stem = name.split("_room_")[0]
+                number = 3
+
+            if stem in DUNGEON_SCENES:
+                category = "dungeons"
+            elif stem in INDOOR_SCENES:
+                category = "indoors"
+            elif stem in MISC_SCENES:
+                category = "misc"
+            elif stem in OVERWORLD_SCENES:
+                category = "overworld"
+            elif stem in SHOP_SCENES:
+                category = "shops"
+            else:
+                raise Exception(f"Unknown scene category for {name}")
+
+            print("beginseg")
+            print(f"    name \"{name}\"")
+            print(f"    compress")
+            print(f"    romalign 0x1000")
+            print(f"    include \"$(BUILD_DIR)/assets/scenes/{category}/{stem}/{name}.o\"")
+            print(f"    number {number}")
+            print("endseg")
 
 if __name__ == "__main__":
-    gen_overlay_spec()
+    # gen_overlay_spec()
+    gen_scene_spec()
