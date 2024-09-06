@@ -774,10 +774,10 @@ def main():
     for file, bss_section in bss_sections.items():
         if not bss_section.pointers:
             continue
-        # The following heuristic doesn't work for z_locale, since the first pointer into BSS is not
-        # at the start of the section. Fortunately z_locale either has one BSS variable (in GC versions)
-        # or none (in N64 versions), so we can just skip it.
-        if str(file) == "src/boot/z_locale.c":
+        # The following heuristic doesn't work for some files, since the first pointer into BSS is not
+        # at the start of the section. Fortunately these files have only one BSS variable so we can
+        # just skip them.
+        if str(file) in ("src/boot/z_locale.c", "src/libleo/leo/leointerrupt.c"):
             continue
         # For the baserom, assume that the lowest address is the start of the BSS section. This might
         # not be true if the first BSS variable is not referenced, but in practice this doesn't happen
