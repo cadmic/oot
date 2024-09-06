@@ -202,10 +202,10 @@ extern u32 D_8016139C;
 extern PauseMapMarksData* gLoadedPauseMarkDataTable;
 
 extern PreNmiBuff* gAppNmiBufferPtr;
-extern uintptr_t gSegments[NUM_SEGMENTS];
 extern Scheduler gScheduler;
 extern PadMgr gPadMgr;
 extern IrqMgr gIrqMgr;
+extern uintptr_t gSegments[NUM_SEGMENTS];
 extern volatile OSTime gAudioThreadUpdateTimeTotalPerGfxTask;
 extern volatile OSTime gGfxTaskSentToNextReadyMinusAudioThreadUpdateTime;
 extern volatile OSTime gRSPAudioTimeTotal;
