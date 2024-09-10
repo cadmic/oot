@@ -337,6 +337,15 @@ beginseg
     number 7
 endseg
 
+#if OOT_NTSC && OOT_VERSION < NTSC_1_2
+beginseg
+    name "jpn_message_data_static"
+    romalign 0x1000
+    include "$(BUILD_DIR)/assets/text/jpn_message_data_static.o"
+    number 8
+endseg
+#endif
+
 beginseg
     name "message_texture_static"
     romalign 0x1000
@@ -351,7 +360,7 @@ beginseg
     number 10
 endseg
 
-#if OOT_NTSC
+#if OOT_NTSC && OOT_VERSION >= NTSC_1_2
 beginseg
     name "jpn_message_data_static"
     romalign 0x1000
