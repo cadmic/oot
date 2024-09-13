@@ -802,7 +802,7 @@ s32 func_800E6590(s32 seqPlayerIndex, s32 channelIndex, s32 layerIndex) {
                 if (tunedSample == NULL) {
                     return 0;
                 }
-                loopEnd = tunedSample->sample->loop->header.end;
+                loopEnd = tunedSample->sample->loop->end;
                 samplePos = note->synthesisState.samplePosInt;
                 return loopEnd - samplePos;
             }

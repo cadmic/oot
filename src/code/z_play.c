@@ -1,4 +1,3 @@
-
 #include "global.h"
 #include "fault.h"
 #include "quake.h"
