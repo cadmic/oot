@@ -9,7 +9,7 @@
 #endif
 
 #pragma increment_block_number "gc-eu:0 gc-eu-mq:0 gc-jp:128 gc-jp-ce:128 gc-jp-mq:128 gc-us:128 gc-us-mq:128" \
-                               "ntsc-1.2:112"
+                               "ntsc-1.0:144 ntsc-1.1:144 ntsc-1.2:128"
 
 #if !PLATFORM_GC
 #define OCARINA_BUTTON_A_PRIM_1_R 80
@@ -2075,8 +2075,9 @@ void Message_Decode(PlayState* play) {
             decodedBufPos++;
             msgCtx->msgBufPos++;
         }
-    } else {
+    } else
 #endif
+    {
         // English text for NTSC, eng/ger/fra text for PAL
         while (true) {
             curChar = msgCtx->msgBufDecoded[decodedBufPos] = font->msgBuf[msgCtx->msgBufPos];
@@ -2398,8 +2399,13 @@ void Message_Decode(PlayState* play) {
                 Message_LoadItemIcon(play, font->msgBuf[msgCtx->msgBufPos + 1], R_TEXTBOX_Y + 10);
             } else if (curChar == MESSAGE_BACKGROUND) {
                 msgCtx->textboxBackgroundIdx = font->msgBuf[msgCtx->msgBufPos + 1] * 2;
+#if OOT_VERSION < PAL_1_0
+                msgCtx->textboxBackgroundForeColorIdx = (font->msgBuf[msgCtx->msgBufPos + 2] & 0xF0) >> 12;
+                msgCtx->textboxBackgroundBackColorIdx = (font->msgBuf[msgCtx->msgBufPos + 2] & 0xF) >> 8;
+#else
                 msgCtx->textboxBackgroundForeColorIdx = (font->msgBuf[msgCtx->msgBufPos + 2] & 0xF0) >> 4;
                 msgCtx->textboxBackgroundBackColorIdx = font->msgBuf[msgCtx->msgBufPos + 2] & 0xF;
+#endif
                 msgCtx->textboxBackgroundYOffsetIdx = (font->msgBuf[msgCtx->msgBufPos + 3] & 0xF0) >> 4;
                 msgCtx->textboxBackgroundUnkArg = font->msgBuf[msgCtx->msgBufPos + 3] & 0xF;
                 DMA_REQUEST_SYNC(msgCtx->textboxSegment + MESSAGE_STATIC_TEX_SIZE,
@@ -2449,9 +2455,7 @@ void Message_Decode(PlayState* play) {
             decodedBufPos++;
             msgCtx->msgBufPos++;
         }
-#if OOT_NTSC
     }
-#endif
 }
 
 void Message_OpenText(PlayState* play, u16 textId) {
@@ -3034,9 +3038,11 @@ void Message_DrawMain(PlayState* play, Gfx** p) {
                 msgCtx->ocarinaStaff = AudioOcarina_GetPlayingStaff();
                 if (msgCtx->ocarinaStaff->pos) {
                     PRINTF("locate=%d  onpu_pt=%d\n", msgCtx->ocarinaStaff->pos, sOcarinaButtonIndexBufPos);
+#if OOT_VERSION >= PAL_1_0
                     if (msgCtx->ocarinaStaff->pos == 1 && sOcarinaButtonIndexBufPos == 8) {
                         sOcarinaButtonIndexBufPos = 0;
                     }
+#endif
                     if (sOcarinaButtonIndexBufPos == msgCtx->ocarinaStaff->pos - 1) {
                         msgCtx->lastOcarinaButtonIndex = sOcarinaButtonIndexBuf[msgCtx->ocarinaStaff->pos - 1] =
                             msgCtx->ocarinaStaff->buttonIndex;

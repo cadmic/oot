@@ -1,10 +1,11 @@
 #include "ultra64.h"
+#include "versions.h"
 
 // Declared before including other headers for BSS ordering
 extern uintptr_t gSegments[NUM_SEGMENTS];
 
 #pragma increment_block_number "gc-eu:252 gc-eu-mq:252 gc-jp:252 gc-jp-ce:252 gc-jp-mq:252 gc-us:252 gc-us-mq:252" \
-                               "ntsc-1.2:128"
+                               "ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
 
 extern struct PreNmiBuff* gAppNmiBufferPtr;
 extern struct Scheduler gScheduler;
@@ -23,7 +24,7 @@ extern struct IrqMgr gIrqMgr;
 #endif
 
 #pragma increment_block_number "gc-eu:192 gc-eu-mq:192 gc-jp:192 gc-jp-ce:192 gc-jp-mq:192 gc-us:192 gc-us-mq:192" \
-                               "ntsc-1.2:168"
+                               "ntsc-1.0:181 ntsc-1.1:181 ntsc-1.2:181"
 
 extern u8 _buffersSegmentEnd[];
 
@@ -39,7 +40,11 @@ uintptr_t gSegments[NUM_SEGMENTS];
 
 OSThread sGraphThread;
 STACK(sGraphStack, 0x1800);
+#if OOT_VERSION < PAL_1_0
+STACK(sSchedStack, 0x400);
+#else
 STACK(sSchedStack, 0x600);
+#endif
 STACK(sAudioStack, 0x800);
 STACK(sPadMgrStack, 0x500);
 STACK(sIrqMgrStack, 0x500);
@@ -78,7 +83,7 @@ void Main(void* arg) {
 #if PLATFORM_N64
     func_800AD410();
     if (D_80121211 != 0) {
-        systemHeapStart = (uintptr_t)&_n64ddSegmentEnd;
+        systemHeapStart = (uintptr_t)_n64ddSegmentEnd;
         SysCfb_Init(1);
     } else {
         func_800AD488();
@@ -150,7 +155,10 @@ void Main(void* arg) {
     StackCheck_Init(&sGraphStackInfo, sGraphStack, STACK_TOP(sGraphStack), 0, 0x100, "graph");
     osCreateThread(&sGraphThread, THREAD_ID_GRAPH, Graph_ThreadEntry, arg, STACK_TOP(sGraphStack), THREAD_PRI_GRAPH);
     osStartThread(&sGraphThread);
+
+#if OOT_VERSION >= PAL_1_0
     osSetThreadPri(NULL, THREAD_PRI_MAIN);
+#endif
 
     while (true) {
         s16* msg = NULL;
@@ -162,6 +170,9 @@ void Main(void* arg) {
         switch (*msg) {
             case OS_SC_PRE_NMI_MSG:
                 PRINTF(T("main.c: リセットされたみたいだよ\n", "main.c: Looks like it's been reset\n"));
+#if OOT_VERSION < PAL_1_0
+                StackCheck_Check(NULL);
+#endif
                 PreNmiBuff_SetReset(gAppNmiBufferPtr);
                 break;
         }

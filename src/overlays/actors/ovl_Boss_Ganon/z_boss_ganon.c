@@ -1,4 +1,5 @@
 #include "z_boss_ganon.h"
+#include "versions.h"
 #include "assets/overlays/ovl_Boss_Ganon/ovl_Boss_Ganon.h"
 #include "overlays/actors/ovl_En_Ganon_Mant/z_en_ganon_mant.h"
 #include "overlays/actors/ovl_En_Zl3/z_en_zl3.h"
@@ -100,21 +101,22 @@ static ColliderCylinderInit sLightBallCylinderInit = {
 static u8 D_808E4C58[] = { 0, 12, 10, 12, 14, 16, 12, 14, 16, 12, 14, 16, 12, 14, 16, 10, 16, 14 };
 static Vec3f sZeroVec = { 0.0f, 0.0f, 0.0f };
 
-#pragma increment_block_number "gc-eu:0 gc-eu-mq:0 gc-jp:0 gc-jp-ce:0 gc-jp-mq:0 gc-us:0 gc-us-mq:0 ntsc-1.2:0"
+#pragma increment_block_number "gc-eu:0 gc-eu-mq:0 gc-jp:0 gc-jp-ce:0 gc-jp-mq:0 gc-us:0 gc-us-mq:0 ntsc-1.0:0" \
+                               "ntsc-1.1:0 ntsc-1.2:0"
 
 static EnGanonMant* sCape;
 
 // TODO: There's probably a way to match BSS ordering with less padding by spreading the variables out and moving
 // data around. It would be easier if we had more options for controlling BSS ordering in debug.
 #pragma increment_block_number "gc-eu:192 gc-eu-mq:192 gc-jp:192 gc-jp-ce:192 gc-jp-mq:192 gc-us:192 gc-us-mq:192" \
-                               "ntsc-1.2:128"
+                               "ntsc-1.0:192 ntsc-1.1:192 ntsc-1.2:128"
 
 static s32 sSeed1;
 static s32 sSeed2;
 static s32 sSeed3;
 
 #pragma increment_block_number "gc-eu:192 gc-eu-mq:192 gc-jp:192 gc-jp-ce:192 gc-jp-mq:192 gc-us:192 gc-us-mq:192" \
-                               "ntsc-1.2:128"
+                               "ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
 
 static BossGanon* sGanondorf;
 
@@ -1225,15 +1227,10 @@ void BossGanon_ShatterWindows(u8 windowShatterState) {
 }
 
 void BossGanon_DeathAndTowerCutscene(BossGanon* this, PlayState* play) {
-    static Color_RGBA8 bloodPrimColor = { 0, 120, 0, 255 };
-    static Color_RGBA8 bloodEnvColor = { 0, 120, 0, 255 };
     s16 i;
     u8 moveCam = false;
     Player* player = GET_PLAYER(play);
     s16 pad;
-    Vec3f sp98;
-    Vec3f sp8C;
-    Vec3f sp80;
 
     gSegments[6] = VIRTUAL_TO_PHYSICAL(play->objectCtx.slots[this->animObjectSlot].segment);
 
@@ -1336,6 +1333,17 @@ void BossGanon_DeathAndTowerCutscene(BossGanon* this, PlayState* play) {
                 Actor_PlaySfx(&this->actor, NA_SE_EN_GANON_TOKETU);
             } else {
                 if (Animation_OnFrame(&this->skelAnime, this->fwork[GDF_FWORK_1] - 16.0f)) {
+                    Vec3f sp98;
+                    Vec3f sp8C;
+#if OOT_VERSION < PAL_1_0
+                    Color_RGBA8 bloodPrimColor = { 120, 0, 0, 255 };
+                    Color_RGBA8 bloodEnvColor = { 120, 0, 0, 255 };
+#else
+                    static Color_RGBA8 bloodPrimColor = { 0, 120, 0, 255 };
+                    static Color_RGBA8 bloodEnvColor = { 0, 120, 0, 255 };
+#endif
+                    Vec3f sp80;
+
                     for (i = 0; i < 40; i++) {
                         sp98.x = Rand_CenteredFloat(5.0f);
                         sp98.y = Rand_CenteredFloat(1.5f) + 1.0f;

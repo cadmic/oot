@@ -1,11 +1,13 @@
 #include "global.h"
 #include "terminal.h"
+#include "versions.h"
 
 #include "z64frame_advance.h"
 
 #include "overlays/effects/ovl_Effect_Ss_HitMark/z_eff_ss_hitmark.h"
 
-#pragma increment_block_number "gc-eu:0 gc-eu-mq:0 gc-jp:0 gc-jp-ce:0 gc-jp-mq:0 gc-us:0 gc-us-mq:0 ntsc-1.2:224"
+#pragma increment_block_number "gc-eu:0 gc-eu-mq:0 gc-jp:0 gc-jp-ce:0 gc-jp-mq:0 gc-us:0 gc-us-mq:0 ntsc-1.0:232" \
+                               "ntsc-1.1:232 ntsc-1.2:232"
 
 typedef s32 (*ColChkResetFunc)(PlayState*, Collider*);
 typedef void (*ColChkApplyFunc)(PlayState*, CollisionCheckContext*, Collider*);
@@ -13,8 +15,6 @@ typedef void (*ColChkVsFunc)(PlayState*, CollisionCheckContext*, Collider*, Coll
 typedef s32 (*ColChkLineFunc)(PlayState*, CollisionCheckContext*, Collider*, Vec3f*, Vec3f*);
 
 #define SAC_ENABLE (1 << 0)
-
-#pragma increment_block_number "gc-eu:64 gc-eu-mq:64 gc-jp:64 gc-jp-ce:64 gc-jp-mq:64 gc-us:64 gc-us-mq:64"
 
 #if OOT_DEBUG
 /**
@@ -1826,7 +1826,6 @@ void CollisionCheck_ATJntSphVsACCyl(PlayState* play, CollisionCheckContext* colC
                 Vec3f hitPos;
                 Vec3f atPos;
                 Vec3f acPos;
-                f32 acToHit;
 
                 atPos.x = atJntSphElem->dim.worldSphere.center.x;
                 atPos.y = atJntSphElem->dim.worldSphere.center.y;
@@ -1835,7 +1834,13 @@ void CollisionCheck_ATJntSphVsACCyl(PlayState* play, CollisionCheckContext* colC
                 acPos.y = acCyl->dim.pos.y;
                 acPos.z = acCyl->dim.pos.z;
                 if (!IS_ZERO(centerDist)) {
-                    acToHit = acCyl->dim.radius / centerDist;
+                    f32 acToHit = acCyl->dim.radius / centerDist;
+
+#if OOT_VERSION < PAL_1_0
+                    hitPos.x = ((atPos.x - acPos.x) * acToHit) + acPos.x;
+                    hitPos.y = ((atPos.y - acPos.y) * acToHit) + acPos.y;
+                    hitPos.z = ((atPos.z - acPos.z) * acToHit) + acPos.z;
+#else
                     if (acToHit <= 1.0f) {
                         hitPos.x = ((atPos.x - acPos.x) * acToHit) + acPos.x;
                         hitPos.y = ((atPos.y - acPos.y) * acToHit) + acPos.y;
@@ -1843,6 +1848,7 @@ void CollisionCheck_ATJntSphVsACCyl(PlayState* play, CollisionCheckContext* colC
                     } else {
                         Math_Vec3f_Copy(&hitPos, &atPos);
                     }
+#endif
                 } else {
                     Math_Vec3f_Copy(&hitPos, &atPos);
                 }
@@ -1887,7 +1893,13 @@ void CollisionCheck_ATCylVsACJntSph(PlayState* play, CollisionCheckContext* colC
                 acPos.y = acJntSphElem->dim.worldSphere.center.y;
                 acPos.z = acJntSphElem->dim.worldSphere.center.z;
                 if (!IS_ZERO(centerDist)) {
-                    acToHit = acJntSphElem->dim.worldSphere.radius / centerDist;
+                    f32 acToHit = acJntSphElem->dim.worldSphere.radius / centerDist;
+
+#if OOT_VERSION < PAL_1_0
+                    hitPos.x = ((atPos.x - acPos.x) * acToHit) + acPos.x;
+                    hitPos.y = ((atPos.y - acPos.y) * acToHit) + acPos.y;
+                    hitPos.z = ((atPos.z - acPos.z) * acToHit) + acPos.z;
+#else
                     if (acToHit <= 1.0f) {
                         hitPos.x = ((atPos.x - acPos.x) * acToHit) + acPos.x;
                         hitPos.y = ((atPos.y - acPos.y) * acToHit) + acPos.y;
@@ -1895,6 +1907,7 @@ void CollisionCheck_ATCylVsACJntSph(PlayState* play, CollisionCheckContext* colC
                     } else {
                         Math_Vec3f_Copy(&hitPos, &atPos);
                     }
+#endif
                 } else {
                     Math_Vec3f_Copy(&hitPos, &atPos);
                 }
@@ -2198,7 +2211,7 @@ void CollisionCheck_ATTrisVsACCyl(PlayState* play, CollisionCheckContext* colChk
 }
 
 #pragma increment_block_number "gc-eu:252 gc-eu-mq:252 gc-jp:252 gc-jp-ce:252 gc-jp-mq:252 gc-us:252 gc-us-mq:252" \
-                               "ntsc-1.2:252"
+                               "ntsc-1.0:252 ntsc-1.1:252 ntsc-1.2:252"
 
 void CollisionCheck_ATCylVsACQuad(PlayState* play, CollisionCheckContext* colChkCtx, Collider* atCol, Collider* acCol) {
     static TriNorm tri1;

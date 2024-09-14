@@ -463,7 +463,9 @@ ALIGNED(4) typedef struct PreNmiBuff {
 
 typedef enum ViModeEditState {
     /* 0 */ VI_MODE_EDIT_STATE_INACTIVE,
+#if OOT_VERSION >= PAL_1_0
     /* 1 */ VI_MODE_EDIT_STATE_ACTIVE,
+#endif
     /* 2 */ VI_MODE_EDIT_STATE_2, // active, more adjustments
     /* 3 */ VI_MODE_EDIT_STATE_3  // active, more adjustments, print comparison with NTSC LAN1 mode
 } ViModeEditState;

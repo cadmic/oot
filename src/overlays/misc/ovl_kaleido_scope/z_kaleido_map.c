@@ -632,6 +632,13 @@ void KaleidoScope_DrawWorldMap(PlayState* play, GraphicsContext* gfxCtx) {
 
     gDPPipeSync(POLY_OPA_DISP++);
 
+#if PLATFORM_N64 && OOT_VERSION != NTSC_1_2
+    // could also work as `1 || HREG(15) == 0` in the OOT_DEBUG case below
+    if (0) {
+        s32 pad[3];
+    }
+#endif
+
 #if OOT_DEBUG
     if (HREG(15) == 0) {
         gDPSetTextureFilter(POLY_OPA_DISP++, G_TF_POINT);

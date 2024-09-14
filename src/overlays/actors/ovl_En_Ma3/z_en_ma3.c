@@ -299,6 +299,7 @@ void EnMa3_Update(Actor* thisx, PlayState* play) {
     func_80AA2E54(this, play);
     Npc_UpdateTalking(play, &this->actor, &this->interactInfo.talkState, this->collider.dim.radius + 150.0f,
                       EnMa3_GetTextId, EnMa3_UpdateTalkState);
+#if OOT_VERSION >= PAL_1_0
     if (this->interactInfo.talkState == NPC_TALK_STATE_IDLE) {
         if (this->isNotSinging) {
             // Turn on singing
@@ -310,6 +311,7 @@ void EnMa3_Update(Actor* thisx, PlayState* play) {
         Audio_ToggleMalonSinging(true);
         this->isNotSinging = true;
     }
+#endif
 }
 
 s32 EnMa3_OverrideLimbDraw(PlayState* play, s32 limbIndex, Gfx** dList, Vec3f* pos, Vec3s* rot, void* thisx) {
