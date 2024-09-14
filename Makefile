@@ -28,7 +28,9 @@ COMPILER ?= ido
 #   gc-eu-mq       GameCube Europe/PAL Master Quest
 #   gc-eu-mq-dbg   GameCube Europe/PAL Master Quest Debug (default)
 # The following versions are work-in-progress and not yet matching:
-#   (none currently)
+#   ntsc-1.0       N64 NTSC 1.0 (Japan/US depending on REGION)
+#   ntsc-1.1       N64 NTSC 1.1 (Japan/US depending on REGION)
+
 VERSION ?= gc-eu-mq-dbg
 # Number of threads to extract and compress with
 N_THREADS ?= $(shell nproc)
@@ -48,7 +50,21 @@ CPP_DEFINES ?=
 
 REGIONAL_CHECKSUM := 0
 # Version-specific settings
-ifeq ($(VERSION),ntsc-1.2)
+ifeq ($(VERSION),ntsc-1.0)
+  REGIONAL_CHECKSUM := 1
+  REGION ?= JP
+  PLATFORM := N64
+  PAL := 0
+  MQ := 0
+  DEBUG := 0
+else ifeq ($(VERSION),ntsc-1.1)
+  REGIONAL_CHECKSUM := 1
+  REGION ?= JP
+  PLATFORM := N64
+  PAL := 0
+  MQ := 0
+  DEBUG := 0
+else ifeq ($(VERSION),ntsc-1.2)
   REGIONAL_CHECKSUM := 1
   REGION ?= JP
   PLATFORM := N64
