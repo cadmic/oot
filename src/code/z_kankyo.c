@@ -9,7 +9,7 @@
 #include "assets/objects/gameplay_field_keep/gameplay_field_keep.h"
 
 #pragma increment_block_number "gc-eu:128 gc-eu-mq:128 gc-jp:128 gc-jp-ce:128 gc-jp-mq:128 gc-us:128 gc-us-mq:128" \
-                               "ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:0"
+                               "ntsc-0.9:0 ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:0"
 
 typedef enum LightningBoltState {
     /* 0x00 */ LIGHTNING_BOLT_START,
@@ -215,7 +215,7 @@ s16 sSunDepthTestX;
 s16 sSunDepthTestY;
 
 #pragma increment_block_number "gc-eu:112 gc-eu-mq:112 gc-jp:96 gc-jp-ce:96 gc-jp-mq:96 gc-us:96 gc-us-mq:96" \
-                               "ntsc-1.0:96 ntsc-1.1:96 ntsc-1.2:224"
+                               "ntsc-0.9:224 ntsc-1.0:96 ntsc-1.1:96 ntsc-1.2:224"
 
 LightNode* sNGameOverLightNode;
 LightInfo sNGameOverLightInfo;
@@ -1022,8 +1022,14 @@ void Environment_Update(PlayState* play, EnvironmentContext* envCtx, LightContex
                                                              sTimeBasedLightConfigs[envCtx->lightConfig][i].startTime,
                                                              ((void)0, gSaveContext.skyboxTime));
 
+#if OOT_VERSION < NTSC_1_0
+                    sSandstormColorIndex = sTimeBasedLightConfigs[envCtx->lightConfig][i].lightSetting;
+                    sNextSandstormColorIndex = sTimeBasedLightConfigs[envCtx->lightConfig][i].nextLightSetting;
+#else
                     sSandstormColorIndex = sTimeBasedLightConfigs[envCtx->lightConfig][i].lightSetting & 3;
                     sNextSandstormColorIndex = sTimeBasedLightConfigs[envCtx->lightConfig][i].nextLightSetting & 3;
+#endif
+
                     sSandstormLerpScale = timeChangeBlend;
 
                     if (envCtx->changeLightEnabled) {

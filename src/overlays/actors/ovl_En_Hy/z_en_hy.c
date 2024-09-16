@@ -602,7 +602,11 @@ s16 EnHy_UpdateTalkState(PlayState* play, Actor* thisx) {
                 case 0x70F3:
                     Rupees_ChangeBy(beggarRewards[this->actor.textId - 0x70F0]);
                     Animation_ChangeByInfo(&this->skelAnime, sAnimationInfo, ENHY_ANIM_17);
+#if OOT_VERSION < NTSC_1_0
+                    Inventory_ReplaceItem(play, beggarItems[this->actor.textId - 0x70F0], ITEM_BOTTLE_EMPTY);
+#else
                     Player_UpdateBottleHeld(play, GET_PLAYER(play), ITEM_BOTTLE_EMPTY, PLAYER_IA_BOTTLE);
+#endif
                     break;
                 case 0x7016:
                     SET_INFTABLE(INFTABLE_C0);

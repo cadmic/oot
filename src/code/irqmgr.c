@@ -121,6 +121,9 @@ void IrqMgr_SendMesgToClients(IrqMgr* irqMgr, OSMesg msg) {
     IrqMgrClient* client;
 
     for (client = irqMgr->clients; client != NULL; client = client->prev) {
+#if OOT_VERSION < NTSC_1_0
+        osSendMesg(client->queue, msg, OS_MESG_NOBLOCK);
+#else
         if (MQ_IS_FULL(client->queue)) {
             PRINTF(VT_COL(RED, WHITE) T("irqmgr_SendMesgForClient:メッセージキューがあふれています mq=%08x cnt=%d\n",
                                         "irqmgr_SendMesgForClient: Message queue is overflowing mq=%08x cnt=%d\n")
@@ -129,9 +132,11 @@ void IrqMgr_SendMesgToClients(IrqMgr* irqMgr, OSMesg msg) {
         } else {
             osSendMesg(client->queue, msg, OS_MESG_NOBLOCK);
         }
+#endif
     }
 }
 
+#if OOT_VERSION >= NTSC_1_0
 /**
  * Send `msg` to every registered client if the message queue is not full. This appears to be for
  * high-priority messages that should be jammed to the front of the queue, however a bug prevents
@@ -155,6 +160,7 @@ void IrqMgr_JamMesgToClients(IrqMgr* irqMgr, OSMesg msg) {
         }
     }
 }
+#endif
 
 /**
  * Runs when the Pre-NMI OS Event is received. This indicates that the console will reset in at least
@@ -175,7 +181,12 @@ void IrqMgr_HandlePreNMI(IrqMgr* irqMgr) {
     // Schedule a PRENMI450 message to be handled in 450ms
     osSetTimer(&irqMgr->timer, OS_USEC_TO_CYCLES(450000), 0, &irqMgr->queue, (OSMesg)IRQ_PRENMI450_MSG);
 #endif
+
+#if OOT_VERSION < NTSC_1_0
+    IrqMgr_SendMesgToClients(irqMgr, (OSMesg)&irqMgr->prenmiMsg);
+#else
     IrqMgr_JamMesgToClients(irqMgr, (OSMesg)&irqMgr->prenmiMsg);
+#endif
 }
 
 void IrqMgr_CheckStacks(void) {

@@ -2323,12 +2323,15 @@ void Inventory_ChangeAmmo(s16 item, s16 ammoChange) {
 }
 
 void Magic_Fill(PlayState* play) {
-    if (gSaveContext.save.info.playerData.isMagicAcquired) {
-        gSaveContext.prevMagicState = gSaveContext.magicState;
-        gSaveContext.magicFillTarget =
-            (gSaveContext.save.info.playerData.isDoubleMagicAcquired + 1) * MAGIC_NORMAL_METER;
-        gSaveContext.magicState = MAGIC_STATE_FILL;
+#if OOT_VERSION >= NTSC_1_0
+    if (!gSaveContext.save.info.playerData.isMagicAcquired) {
+        return;
     }
+#endif
+
+    gSaveContext.prevMagicState = gSaveContext.magicState;
+    gSaveContext.magicFillTarget = (gSaveContext.save.info.playerData.isDoubleMagicAcquired + 1) * MAGIC_NORMAL_METER;
+    gSaveContext.magicState = MAGIC_STATE_FILL;
 }
 
 void Magic_Reset(PlayState* play) {
@@ -2347,9 +2350,11 @@ void Magic_Reset(PlayState* play) {
  * @return false if the request failed
  */
 s32 Magic_RequestChange(PlayState* play, s16 amount, s16 type) {
+#if OOT_VERSION >= NTSC_1_0
     if (!gSaveContext.save.info.playerData.isMagicAcquired) {
         return false;
     }
+#endif
 
     if ((type != MAGIC_ADD) && (gSaveContext.save.info.playerData.magic - amount) < 0) {
         if (gSaveContext.magicCapacity != 0) {
@@ -3641,6 +3646,7 @@ void Interface_Draw(PlayState* play) {
                     FALLTHROUGH;
                 case TIMER_STATE_ENV_HAZARD_TICK:
                 case TIMER_STATE_DOWN_TICK:
+#if OOT_VERSION >= NTSC_1_0
                     if ((gSaveContext.timerState == TIMER_STATE_ENV_HAZARD_TICK) ||
                         (gSaveContext.timerState == TIMER_STATE_DOWN_TICK)) {
                         if (gSaveContext.save.info.playerData.healthCapacity > 0xA0) {
@@ -3649,6 +3655,7 @@ void Interface_Draw(PlayState* play) {
                             gSaveContext.timerY[TIMER_ID_MAIN] = 46; // one row of hearts
                         }
                     }
+#endif
 
                     if ((gSaveContext.timerState >= TIMER_STATE_ENV_HAZARD_MOVE) && (msgCtx->msgLength == 0)) {
                         sTimerNextSecondTimer--;
@@ -3716,6 +3723,7 @@ void Interface_Draw(PlayState* play) {
                     }
                     FALLTHROUGH;
                 case TIMER_STATE_UP_TICK:
+#if OOT_VERSION >= NTSC_1_0
                     if (gSaveContext.timerState == TIMER_STATE_UP_TICK) {
                         if (gSaveContext.save.info.playerData.healthCapacity > 0xA0) {
                             gSaveContext.timerY[TIMER_ID_MAIN] = 54; // two rows of hearts
@@ -3723,6 +3731,7 @@ void Interface_Draw(PlayState* play) {
                             gSaveContext.timerY[TIMER_ID_MAIN] = 46; // one row of hearts
                         }
                     }
+#endif
 
                     if (gSaveContext.timerState >= TIMER_STATE_ENV_HAZARD_MOVE) {
                         sTimerNextSecondTimer--;
@@ -3830,6 +3839,7 @@ void Interface_Draw(PlayState* play) {
                             FALLTHROUGH;
                         case SUBTIMER_STATE_DOWN_TICK:
                         case SUBTIMER_STATE_UP_TICK:
+#if OOT_VERSION >= NTSC_1_0
                             if ((gSaveContext.subTimerState == SUBTIMER_STATE_DOWN_TICK) ||
                                 (gSaveContext.subTimerState == SUBTIMER_STATE_UP_TICK)) {
                                 if (gSaveContext.save.info.playerData.healthCapacity > 0xA0) {
@@ -3838,6 +3848,7 @@ void Interface_Draw(PlayState* play) {
                                     gSaveContext.timerY[TIMER_ID_SUB] = 46; // one row of hearts
                                 }
                             }
+#endif
 
                             if (gSaveContext.subTimerState >= SUBTIMER_STATE_DOWN_MOVE) {
                                 sSubTimerNextSecondTimer--;

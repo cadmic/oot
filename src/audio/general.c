@@ -175,7 +175,7 @@ u8 sSeqFlags[] = {
 #else
     SEQ_FLAG_FANFARE | SEQ_FLAG_ENEMY, // NA_BGM_GENERAL_SFX
 #endif
-    SEQ_FLAG_ENEMY,                          // NA_BGM_NATURE_BACKGROUND
+    SEQ_FLAG_ENEMY,                          // NA_BGM_NATURE_AMBIENCE
     0,                                       // NA_BGM_FIELD_LOGIC
     0,                                       // NA_BGM_FIELD_INIT
     0,                                       // NA_BGM_FIELD_DEFAULT_1
@@ -222,7 +222,11 @@ u8 sSeqFlags[] = {
     0,                                       // NA_BGM_COURTYARD
     SEQ_FLAG_NO_AMBIENCE,                    // NA_BGM_GANON_TOWER
     0,                                       // NA_BGM_LONLON
-    SEQ_FLAG_NO_AMBIENCE,                    // NA_BGM_GORON_CITY
+#if OOT_VERSION < NTSC_1_0
+    0, // NA_BGM_GORON_CITY
+#else
+    SEQ_FLAG_NO_AMBIENCE,              // NA_BGM_GORON_CITY
+#endif
     0,                                       // NA_BGM_FIELD_MORNING
     SEQ_FLAG_FANFARE,                        // NA_BGM_SPIRITUAL_STONE
     SEQ_FLAG_FANFARE,                        // NA_BGM_OCA_BOLERO
@@ -3405,7 +3409,11 @@ void Audio_PlaySequenceInCutscene(u16 seqId) {
     } else if (sSeqFlags[seqId & 0xFF & 0xFF] & SEQ_FLAG_FANFARE_GANON) {
         SEQCMD_PLAY_SEQUENCE(SEQ_PLAYER_FANFARE, 0, 0, seqId);
     } else {
+#if OOT_VERSION < NTSC_1_0
+        SEQCMD_PLAY_SEQUENCE(SEQ_PLAYER_BGM_MAIN, 0, 0, seqId);
+#else
         Audio_PlaySequenceWithSeqPlayerIO(SEQ_PLAYER_BGM_MAIN, seqId, 0, 7, SEQ_IO_VAL_NONE);
+#endif
         SEQCMD_STOP_SEQUENCE(SEQ_PLAYER_FANFARE, 0);
     }
 }
@@ -3443,17 +3451,21 @@ s32 Audio_IsSequencePlaying(u16 seqId) {
 void func_800F5ACC(u16 seqId) {
     u16 curSeqId = Audio_GetActiveSeqId(SEQ_PLAYER_BGM_MAIN);
 
-#if !OOT_DEBUG
-    if (1) {}
-#endif
-
     if ((curSeqId & 0xFF) != NA_BGM_GANON_TOWER && (curSeqId & 0xFF) != NA_BGM_ESCAPE && curSeqId != seqId) {
         Audio_SetSequenceMode(SEQ_MODE_IGNORE);
+#if OOT_DEBUG
         if (curSeqId != NA_BGM_DISABLED) {
-            sPrevMainBgmSeqId = curSeqId & 0xFFFF;
+            sPrevMainBgmSeqId = curSeqId;
         } else {
-            PRINTF("Middle Boss BGM Start not stack \n");
+            AUDIO_PRINTF("Middle Boss BGM Start not stack \n");
         }
+#elif OOT_VERSION < NTSC_1_0
+        sPrevMainBgmSeqId = curSeqId;
+#else
+        if (curSeqId != NA_BGM_DISABLED) {
+            sPrevMainBgmSeqId = curSeqId;
+        }
+#endif
 
         SEQCMD_PLAY_SEQUENCE(SEQ_PLAYER_BGM_MAIN, 0, 0, seqId);
     }
@@ -4104,13 +4116,18 @@ void Audio_PlayNatureAmbienceSequence(u8 natureAmbienceId) {
     u8 channelIdx;
     u8 ioPort;
     u8 ioData;
+    u16 seqId = gActiveSeqs[SEQ_PLAYER_BGM_MAIN].seqId;
 
-    if ((gActiveSeqs[SEQ_PLAYER_BGM_MAIN].seqId == NA_BGM_DISABLED) ||
-        !(sSeqFlags[gActiveSeqs[SEQ_PLAYER_BGM_MAIN].seqId & 0xFF & 0xFF] & SEQ_FLAG_NO_AMBIENCE)) {
+#if OOT_VERSION < NTSC_1_0
+    if (!(sSeqFlags[seqId & 0xFF & 0xFF] & SEQ_FLAG_NO_AMBIENCE))
+#else
+    if ((seqId == NA_BGM_DISABLED) || !(sSeqFlags[seqId & 0xFF & 0xFF] & SEQ_FLAG_NO_AMBIENCE))
+#endif
+    {
 
 #if !(OOT_VERSION < NTSC_1_1 || PLATFORM_GC)
-        if (gActiveSeqs[SEQ_PLAYER_BGM_MAIN].seqId != NA_BGM_NATURE_AMBIENCE) {
-            sPrevAmbienceSeqId = gActiveSeqs[SEQ_PLAYER_BGM_MAIN].seqId;
+        if (seqId != NA_BGM_NATURE_AMBIENCE) {
+            sPrevAmbienceSeqId = seqId;
         }
 #endif
 

@@ -1,6 +1,3 @@
-checksums:
-  - checksum-JP
-  - checksum-US
 dmadata_start: 0x7430
 text_lang_pal: false
 incbins:
@@ -14,79 +11,79 @@ incbins:
     size: 0x160
   - name: aspMainText
     segment: code
-    vram: 0x800E3180
+    vram: 0x800E2DB0
     size: 0xFB0
   - name: gspF3DZEX2_NoN_PosLight_fifoText
     segment: code
-    vram: 0x800E4130
+    vram: 0x800E3D60
     size: 0x1390
   - name: gspS2DEX2d_fifoText
     segment: code
-    vram: 0x800E54C0
+    vram: 0x800E50F0
     size: 0x18C0
   - name: njpgdspMainText
     segment: code
-    vram: 0x800E6D80
+    vram: 0x800E69B0
     size: 0xAF0
   - name: gSoundFontTable
     segment: code
-    vram: 0x80113900
+    vram: 0x80113530
     size: 0x270
   - name: gSequenceFontTable
     segment: code
-    vram: 0x80113B70
+    vram: 0x801137A0
     size: 0x1C0
   - name: gSequenceTable
     segment: code
-    vram: 0x80113D30
+    vram: 0x80113960
     size: 0x6F0
   - name: gSampleBankTable
     segment: code
-    vram: 0x80114420
+    vram: 0x80114050
     size: 0x80
   - name: aspMainData
     segment: code
-    vram: 0x801144A0
+    vram: 0x801140D0
     size: 0x2E0
   - name: gspF3DZEX2_NoN_PosLight_fifoData
     segment: code
-    vram: 0x80114780
+    vram: 0x801143B0
     size: 0x420
   - name: gspS2DEX2d_fifoData
     segment: code
-    vram: 0x80114BA0
+    vram: 0x801147D0
     size: 0x390
   - name: njpgdspMainData
     segment: code
-    vram: 0x80114F30
+    vram: 0x80114B60
     size: 0x60
 variables:
-  gMtxClear: 0x800FEF70
-  sJpnMessageEntryTable: 0x8010AB0C
-  sNesMessageEntryTable: 0x8010EC4C
-  sStaffMessageEntryTable: 0x80112E6C
-  gSoundFontTable: 0x80113900
-  gSequenceFontTable: 0x80113B70
-  gSequenceTable: 0x80113D30
-  gSampleBankTable: 0x80114420
-  sShadowTex: 0x80AE0C80
+  gMtxClear: 0x800FEBA0
+  sJpnMessageEntryTable: 0x8010A73C
+  sNesMessageEntryTable: 0x8010E87C
+  sStaffMessageEntryTable: 0x80112A9C
+  gSoundFontTable: 0x80113530
+  gSequenceFontTable: 0x801137A0
+  gSequenceTable: 0x80113960
+  gSampleBankTable: 0x80114050
+  sShadowTex: 0x80ADFFC0
 assets:
 - name: code/fbdemo_circle
   xml_path: assets/xml/code/fbdemo_circle.xml
-  start_offset: 0xEC268
-  end_offset: 0xED488
+  start_offset: 0xEBE98
+  end_offset: 0xED0B8
 - name: code/fbdemo_triforce
   xml_path: assets/xml/code/fbdemo_triforce.xml
-  start_offset: 0xEB6F0
-  end_offset: 0xEB7C0
+  start_offset: 0xEB320
+  end_offset: 0xEB3F0
 - name: code/fbdemo_wipe1
   xml_path: assets/xml/code/fbdemo_wipe1.xml
-  start_offset: 0xEB7C0
-  end_offset: 0xEC150
+  start_offset: 0xEB3F0
+  end_offset: 0xEBD80
 - name: n64dd/error_textures
   xml_path: assets/xml/n64dd/error_textures.xml
-  start_offset: 0xC140
-  end_offset: 0x11D40
+  start_offset: 0xC060
+  end_offset: 0x11C60
 - name: misc/link_animetion
   xml_path: assets/xml/misc/link_animetion.xml
 - name: misc/z_select_static
@@ -772,7 +769,7 @@ assets:
 - name: objects/object_spot17_obj
   xml_path: assets/xml/objects/object_spot17_obj.xml
 - name: objects/object_spot18_obj
-  xml_path: assets/xml/objects/object_spot18_obj_v2.xml
+  xml_path: assets/xml/objects/object_spot18_obj.xml
 - name: objects/object_ssh
   xml_path: assets/xml/objects/object_ssh.xml
 - name: objects/object_sst
@@ -915,8 +912,8 @@ assets:
   end_offset: 0x6EB0
 - name: overlays/ovl_En_Holl
   xml_path: assets/xml/overlays/ovl_En_Holl.xml
-  start_offset: 0xE68
-  end_offset: 0xED0
+  start_offset: 0xF38
+  end_offset: 0xFA0
 - name: overlays/ovl_En_Jsjutan
   xml_path: assets/xml/overlays/ovl_En_Jsjutan.xml
   start_offset: 0x12B8
@@ -1224,7 +1221,7 @@ assets:
 - name: textures/nes_font_static
   xml_path: assets/xml/textures/nes_font_static.xml
 - name: textures/nintendo_rogo_static
-  xml_path: assets/xml/textures/nintendo_rogo_static_v2.xml
+  xml_path: assets/xml/textures/nintendo_rogo_static.xml
 - name: textures/parameter_static
   xml_path: assets/xml/textures/parameter_static.xml
 - name: textures/place_title_cards

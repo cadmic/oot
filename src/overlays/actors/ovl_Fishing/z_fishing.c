@@ -54,7 +54,11 @@ typedef enum FishingEffectType {
     /* 0x08 */ FS_EFF_RAIN_SPLASH
 } FishingEffectType;
 
+#if OOT_VERSION < NTSC_1_0
+#define FISHING_EFFECT_COUNT 110
+#else
 #define FISHING_EFFECT_COUNT 130
+#endif
 
 typedef struct FishingEffect {
     /* 0x00 */ Vec3f pos;
@@ -528,9 +532,14 @@ void Fishing_SpawnDustSplash(Vec3f* projectedPos, FishingEffect* effect, Vec3f* 
         return;
     }
 
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < FISHING_EFFECT_COUNT - 30; i++) {
+#if OOT_VERSION < NTSC_1_0
+        if (effect->type == FS_EFF_NONE)
+#else
         if ((effect->type == FS_EFF_NONE) || (effect->type == FS_EFF_RAIN_DROP) ||
-            (effect->type == FS_EFF_RAIN_RIPPLE) || (effect->type == FS_EFF_RAIN_SPLASH)) {
+            (effect->type == FS_EFF_RAIN_RIPPLE) || (effect->type == FS_EFF_RAIN_SPLASH))
+#endif
+        {
             effect->type = FS_EFF_DUST_SPLASH;
             effect->pos = *pos;
             effect->vel = *vel;
@@ -552,7 +561,7 @@ void Fishing_SpawnWaterDust(Vec3f* projectedPos, FishingEffect* effect, Vec3f* p
         return;
     }
 
-    for (i = 0; i < 90; i++) {
+    for (i = 0; i < FISHING_EFFECT_COUNT - 40; i++) {
         if (effect->type == FS_EFF_NONE) {
             effect->type = FS_EFF_WATER_DUST;
             effect->pos = *pos;
@@ -577,7 +586,7 @@ void Fishing_SpawnBubble(Vec3f* projectedPos, FishingEffect* effect, Vec3f* pos,
         return;
     }
 
-    for (i = 0; i < 90; i++) {
+    for (i = 0; i < FISHING_EFFECT_COUNT - 40; i++) {
         if (effect->type == FS_EFF_NONE) {
             effect->type = FS_EFF_BUBBLE;
             effect->pos = *pos;
@@ -1130,7 +1139,8 @@ void Fishing_UpdateEffects(FishingEffect* effect, PlayState* play) {
                     if (Rand_ZeroOne() < 0.3f) {
                         Vec3f pos = effect->pos;
                         pos.y = rippleY;
-                        Fishing_SpawnRipple(NULL, play->specialEffects, &pos, 20.0f, 60.0f, 150, 90);
+                        Fishing_SpawnRipple(NULL, play->specialEffects, &pos, 20.0f, 60.0f, 150,
+                                            FISHING_EFFECT_COUNT - 40);
                     }
                 }
             } else if (effect->type == FS_EFF_DUST_SPLASH) {
@@ -1144,7 +1154,8 @@ void Fishing_UpdateEffects(FishingEffect* effect, PlayState* play) {
                     if (Rand_ZeroOne() < 0.5f) {
                         Vec3f pos = effect->pos;
                         pos.y = WATER_SURFACE_Y(play);
-                        Fishing_SpawnRipple(NULL, play->specialEffects, &pos, 40.0f, 110.0f, 150, 90);
+                        Fishing_SpawnRipple(NULL, play->specialEffects, &pos, 40.0f, 110.0f, 150,
+                                            FISHING_EFFECT_COUNT - 40);
                     }
                 }
             } else if (effect->type == FS_EFF_RAIN_DROP) {
@@ -1196,7 +1207,8 @@ void Fishing_UpdateEffects(FishingEffect* effect, PlayState* play) {
                 if ((effect->timer % 16) == 0) {
                     Vec3f pos = effect->pos;
                     pos.y = WATER_SURFACE_Y(play);
-                    Fishing_SpawnRipple(NULL, play->specialEffects, &pos, 30.0f, 300.0f, 150, 90);
+                    Fishing_SpawnRipple(NULL, play->specialEffects, &pos, 30.0f, 300.0f, 150,
+                                        FISHING_EFFECT_COUNT - 40);
                 }
 
                 if (effect->state >= 0) {
@@ -1234,7 +1246,7 @@ void Fishing_DrawEffects(FishingEffect* effect, PlayState* play) {
 
     gDPPipeSync(POLY_XLU_DISP++);
 
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < FISHING_EFFECT_COUNT - 30; i++) {
         if (effect->type == FS_EFF_RIPPLE) {
             if (materialFlag == 0) {
                 gSPDisplayList(POLY_XLU_DISP++, gFishingRippleMaterialDL);
@@ -1256,7 +1268,7 @@ void Fishing_DrawEffects(FishingEffect* effect, PlayState* play) {
 
     effect = firstEffect;
     materialFlag = 0;
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < FISHING_EFFECT_COUNT - 30; i++) {
         if (effect->type == FS_EFF_DUST_SPLASH) {
             if (materialFlag == 0) {
                 gSPDisplayList(POLY_XLU_DISP++, gFishingDustSplashMaterialDL);
@@ -1279,7 +1291,7 @@ void Fishing_DrawEffects(FishingEffect* effect, PlayState* play) {
 
     effect = firstEffect;
     materialFlag = 0;
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < FISHING_EFFECT_COUNT - 30; i++) {
         if (effect->type == FS_EFF_WATER_DUST) {
             if (materialFlag == 0) {
                 gSPDisplayList(POLY_OPA_DISP++, gFishingWaterDustMaterialDL);
@@ -1306,7 +1318,7 @@ void Fishing_DrawEffects(FishingEffect* effect, PlayState* play) {
 
     effect = firstEffect;
     materialFlag = 0;
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < FISHING_EFFECT_COUNT - 30; i++) {
         if (effect->type == FS_EFF_BUBBLE) {
             if (materialFlag == 0) {
                 gSPDisplayList(POLY_XLU_DISP++, gFishingBubbleMaterialDL);
@@ -2379,7 +2391,8 @@ void Fishing_UpdateLure(Fishing* this, PlayState* play) {
 
                         spA8 = sLurePos;
                         spA8.y = WATER_SURFACE_Y(play);
-                        Fishing_SpawnRipple(NULL, play->specialEffects, &spA8, 100.0f, 800.0f, 150, 90);
+                        Fishing_SpawnRipple(NULL, play->specialEffects, &spA8, 100.0f, 800.0f, 150,
+                                            FISHING_EFFECT_COUNT - 40);
                     }
                 } else {
                     Math_ApproachZeroF(&D_80B7E148, 1.0f, 0.05f);
@@ -2646,7 +2659,8 @@ void Fishing_UpdateLure(Fishing* this, PlayState* play) {
                 if ((sLureTimer & timer) == 0) {
                     spA8 = sLurePos;
                     spA8.y = WATER_SURFACE_Y(play);
-                    Fishing_SpawnRipple(NULL, play->specialEffects, &spA8, 30.0f, 300.0f, 150, 90);
+                    Fishing_SpawnRipple(NULL, play->specialEffects, &spA8, 30.0f, 300.0f, 150,
+                                        FISHING_EFFECT_COUNT - 40);
                 }
             }
             break;
@@ -2691,13 +2705,20 @@ s32 Fishing_SplashBySize(Fishing* this, PlayState* play, u8 ignorePosCheck) {
     f32 scale;
     Vec3f pos;
     Vec3f vel;
-    f32 speedXZ;
-    f32 angle;
 
     if ((this->actor.world.pos.y < (WATER_SURFACE_Y(play) - 10.0f)) && !ignorePosCheck) {
         return false;
     }
 
+#if OOT_VERSION < NTSC_1_0
+    if (this->fishLength >= 50.0f) {
+        count = 80;
+        scale = 1.5f;
+    } else {
+        count = 40;
+        scale = 1.0f;
+    }
+#else
     // Necessary to match
     if (this->fishLength) {}
 
@@ -2708,10 +2729,11 @@ s32 Fishing_SplashBySize(Fishing* this, PlayState* play, u8 ignorePosCheck) {
         count = 30;
         scale = 1.0f;
     }
+#endif
 
     for (i = 0; i < count; i++) {
-        speedXZ = (Rand_ZeroFloat(1.5f) + 0.5f) * scale;
-        angle = Rand_ZeroFloat(6.28f);
+        f32 speedXZ = (Rand_ZeroFloat(1.5f) + 0.5f) * scale;
+        f32 angle = Rand_ZeroFloat(6.28f);
 
         vel.x = sinf(angle) * speedXZ;
         vel.z = cosf(angle) * speedXZ;
@@ -2729,7 +2751,8 @@ s32 Fishing_SplashBySize(Fishing* this, PlayState* play, u8 ignorePosCheck) {
     pos = this->actor.world.pos;
     pos.y = WATER_SURFACE_Y(play);
 
-    Fishing_SpawnRipple(&this->actor.projectedPos, play->specialEffects, &pos, 100.0f, 800.0f, 150, 90);
+    Fishing_SpawnRipple(&this->actor.projectedPos, play->specialEffects, &pos, 100.0f, 800.0f, 150,
+                        FISHING_EFFECT_COUNT - 40);
 
     this->lilyTimer = 30;
 
@@ -3288,9 +3311,9 @@ void Fishing_UpdateFish(Actor* thisx, PlayState* play2) {
                         spB8 = this->fishMouthPos;
                         spB8.y = WATER_SURFACE_Y(play);
                         Fishing_SpawnRipple(&this->actor.projectedPos, play->specialEffects, &spB8, 10.0f, 300.0f, 150,
-                                            90);
+                                            FISHING_EFFECT_COUNT - 40);
                         Fishing_SpawnRipple(&this->actor.projectedPos, play->specialEffects, &spB8, 30.0f, 400.0f, 150,
-                                            90);
+                                            FISHING_EFFECT_COUNT - 40);
 
                         Actor_PlaySfx(&this->actor, NA_SE_PL_CATCH_BOOMERANG);
                         break;
@@ -4187,7 +4210,8 @@ void Fishing_UpdateFish(Actor* thisx, PlayState* play2) {
             (this->actor.speed > 0.0f)) {
             Vec3f pos = this->actor.world.pos;
             pos.y = WATER_SURFACE_Y(play);
-            Fishing_SpawnRipple(&this->actor.projectedPos, play->specialEffects, &pos, 80.0f, 500.0f, 150, 90);
+            Fishing_SpawnRipple(&this->actor.projectedPos, play->specialEffects, &pos, 80.0f, 500.0f, 150,
+                                FISHING_EFFECT_COUNT - 40);
         }
 
         if ((this->actor.speed > 0.0f) || (this->fishState == 5)) {
@@ -4676,7 +4700,7 @@ void Fishing_UpdateGroupFishes(PlayState* play) {
                 ripplePos = fish->pos;
                 ripplePos.y = WATER_SURFACE_Y(play);
                 Fishing_SpawnRipple(&fish->projectedPos, play->specialEffects, &ripplePos, 20.0f,
-                                    Rand_ZeroFloat(50.0f) + 100.0f, 150, 90);
+                                    Rand_ZeroFloat(50.0f) + 100.0f, 150, FISHING_EFFECT_COUNT - 40);
 
                 if (fish->velY < 1.5f) {
                     fish->velY = 1.5f;

@@ -1,4 +1,5 @@
 #include "z_en_ssh.h"
+#include "versions.h"
 #include "assets/objects/object_ssh/object_ssh.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_4 | ACTOR_FLAG_5)
@@ -666,6 +667,7 @@ void EnSsh_Talk(EnSsh* this, PlayState* play) {
 
 void EnSsh_Idle(EnSsh* this, PlayState* play) {
     if (1) {}
+#if OOT_VERSION >= NTSC_1_0
     if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->actionFunc = EnSsh_Talk;
         if (this->actor.params == ENSSH_FATHER) {
@@ -677,49 +679,70 @@ void EnSsh_Idle(EnSsh* this, PlayState* play) {
         if ((this->actor.textId == 0x24) || (this->actor.textId == 0x25)) {
             SET_INFTABLE(INFTABLE_197);
         }
-    } else {
-        if ((this->unkTimer != 0) && (DECR(this->unkTimer) == 0)) {
-            EnSsh_SetAnimation(this, SSH_ANIM_WAIT);
+        return;
+    }
+#endif
+
+    if ((this->unkTimer != 0) && (DECR(this->unkTimer) == 0)) {
+        EnSsh_SetAnimation(this, SSH_ANIM_WAIT);
+    }
+    if ((this->animTimer != 0) && (DECR(this->animTimer) == 0)) {
+        EnSsh_SetAnimation(this, SSH_ANIM_WAIT);
+    }
+    if (!EnSsh_IsCloseToLink(this, play)) {
+        EnSsh_SetReturnAnimation(this);
+        EnSsh_SetupAction(this, EnSsh_Return);
+        return;
+    }
+
+    if (DECR(this->sfxTimer) == 0) {
+        Actor_PlaySfx(&this->actor, NA_SE_EN_STALTU_LAUGH);
+        this->sfxTimer = 64;
+    }
+    EnSsh_Bob(this, play);
+    if ((this->unkTimer != 0) || (this->animTimer != 0)) {
+        return;
+    }
+
+#if OOT_VERSION < NTSC_1_0
+    if (Actor_TalkOfferAccepted(&this->actor, play)) {
+        this->actionFunc = EnSsh_Talk;
+        if (this->actor.params == ENSSH_FATHER) {
+            SET_EVENTCHKINF(EVENTCHKINF_96);
         }
-        if ((this->animTimer != 0) && (DECR(this->animTimer) == 0)) {
-            EnSsh_SetAnimation(this, SSH_ANIM_WAIT);
+        if ((this->actor.textId == 0x26) || (this->actor.textId == 0x27)) {
+            SET_INFTABLE(INFTABLE_196);
         }
-        if (!EnSsh_IsCloseToLink(this, play)) {
-            EnSsh_SetReturnAnimation(this);
-            EnSsh_SetupAction(this, EnSsh_Return);
-        } else {
-            if (DECR(this->sfxTimer) == 0) {
-                Actor_PlaySfx(&this->actor, NA_SE_EN_STALTU_LAUGH);
-                this->sfxTimer = 64;
-            }
-            EnSsh_Bob(this, play);
-            if ((this->unkTimer == 0) && (this->animTimer == 0)) {
-                this->actor.textId = MaskReaction_GetTextId(play, MASK_REACTION_SET_CURSED_SKULLTULA_MAN);
-                if (this->actor.textId == 0) {
-                    if (this->actor.params == ENSSH_FATHER) {
-                        if (gSaveContext.save.info.inventory.gsTokens >= 50) {
-                            this->actor.textId = 0x29;
-                        } else if (gSaveContext.save.info.inventory.gsTokens >= 10) {
-                            if (GET_INFTABLE(INFTABLE_197)) {
-                                this->actor.textId = 0x24;
-                            } else {
-                                this->actor.textId = 0x25;
-                            }
-                        } else {
-                            if (GET_INFTABLE(INFTABLE_196)) {
-                                this->actor.textId = 0x27;
-                            } else {
-                                this->actor.textId = 0x26;
-                            }
-                        }
-                    } else {
-                        this->actor.textId = 0x22;
-                    }
+        if ((this->actor.textId == 0x24) || (this->actor.textId == 0x25)) {
+            SET_INFTABLE(INFTABLE_197);
+        }
+        return;
+    }
+#endif
+
+    this->actor.textId = MaskReaction_GetTextId(play, MASK_REACTION_SET_CURSED_SKULLTULA_MAN);
+    if (this->actor.textId == 0) {
+        if (this->actor.params == ENSSH_FATHER) {
+            if (gSaveContext.save.info.inventory.gsTokens >= 50) {
+                this->actor.textId = 0x29;
+            } else if (gSaveContext.save.info.inventory.gsTokens >= 10) {
+                if (GET_INFTABLE(INFTABLE_197)) {
+                    this->actor.textId = 0x24;
+                } else {
+                    this->actor.textId = 0x25;
                 }
-                Actor_OfferTalk(&this->actor, play, 100.0f);
+            } else {
+                if (GET_INFTABLE(INFTABLE_196)) {
+                    this->actor.textId = 0x27;
+                } else {
+                    this->actor.textId = 0x26;
+                }
             }
+        } else {
+            this->actor.textId = 0x22;
         }
     }
+    Actor_OfferTalk(&this->actor, play, 100.0f);
 }
 
 void EnSsh_Land(EnSsh* this, PlayState* play) {

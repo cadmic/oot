@@ -5,6 +5,7 @@
  */
 
 #include "z_en_po_field.h"
+#include "versions.h"
 #include "assets/objects/gameplay_keep/gameplay_keep.h"
 #include "assets/objects/object_po_field/object_po_field.h"
 
@@ -651,12 +652,14 @@ void func_80AD58D4(EnPoField* this, PlayState* play) {
         EnPoField_SetupInteractWithSoul(this);
         return;
     }
+#if OOT_VERSION >= NTSC_1_0
     if (this->actionTimer == 0) {
         Actor_PlaySfx(&this->actor, NA_SE_EN_PO_LAUGH);
         this->actor.flags &= ~ACTOR_FLAG_16;
         EnPoField_SetupSoulDisappear(this);
         return;
     }
+#endif
     if (this->collider.base.ocFlags1 & OC1_HIT) {
         this->actor.flags |= ACTOR_FLAG_16;
         Actor_OfferTalkNearColChkInfoCylinder(&this->actor, play);
@@ -677,6 +680,12 @@ void func_80AD58D4(EnPoField* this, PlayState* play) {
                               this->actor.world.pos.z, this->lightInfo.params.point.color[0],
                               this->lightInfo.params.point.color[1], this->lightInfo.params.point.color[2],
                               this->lightColor.a * (200.0f / 255));
+#if OOT_VERSION < NTSC_1_0
+    if (this->actionTimer == 0) {
+        Actor_PlaySfx(&this->actor, NA_SE_EN_PO_LAUGH);
+        EnPoField_SetupSoulDisappear(this);
+    }
+#endif
 }
 
 void EnPoField_SoulDisappear(EnPoField* this, PlayState* play) {

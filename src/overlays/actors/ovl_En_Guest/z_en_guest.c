@@ -8,6 +8,7 @@
 #include "assets/objects/object_os_anime/object_os_anime.h"
 #include "assets/objects/object_boj/object_boj.h"
 #include "terminal.h"
+#include "versions.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_NEUTRAL | ACTOR_FLAG_4)
 
@@ -126,11 +127,21 @@ void func_80A5046C(EnGuest* this) {
 }
 
 void func_80A50518(EnGuest* this, PlayState* play) {
+#if OOT_VERSION < NTSC_1_0
+    if (this->actor.xzDistToPlayer < 100.0f) {
+        if (Actor_TalkOfferAccepted(&this->actor, play)) {
+            this->actionFunc = func_80A5057C;
+        } else {
+            Actor_OfferTalk(&this->actor, play, 100.0f);
+        }
+    }
+#else
     if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->actionFunc = func_80A5057C;
     } else if (this->actor.xzDistToPlayer < 100.0f) {
         Actor_OfferTalk(&this->actor, play, 100.0f);
     }
+#endif
 }
 
 void func_80A5057C(EnGuest* this, PlayState* play) {

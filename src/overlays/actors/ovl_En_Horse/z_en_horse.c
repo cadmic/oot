@@ -744,13 +744,13 @@ void EnHorse_ClearDustFlags(u16* dustFlags) {
 
 void EnHorse_Init(Actor* thisx, PlayState* play2) {
     EnHorse* this = (EnHorse*)thisx;
-    PlayState* play = play2;
+    PlayState* play = (PlayState*)play2;
 
     AREG(6) = 0;
-    Actor_ProcessInitChain(&this->actor, sInitChain);
+    Actor_ProcessInitChain(thisx, sInitChain);
     EnHorse_ClearDustFlags(&this->dustFlags);
     R_EPONAS_SONG_PLAYED = false;
-    this->riderPos = this->actor.world.pos;
+    this->riderPos = thisx->world.pos;
     this->noInputTimer = 0;
     this->noInputTimerMax = 0;
     this->riderPos.y += 70.0f;
@@ -759,20 +759,20 @@ void EnHorse_Init(Actor* thisx, PlayState* play2) {
         DREG(4) = 70;
     }
 
-    if (PARAMS_GET_NOSHIFT(this->actor.params, 15, 1)) {
-        this->actor.params &= ~0x8000;
+    if (PARAMS_GET_NOSHIFT(thisx->params, 15, 1)) {
+        thisx->params &= ~0x8000;
         this->type = HORSE_HNI;
 
         if ((this->hniObjectSlot = Object_GetSlot(&play->objectCtx, OBJECT_HNI)) < 0) {
-            Actor_Kill(&this->actor);
+            Actor_Kill(thisx);
             return;
         }
 
         do {
         } while (!Object_IsLoaded(&play->objectCtx, this->hniObjectSlot));
 
-        this->actor.objectSlot = this->hniObjectSlot;
-        Actor_SetObjectDependency(play, &this->actor);
+        thisx->objectSlot = this->hniObjectSlot;
+        Actor_SetObjectDependency(play, thisx);
         this->boostSpeed = 12;
     } else {
         this->type = HORSE_EPONA;
@@ -780,8 +780,8 @@ void EnHorse_Init(Actor* thisx, PlayState* play2) {
     }
 
     // params was -1
-    if (this->actor.params == 0x7FFF) {
-        this->actor.params = 1;
+    if (thisx->params == 0x7FFF) {
+        thisx->params = 1;
     }
 
     if (play->sceneId == SCENE_LON_LON_BUILDINGS) {
@@ -789,9 +789,9 @@ void EnHorse_Init(Actor* thisx, PlayState* play2) {
     } else if (play->sceneId == SCENE_GERUDOS_FORTRESS && this->type == HORSE_HNI) {
         this->stateFlags = ENHORSE_FLAG_18 | ENHORSE_UNRIDEABLE;
     } else {
-        if (this->actor.params == 3) {
+        if (thisx->params == 3) {
             this->stateFlags = ENHORSE_FLAG_19 | ENHORSE_CANT_JUMP | ENHORSE_UNRIDEABLE;
-        } else if (this->actor.params == 6) {
+        } else if (thisx->params == 6) {
             this->stateFlags = ENHORSE_FLAG_19 | ENHORSE_CANT_JUMP;
             if (Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) || DREG(1) != 0) {
                 this->stateFlags &= ~ENHORSE_CANT_JUMP;
@@ -799,7 +799,7 @@ void EnHorse_Init(Actor* thisx, PlayState* play2) {
             } else if (GET_EVENTINF(EVENTINF_HORSES_06) && this->type == HORSE_HNI) {
                 this->stateFlags |= ENHORSE_FLAG_21 | ENHORSE_FLAG_20;
             }
-        } else if (this->actor.params == 1) {
+        } else if (thisx->params == 1) {
             this->stateFlags = ENHORSE_FLAG_7;
         } else {
             this->stateFlags = 0;
@@ -811,43 +811,49 @@ void EnHorse_Init(Actor* thisx, PlayState* play2) {
         this->stateFlags |= ENHORSE_FLAG_25;
     }
 
-    Actor_SetScale(&this->actor, 0.01f);
-    this->actor.gravity = -3.5f;
-    ActorShape_Init(&this->actor.shape, 0.0f, ActorShadow_DrawHorse, 20.0f);
+    Actor_SetScale(thisx, 0.01f);
+    thisx->gravity = -3.5f;
+    ActorShape_Init(&thisx->shape, 0.0f, ActorShadow_DrawHorse, 20.0f);
     this->action = ENHORSE_ACT_IDLE;
-    this->actor.speed = 0.0f;
+    thisx->speed = 0.0f;
     Collider_InitCylinder(play, &this->cyl1);
-    Collider_SetCylinder(play, &this->cyl1, &this->actor, &sCylinderInit1);
+    Collider_SetCylinder(play, &this->cyl1, thisx, &sCylinderInit1);
     Collider_InitCylinder(play, &this->cyl2);
-    Collider_SetCylinder(play, &this->cyl2, &this->actor, &sCylinderInit2);
+    Collider_SetCylinder(play, &this->cyl2, thisx, &sCylinderInit2);
     Collider_InitJntSph(play, &this->jntSph);
-    Collider_SetJntSph(play, &this->jntSph, &this->actor, &sJntSphInit, &this->jntSphList);
-    CollisionCheck_SetInfo(&this->actor.colChkInfo, DamageTable_Get(0xB), &D_80A65F38);
-    this->actor.focus.pos = this->actor.world.pos;
-    this->actor.focus.pos.y += 70.0f;
+    Collider_SetJntSph(play, &this->jntSph, thisx, &sJntSphInit, &this->jntSphList);
+    CollisionCheck_SetInfo(&thisx->colChkInfo, DamageTable_Get(0xB), &D_80A65F38);
+    thisx->focus.pos = thisx->world.pos;
+    thisx->focus.pos.y += 70.0f;
     this->playerControlled = false;
 
-    if ((play->sceneId == SCENE_LON_LON_RANCH) && !IS_CUTSCENE_LAYER) {
+#if OOT_VERSION < NTSC_1_0
+    if ((play->sceneId == SCENE_LON_LON_RANCH) &&
+        (gSaveContext.save.cutsceneIndex == 0x8000 || gSaveContext.save.cutsceneIndex == 0))
+#else
+    if ((play->sceneId == SCENE_LON_LON_RANCH) && !IS_CUTSCENE_LAYER)
+#endif
+    {
         if (this->type == HORSE_HNI) {
-            if (this->actor.world.rot.z == 0 || !IS_DAY) {
-                Actor_Kill(&this->actor);
+            if (thisx->world.rot.z == 0 || !IS_DAY) {
+                Actor_Kill(thisx);
                 return;
             }
             if (Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED)) {
-                Actor_Kill(&this->actor);
+                Actor_Kill(thisx);
                 return;
             }
-            if (this->actor.world.rot.z != 5) {
-                Actor_Kill(&this->actor);
+            if (thisx->world.rot.z != 5) {
+                Actor_Kill(thisx);
                 return;
             }
         } else if (!Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) && !DREG(1) && !IS_DAY) {
-            Actor_Kill(&this->actor);
+            Actor_Kill(thisx);
             return;
         }
     } else if (play->sceneId == SCENE_STABLE) {
         if (IS_DAY || Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) || DREG(1) != 0 || !LINK_IS_ADULT) {
-            Actor_Kill(&this->actor);
+            Actor_Kill(thisx);
             return;
         }
         this->stateFlags |= ENHORSE_UNRIDEABLE;
@@ -864,21 +870,21 @@ void EnHorse_Init(Actor* thisx, PlayState* play2) {
     EnHorse_ResetRace(this, play);
     EnHorse_ResetHorsebackArchery(this, play);
 
-    if (this->actor.params == 2) {
+    if (thisx->params == 2) {
         EnHorse_InitInactive(this);
-    } else if (this->actor.params == 3) {
+    } else if (thisx->params == 3) {
         EnHorse_InitIngoHorse(this);
-        this->rider = Actor_Spawn(&play->actorCtx, play, ACTOR_EN_IN, this->actor.world.pos.x, this->actor.world.pos.y,
-                                  this->actor.world.pos.z, this->actor.shape.rot.x, this->actor.shape.rot.y, 1, 1);
+        this->rider = Actor_Spawn(&play->actorCtx, play, ACTOR_EN_IN, thisx->world.pos.x, thisx->world.pos.y,
+                                  thisx->world.pos.z, thisx->shape.rot.x, thisx->shape.rot.y, 1, 1);
         ASSERT(this->rider != NULL, "this->race.rider != NULL", "../z_en_horse.c", 3077);
         if (!GET_EVENTINF(EVENTINF_HORSES_06)) {
             this->ingoHorseMaxSpeed = 12.07f;
         } else {
             this->ingoHorseMaxSpeed = 12.625f;
         }
-    } else if (this->actor.params == 7) {
+    } else if (thisx->params == 7) {
         EnHorse_InitCutscene(this, play);
-    } else if (this->actor.params == 8) {
+    } else if (thisx->params == 8) {
         EnHorse_InitHorsebackArchery(this);
         Interface_InitHorsebackArchery(play);
     } else if (play->sceneId == SCENE_LON_LON_RANCH && !Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) && !DREG(1)) {
@@ -892,7 +898,7 @@ void EnHorse_Init(Actor* thisx, PlayState* play2) {
             EnHorse_StartIdleRidable(this);
         }
     }
-    this->actor.home.rot.z = this->actor.world.rot.z = this->actor.shape.rot.z = 0;
+    thisx->home.rot.z = thisx->world.rot.z = thisx->shape.rot.z = 0;
 }
 
 void EnHorse_Destroy(Actor* thisx, PlayState* play) {
@@ -3049,8 +3055,13 @@ void EnHorse_MountDismount(EnHorse* this, PlayState* play) {
         this->playerControlled = 1;
         EnHorse_Freeze(this);
     } else if (this->playerControlled == true && Actor_NotMounted(play, &this->actor) == true) {
+#if OOT_VERSION < NTSC_1_0
+        this->noInputTimer = 40;
+        this->noInputTimerMax = 40;
+#else
         this->noInputTimer = 35;
         this->noInputTimerMax = 35;
+#endif
         this->stateFlags &= ~ENHORSE_UNRIDEABLE;
         this->playerControlled = 0;
         EnHorse_Freeze(this);

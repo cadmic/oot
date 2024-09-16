@@ -1,5 +1,6 @@
 #include "z_en_bom_bowl_pit.h"
 #include "terminal.h"
+#include "versions.h"
 #include "overlays/actors/ovl_En_Bom_Chu/z_en_bom_chu.h"
 #include "overlays/actors/ovl_En_Ex_Item/z_en_ex_item.h"
 
@@ -52,67 +53,71 @@ void EnBomBowlPit_DetectHit(EnBomBowlPit* this, PlayState* play) {
     EnBomChu* chu;
     Vec3f chuPosDiff;
 
-    if (play->cameraPtrs[CAM_ID_MAIN]->setting == CAM_SET_CHU_BOWLING) {
-        chu = (EnBomChu*)play->actorCtx.actorLists[ACTORCAT_EXPLOSIVE].head;
+#if OOT_VERSION >= NTSC_1_0
+    if (play->cameraPtrs[CAM_ID_MAIN]->setting != CAM_SET_CHU_BOWLING) {
+        return;
+    }
+#endif
 
-        while (chu != NULL) {
-            if ((&chu->actor == &this->actor) || (chu->actor.id != ACTOR_EN_BOM_CHU)) {
-                chu = (EnBomChu*)chu->actor.next;
-                continue;
-            }
+    chu = (EnBomChu*)play->actorCtx.actorLists[ACTORCAT_EXPLOSIVE].head;
 
-            chuPosDiff.x = chu->actor.world.pos.x - this->actor.world.pos.x;
-            chuPosDiff.y = chu->actor.world.pos.y - this->actor.world.pos.y;
-            chuPosDiff.z = chu->actor.world.pos.z - this->actor.world.pos.z;
+    while (chu != NULL) {
+        if ((&chu->actor == &this->actor) || (chu->actor.id != ACTOR_EN_BOM_CHU)) {
+            chu = (EnBomChu*)chu->actor.next;
+            continue;
+        }
 
-            if (((fabsf(chuPosDiff.x) < 40.0f) || (BREG(2))) && ((fabsf(chuPosDiff.y) < 40.0f) || (BREG(2))) &&
-                ((fabsf(chuPosDiff.z) < 40.0f) || (BREG(2)))) {
-                Player_SetCsActionWithHaltedActors(play, NULL, PLAYER_CSACTION_8);
-                chu->timer = 1;
+        chuPosDiff.x = chu->actor.world.pos.x - this->actor.world.pos.x;
+        chuPosDiff.y = chu->actor.world.pos.y - this->actor.world.pos.y;
+        chuPosDiff.z = chu->actor.world.pos.z - this->actor.world.pos.z;
 
-                this->subCamId = Play_CreateSubCamera(play);
-                Play_ChangeCameraStatus(play, CAM_ID_MAIN, CAM_STAT_WAIT);
-                Play_ChangeCameraStatus(play, this->subCamId, CAM_STAT_ACTIVE);
+        if (((fabsf(chuPosDiff.x) < 40.0f) || (BREG(2))) && ((fabsf(chuPosDiff.y) < 40.0f) || (BREG(2))) &&
+            ((fabsf(chuPosDiff.z) < 40.0f) || (BREG(2)))) {
+            Player_SetCsActionWithHaltedActors(play, NULL, PLAYER_CSACTION_8);
+            chu->timer = 1;
 
-                this->subCamAtMaxVelFrac.x = this->subCamAtMaxVelFrac.y = this->subCamAtMaxVelFrac.z = 0.1f;
-                this->subCamEyeMaxVelFrac.x = this->subCamEyeMaxVelFrac.y = this->subCamEyeMaxVelFrac.z = 0.1f;
+            this->subCamId = Play_CreateSubCamera(play);
+            Play_ChangeCameraStatus(play, CAM_ID_MAIN, CAM_STAT_WAIT);
+            Play_ChangeCameraStatus(play, this->subCamId, CAM_STAT_ACTIVE);
 
-                this->subCamAt.x = this->viewAt.x = play->view.at.x;
-                this->subCamAt.y = this->viewAt.y = play->view.at.y;
-                this->subCamAt.z = this->viewAt.z = play->view.at.z;
+            this->subCamAtMaxVelFrac.x = this->subCamAtMaxVelFrac.y = this->subCamAtMaxVelFrac.z = 0.1f;
+            this->subCamEyeMaxVelFrac.x = this->subCamEyeMaxVelFrac.y = this->subCamEyeMaxVelFrac.z = 0.1f;
 
-                this->subCamEye.x = this->viewEye.x = play->view.eye.x;
-                this->subCamEye.y = this->viewEye.y = play->view.eye.y;
-                this->subCamEye.z = this->viewEye.z = play->view.eye.z;
+            this->subCamAt.x = this->viewAt.x = play->view.at.x;
+            this->subCamAt.y = this->viewAt.y = play->view.at.y;
+            this->subCamAt.z = this->viewAt.z = play->view.at.z;
 
-                this->subCamAtNext.x = 20.0f;
-                this->subCamAtNext.y = 100.0f;
-                this->subCamAtNext.z = -800.0f;
+            this->subCamEye.x = this->viewEye.x = play->view.eye.x;
+            this->subCamEye.y = this->viewEye.y = play->view.eye.y;
+            this->subCamEye.z = this->viewEye.z = play->view.eye.z;
 
-                this->subCamEyeNext.x = 20.0f;
-                this->subCamEyeNext.y = 50.0f;
-                this->subCamEyeNext.z = -485.0f;
+            this->subCamAtNext.x = 20.0f;
+            this->subCamAtNext.y = 100.0f;
+            this->subCamAtNext.z = -800.0f;
 
-                this->subCamEyeVel.x = fabsf(this->subCamEye.x - this->subCamEyeNext.x) * 0.02f;
-                this->subCamEyeVel.y = fabsf(this->subCamEye.y - this->subCamEyeNext.y) * 0.02f;
-                this->subCamEyeVel.z = fabsf(this->subCamEye.z - this->subCamEyeNext.z) * 0.02f;
+            this->subCamEyeNext.x = 20.0f;
+            this->subCamEyeNext.y = 50.0f;
+            this->subCamEyeNext.z = -485.0f;
 
-                this->subCamAtVel.x = fabsf(this->subCamAt.x - this->subCamAtNext.x) * 0.02f;
-                this->subCamAtVel.y = fabsf(this->subCamAt.y - this->subCamAtNext.y) * 0.02f;
-                this->subCamAtVel.z = fabsf(this->subCamAt.z - this->subCamAtNext.z) * 0.02f;
+            this->subCamEyeVel.x = fabsf(this->subCamEye.x - this->subCamEyeNext.x) * 0.02f;
+            this->subCamEyeVel.y = fabsf(this->subCamEye.y - this->subCamEyeNext.y) * 0.02f;
+            this->subCamEyeVel.z = fabsf(this->subCamEye.z - this->subCamEyeNext.z) * 0.02f;
 
-                Play_SetCameraAtEye(play, this->subCamId, &this->subCamAt, &this->subCamEye);
-                this->actor.textId = 0xF;
-                Message_StartTextbox(play, this->actor.textId, NULL);
-                this->unk_154 = TEXT_STATE_EVENT;
-                Sfx_PlaySfxCentered(NA_SE_EV_HIT_SOUND);
-                Player_SetCsActionWithHaltedActors(play, NULL, PLAYER_CSACTION_8);
-                this->status = 1;
-                this->actionFunc = EnBomBowlPit_CameraDollyIn;
-                break;
-            } else {
-                chu = (EnBomChu*)chu->actor.next;
-            }
+            this->subCamAtVel.x = fabsf(this->subCamAt.x - this->subCamAtNext.x) * 0.02f;
+            this->subCamAtVel.y = fabsf(this->subCamAt.y - this->subCamAtNext.y) * 0.02f;
+            this->subCamAtVel.z = fabsf(this->subCamAt.z - this->subCamAtNext.z) * 0.02f;
+
+            Play_SetCameraAtEye(play, this->subCamId, &this->subCamAt, &this->subCamEye);
+            this->actor.textId = 0xF;
+            Message_StartTextbox(play, this->actor.textId, NULL);
+            this->unk_154 = TEXT_STATE_EVENT;
+            Sfx_PlaySfxCentered(NA_SE_EV_HIT_SOUND);
+            Player_SetCsActionWithHaltedActors(play, NULL, PLAYER_CSACTION_8);
+            this->status = 1;
+            this->actionFunc = EnBomBowlPit_CameraDollyIn;
+            break;
+        } else {
+            chu = (EnBomChu*)chu->actor.next;
         }
     }
 }

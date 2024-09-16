@@ -5,6 +5,7 @@
  */
 
 #include "z_en_zf.h"
+#include "versions.h"
 #include "assets/objects/object_zf/object_zf.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_4)
@@ -1738,7 +1739,9 @@ void EnZf_JumpUp(EnZf* this, PlayState* play) {
             this->actor.speed = 0.0f;
             this->actor.world.pos.y = this->actor.floorHeight;
             EnZf_SetupSlash(this);
+#if OOT_VERSION >= NTSC_1_0
             Actor_PlaySfx(&this->actor, NA_SE_EN_RIZA_ATTACK);
+#endif
             this->skelAnime.curFrame = 13.0f;
         }
     }

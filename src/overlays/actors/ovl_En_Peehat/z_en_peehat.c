@@ -1,4 +1,5 @@
 #include "z_en_peehat.h"
+#include "versions.h"
 #include "assets/objects/object_peehat/object_peehat.h"
 #include "overlays/actors/ovl_En_Bom/z_en_bom.h"
 #include "overlays/effects/ovl_Effect_Ss_Hahen/z_eff_ss_hahen.h"
@@ -969,16 +970,32 @@ void EnPeehat_Update(Actor* thisx, PlayState* play) {
                 }
             }
         }
-        if (thisx->params != PEAHAT_TYPE_FLYING && this->colQuad.base.atFlags & AT_HIT) {
+
+#if OOT_VERSION < NTSC_1_0
+        if (this->colQuad.base.atFlags & AT_HIT)
+#else
+        if (thisx->params != PEAHAT_TYPE_FLYING && this->colQuad.base.atFlags & AT_HIT)
+#endif
+        {
             this->colQuad.base.atFlags &= ~AT_HIT;
             if (&player->actor == this->colQuad.base.at) {
                 EnPeehat_SetStateAttackRecoil(this);
             }
         }
     }
+
+#if OOT_VERSION < NTSC_1_0
+    if (this->state == PEAHAT_STATE_15 || this->state == PEAHAT_STATE_SEEK_PLAYER ||
+        this->state == PEAHAT_STATE_RETURN_HOME || this->state == PEAHAT_STATE_EXPLODE)
+#else
     if (this->state == PEAHAT_STATE_15 || this->state == PEAHAT_STATE_SEEK_PLAYER || this->state == PEAHAT_STATE_FLY ||
-        this->state == PEAHAT_STATE_RETURN_HOME || this->state == PEAHAT_STATE_EXPLODE) {
-        if (thisx->params != PEAHAT_TYPE_FLYING) {
+        this->state == PEAHAT_STATE_RETURN_HOME || this->state == PEAHAT_STATE_EXPLODE)
+#endif
+    {
+#if OOT_VERSION >= NTSC_1_0
+        if (thisx->params != PEAHAT_TYPE_FLYING)
+#endif
+        {
             CollisionCheck_SetAT(play, &play->colChkCtx, &this->colQuad.base);
             CollisionCheck_SetAC(play, &play->colChkCtx, &this->colQuad.base);
         }
@@ -994,8 +1011,13 @@ void EnPeehat_Update(Actor* thisx, PlayState* play) {
                     EnPeehat_SpawnDust(play, this, &posResult, 0.0f, 3, 1.05f, 1.5f);
                 }
             }
-        } else if (thisx->params != PEAHAT_TYPE_FLYING) {
-            CollisionCheck_SetAC(play, &play->colChkCtx, &this->colCylinder.base);
+        } else {
+#if OOT_VERSION >= NTSC_1_0
+            if (thisx->params != PEAHAT_TYPE_FLYING)
+#endif
+            {
+                CollisionCheck_SetAC(play, &play->colChkCtx, &this->colCylinder.base);
+            }
         }
     } else {
         CollisionCheck_SetAC(play, &play->colChkCtx, &this->colCylinder.base);

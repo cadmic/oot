@@ -117,7 +117,14 @@ void func_801C83A0(struct_801E0D18* arg0);
 void func_801C8414(struct_801E0D18* arg0);
 s32 func_801C873C(struct_801E0D18* arg0);
 
+#if OOT_VERSION >= NTSC_1_0
 void func_801C8AA8(void);
+#endif
+
+#if OOT_VERSION < NTSC_1_0
+void func_801C8830_ner(void);
+#endif
+
 s32 func_801C91E0(struct_801E0D18*);
 s32 func_801C9260(struct_801E0D18*);
 s32 func_801C9334(struct_801E0D18*);

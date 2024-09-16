@@ -9,7 +9,7 @@
 #endif
 
 #pragma increment_block_number "gc-eu:0 gc-eu-mq:0 gc-jp:128 gc-jp-ce:128 gc-jp-mq:128 gc-us:128 gc-us-mq:128" \
-                               "ntsc-1.0:144 ntsc-1.1:144 ntsc-1.2:128"
+                               "ntsc-0.9:128 ntsc-1.0:144 ntsc-1.1:144 ntsc-1.2:128"
 
 #if !PLATFORM_GC
 #define OCARINA_BUTTON_A_PRIM_1_R 80

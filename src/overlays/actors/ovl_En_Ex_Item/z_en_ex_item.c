@@ -8,6 +8,7 @@
 #include "overlays/actors/ovl_En_Bom_Bowl_Pit/z_en_bom_bowl_pit.h"
 #include "assets/objects/gameplay_keep/gameplay_keep.h"
 #include "terminal.h"
+#include "versions.h"
 
 #define FLAGS (ACTOR_FLAG_4 | ACTOR_FLAG_5)
 
@@ -385,6 +386,10 @@ void EnExItem_TargetPrizeApproach(EnExItem* this, PlayState* play) {
     } else {
         s32 getItemId;
 
+#if OOT_VERSION < NTSC_1_0
+        SET_ITEMGETINF(ITEMGETINF_1D);
+#endif
+
         this->actor.draw = NULL;
         Player_SetCsActionWithHaltedActors(play, NULL, PLAYER_CSACTION_7);
         this->actor.parent = NULL;
@@ -414,7 +419,9 @@ void EnExItem_TargetPrizeFinish(EnExItem* this, PlayState* play) {
     if ((Message_GetState(&play->msgCtx) == TEXT_STATE_DONE) && Message_ShouldAdvance(play)) {
         // "Successful completion"
         PRINTF(VT_FGCOL(GREEN) "☆☆☆☆☆ 正常終了 ☆☆☆☆☆ \n" VT_RST);
+#if OOT_VERSION >= NTSC_1_0
         SET_ITEMGETINF(ITEMGETINF_1D);
+#endif
         Actor_Kill(&this->actor);
     }
 }

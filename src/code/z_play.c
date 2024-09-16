@@ -9,8 +9,8 @@
 
 #include "z64frame_advance.h"
 
-#pragma increment_block_number "gc-eu:8 gc-eu-mq:8 gc-jp:8 gc-jp-ce:8 gc-jp-mq:8 gc-us:8 gc-us-mq:8 ntsc-1.0:112" \
-                               "ntsc-1.1:112 ntsc-1.2:112"
+#pragma increment_block_number "gc-eu:8 gc-eu-mq:8 gc-jp:8 gc-jp-ce:8 gc-jp-mq:8 gc-us:8 gc-us-mq:8 ntsc-0.9:112" \
+                               "ntsc-1.0:112 ntsc-1.1:112 ntsc-1.2:112"
 
 TransitionTile gTransitionTile;
 s32 gTransitionTileState;

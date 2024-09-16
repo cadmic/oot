@@ -12,7 +12,7 @@
 #include "assets/objects/object_bdoor/object_bdoor.h"
 
 #pragma increment_block_number "gc-eu:128 gc-eu-mq:128 gc-jp:128 gc-jp-ce:128 gc-jp-mq:128 gc-us:128 gc-us-mq:128" \
-                               "ntsc-1.0:0 ntsc-1.1:0 ntsc-1.2:0"
+                               "ntsc-0.9:0 ntsc-1.0:0 ntsc-1.1:0 ntsc-1.2:0"
 
 static CollisionPoly* sCurCeilingPoly;
 static s32 sCurCeilingBgId;
@@ -1104,7 +1104,11 @@ int func_8002DD78(Player* player) {
 int func_8002DDA8(PlayState* play) {
     Player* player = GET_PLAYER(play);
 
+#if OOT_VERSION < NTSC_1_0
+    return (player->stateFlags1 & (PLAYER_STATE1_ACTOR_CARRY | PLAYER_STATE1_2)) || func_8002DD78(player);
+#else
     return (player->stateFlags1 & PLAYER_STATE1_ACTOR_CARRY) || func_8002DD78(player);
+#endif
 }
 
 s32 func_8002DDE4(PlayState* play) {
@@ -2021,7 +2025,7 @@ s32 func_8002F9EC(PlayState* play, Actor* actor, CollisionPoly* poly, s32 bgId, 
 }
 
 #pragma increment_block_number "gc-eu:22 gc-eu-mq:22 gc-jp:22 gc-jp-ce:22 gc-jp-mq:22 gc-us:22 gc-us-mq:22" \
-                               "ntsc-1.0:22 ntsc-1.1:22 ntsc-1.2:22"
+                               "ntsc-0.9:22 ntsc-1.0:22 ntsc-1.1:22 ntsc-1.2:22"
 
 // Local data used for Farore's Wind light (stored in BSS)
 LightInfo D_8015BC00;
@@ -2255,6 +2259,7 @@ void Actor_InitContext(PlayState* play, ActorContext* actorCtx, ActorEntry* play
     func_8002FA60(play);
 }
 
+// clang-format off
 u32 sCategoryFreezeMasks[ACTORCAT_MAX] = {
     // ACTORCAT_SWITCH
     PLAYER_STATE1_6 | PLAYER_STATE1_7 | PLAYER_STATE1_28,
@@ -2263,7 +2268,11 @@ u32 sCategoryFreezeMasks[ACTORCAT_MAX] = {
     // ACTORCAT_PLAYER
     0,
     // ACTORCAT_EXPLOSIVE
+#if OOT_VERSION < NTSC_1_0
+    PLAYER_STATE1_6 | PLAYER_STATE1_7 | PLAYER_STATE1_28,
+#else
     PLAYER_STATE1_6 | PLAYER_STATE1_7 | PLAYER_STATE1_10 | PLAYER_STATE1_28,
+#endif
     // ACTORCAT_NPC
     PLAYER_STATE1_7,
     // ACTORCAT_ENEMY
@@ -2275,12 +2284,17 @@ u32 sCategoryFreezeMasks[ACTORCAT_MAX] = {
     // ACTORCAT_MISC
     PLAYER_STATE1_6 | PLAYER_STATE1_7 | PLAYER_STATE1_28 | PLAYER_STATE1_29,
     // ACTORCAT_BOSS
+#if OOT_VERSION < NTSC_1_0
+    PLAYER_STATE1_6 | PLAYER_STATE1_7 | PLAYER_STATE1_28,
+#else
     PLAYER_STATE1_6 | PLAYER_STATE1_7 | PLAYER_STATE1_10 | PLAYER_STATE1_28,
+#endif
     // ACTORCAT_DOOR
     0,
     // ACTORCAT_CHEST
     PLAYER_STATE1_6 | PLAYER_STATE1_7 | PLAYER_STATE1_28,
 };
+// clang-format on
 
 void Actor_UpdateAll(PlayState* play, ActorContext* actorCtx) {
     s32 i;
@@ -2339,9 +2353,11 @@ void Actor_UpdateAll(PlayState* play, ActorContext* actorCtx) {
 
         actor = actorCtx->actorLists[i].head;
         while (actor != NULL) {
+#if OOT_VERSION >= NTSC_1_0
             if (actor->world.pos.y < -25000.0f) {
                 actor->world.pos.y = -25000.0f;
             }
+#endif
 
             actor->sfx = 0;
 
@@ -5925,11 +5941,14 @@ s32 func_80037D98(PlayState* play, Actor* actor, s16 arg2, s32* arg3) {
     s16 sp2C;
     s16 sp2A;
     s16 abs_var;
+    s32 pad;
 
+#if OOT_VERSION >= NTSC_1_0
     if (Actor_TalkOfferAccepted(actor, play)) {
         *arg3 = 1;
         return true;
     }
+#endif
 
     if (*arg3 == 1) {
         if (func_80037CB8(play, actor, arg2)) {
@@ -5954,6 +5973,13 @@ s32 func_80037D98(PlayState* play, Actor* actor, s16 arg2, s32* arg3) {
     if ((actor->xyzDistToPlayerSq > SQ(160.0f)) && !actor->isLockedOn) {
         return false;
     }
+
+#if OOT_VERSION < NTSC_1_0
+    if (Actor_TalkOfferAccepted(actor, play)) {
+        *arg3 = 1;
+        return true;
+    }
+#endif
 
     if (actor->xyzDistToPlayerSq <= SQ(80.0f)) {
         if (Actor_OfferTalk(actor, play, 80.0f)) {

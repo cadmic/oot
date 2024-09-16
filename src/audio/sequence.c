@@ -417,7 +417,12 @@ u16 Audio_GetActiveSeqId(u8 seqPlayerIndex) {
 s32 Audio_IsSeqCmdNotQueued(u32 cmdVal, u32 cmdMask) {
     u8 i;
 
-    for (i = gSeqCmdReadPos; i != gSeqCmdWritePos; i++) {
+#if OOT_VERSION < NTSC_1_0
+    for (i = gSeqCmdReadPos; i < gSeqCmdWritePos; i++)
+#else
+    for (i = gSeqCmdReadPos; i != gSeqCmdWritePos; i++)
+#endif
+    {
         if ((sAudioSeqCmds[i] & cmdMask) == cmdVal) {
             return false;
         }

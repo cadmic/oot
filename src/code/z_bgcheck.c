@@ -1,7 +1,7 @@
 #include "global.h"
 #include "terminal.h"
 
-#pragma increment_block_number "ntsc-1.0:168 ntsc-1.1:168 ntsc-1.2:168"
+#pragma increment_block_number "ntsc-0.9:168 ntsc-1.0:168 ntsc-1.1:168 ntsc-1.2:168"
 
 u16 DynaSSNodeList_GetNextNodeIdx(DynaSSNodeList* nodeList);
 void BgCheck_GetStaticLookupIndicesFromPos(CollisionContext* colCtx, Vec3f* pos, Vec3i* sector);

@@ -7,6 +7,7 @@
 #include "z_en_ru1.h"
 #include "assets/objects/object_ru1/object_ru1.h"
 #include "terminal.h"
+#include "versions.h"
 #include "overlays/actors/ovl_Demo_Effect/z_demo_effect.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_4 | ACTOR_FLAG_26)
@@ -234,8 +235,13 @@ void func_80AEAECC(EnRu1* this, PlayState* play) {
     f32 velocityYHeld = *velocityY;
 
     *velocityY = -4.0f;
+#if OOT_VERSION < NTSC_1_0
+    Actor_UpdateBgCheckInfo(play, &this->actor, 15.0f, 25.0f, 30.0f,
+                            UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_1 | UPDBGCHECKINFO_FLAG_2);
+#else
     Actor_UpdateBgCheckInfo(play, &this->actor, 19.0f, 25.0f, 30.0f,
                             UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_1 | UPDBGCHECKINFO_FLAG_2);
+#endif
     *velocityY = velocityYHeld;
 }
 
@@ -823,7 +829,12 @@ s32 func_80AEC5FC(EnRu1* this, PlayState* play) {
     f32 thisPosZ = this->actor.world.pos.z;
     f32 playerPosZ = player->actor.world.pos.z;
 
-    if ((playerPosZ - thisPosZ <= 265.0f) && (player->actor.world.pos.y >= this->actor.world.pos.y)) {
+#if OOT_VERSION < NTSC_1_0
+    if (playerPosZ - thisPosZ <= 265.0f)
+#else
+    if ((playerPosZ - thisPosZ <= 265.0f) && (player->actor.world.pos.y >= this->actor.world.pos.y))
+#endif
+    {
         return true;
     }
     return false;
@@ -857,6 +868,13 @@ void func_80AEC780(EnRu1* this, PlayState* play) {
     s32 pad;
     Player* player = GET_PLAYER(play);
 
+#if OOT_VERSION < NTSC_1_0
+    if ((func_80AEC5FC(this, play)) && (!Play_InCsMode(play))) {
+        play->csCtx.script = D_80AF0880;
+        gSaveContext.cutsceneTrigger = 1;
+        this->action = 8;
+    }
+#else
     if ((func_80AEC5FC(this, play)) && (!Play_InCsMode(play)) &&
         (!(player->stateFlags1 & (PLAYER_STATE1_13 | PLAYER_STATE1_14 | PLAYER_STATE1_21))) &&
         (player->actor.bgCheckFlags & BGCHECKFLAG_GROUND)) {
@@ -866,6 +884,7 @@ void func_80AEC780(EnRu1* this, PlayState* play) {
         player->speedXZ = 0.0f;
         this->action = 8;
     }
+#endif
 }
 
 void func_80AEC81C(EnRu1* this, PlayState* play) {
@@ -1331,7 +1350,12 @@ void func_80AEDB30(EnRu1* this, PlayState* play) {
     f32* speedXZ;
     f32* gravity;
 
-    if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) {
+#if OOT_VERSION < NTSC_1_0
+    if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND_STRICT)
+#else
+    if (this->actor.bgCheckFlags & BGCHECKFLAG_GROUND)
+#endif
+    {
         DynaPolyActor* dynaPolyActor;
 
         velocityY = &this->actor.velocity.y;

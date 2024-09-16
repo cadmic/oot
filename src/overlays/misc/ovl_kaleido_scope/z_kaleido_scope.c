@@ -15,7 +15,7 @@
 #include "assets/textures/icon_item_gameover_static/icon_item_gameover_static.h"
 #include "terminal.h"
 
-#pragma increment_block_number "ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
+#pragma increment_block_number "ntsc-0.9:128 ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
 
 #if !PLATFORM_GC
 #define KALEIDO_PROMPT_CURSOR_R 100
@@ -3405,7 +3405,9 @@ void KaleidoScope_Update(PlayState* play) {
             D_808321A8[3] = gSaveContext.buttonStatus[3];
             D_808321A8[4] = gSaveContext.buttonStatus[4];
 
+#if OOT_VERSION >= NTSC_1_0
             pauseCtx->cursorX[PAUSE_MAP] = 0;
+#endif
             pauseCtx->cursorSlot[PAUSE_MAP] = pauseCtx->cursorPoint[PAUSE_MAP] = pauseCtx->dungeonMapSlot =
                 VREG(30) + 3;
 
@@ -3858,7 +3860,9 @@ void KaleidoScope_Update(PlayState* play) {
                         break;
                     } else if (CHECK_BTN_ALL(input->press.button, BTN_B)) {
                         AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_OFF);
+#if OOT_VERSION >= NTSC_1_0
                         pauseCtx->mainState = PAUSE_MAIN_STATE_IDLE;
+#endif
                         pauseCtx->nextPageMode = 0;
                         pauseCtx->promptChoice = 0;
                         Audio_PlaySfxGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
@@ -3908,7 +3912,9 @@ void KaleidoScope_Update(PlayState* play) {
                         pauseCtx->mainState = PAUSE_MAIN_STATE_IDLE;
                     } else if (CHECK_BTN_ALL(input->press.button, BTN_B)) {
                         AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_OFF);
+#if OOT_VERSION >= NTSC_1_0
                         pauseCtx->mainState = PAUSE_MAIN_STATE_IDLE;
+#endif
                         pauseCtx->nextPageMode = 0;
                         pauseCtx->promptChoice = 0;
                         Audio_PlaySfxGeneral(NA_SE_SY_DECIDE, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,

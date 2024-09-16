@@ -7,7 +7,7 @@
 #define GFXPOOL_TAIL_MAGIC 0x5678
 
 #pragma increment_block_number "gc-eu:128 gc-eu-mq:128 gc-jp:128 gc-jp-ce:128 gc-jp-mq:128 gc-us:128 gc-us-mq:128" \
-                               "ntsc-1.0:224 ntsc-1.1:224 ntsc-1.2:223"
+                               "ntsc-0.9:192 ntsc-1.0:224 ntsc-1.1:224 ntsc-1.2:223"
 
 /**
  * The time at which the previous `Graph_Update` ended.

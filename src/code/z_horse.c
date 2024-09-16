@@ -70,8 +70,12 @@ void func_8006D0EC(PlayState* play, Player* player) {
         horseActor->room = -1;
     } else if ((gSaveContext.save.entranceIndex == ENTR_LON_LON_RANCH_7) &&
                GET_EVENTCHKINF(EVENTCHKINF_EPONA_OBTAINED)) {
+#if OOT_VERSION < NTSC_1_0
+        Actor* horseActor = Actor_Spawn(&play->actorCtx, play, ACTOR_EN_HORSE, -25.0f, 0.0f, -1600.0f, 0, 0x0000, 0, 1);
+#else
         Actor* horseActor =
             Actor_Spawn(&play->actorCtx, play, ACTOR_EN_HORSE, -25.0f, 0.0f, -1600.0f, 0, -0x4000, 0, 1);
+#endif
         ASSERT(horseActor != NULL, "horse_actor != NULL", "../z_horse.c", 389);
     } else if ((play->sceneId == gSaveContext.save.info.horseData.sceneId) &&
                (Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) || DREG(1) != 0)) {
@@ -254,6 +258,16 @@ void func_8006DC68(PlayState* play, Player* player) {
         }
 
         if (func_8006CFC0(play->sceneId)) {
+#if OOT_VERSION < NTSC_1_0
+            if ((gSaveContext.save.cutsceneIndex != 0x8000 && gSaveContext.save.cutsceneIndex != 0) ||
+                ((gSaveContext.save.entranceIndex == ENTR_HYRULE_FIELD_11 ||
+                  gSaveContext.save.entranceIndex == ENTR_HYRULE_FIELD_12 ||
+                  gSaveContext.save.entranceIndex == ENTR_HYRULE_FIELD_13 ||
+                  gSaveContext.save.entranceIndex == ENTR_HYRULE_FIELD_15) &&
+                 (gSaveContext.respawnFlag == 0)) ||
+                ((play->sceneId == SCENE_LON_LON_RANCH) && (GET_EVENTINF_HORSES_STATE() == EVENTINF_HORSES_STATE_6) &&
+                 !Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) && (DREG(1) == 0)))
+#else
             if (IS_CUTSCENE_LAYER ||
                 ((gSaveContext.save.entranceIndex == ENTR_HYRULE_FIELD_11 ||
                   gSaveContext.save.entranceIndex == ENTR_HYRULE_FIELD_12 ||
@@ -261,7 +275,9 @@ void func_8006DC68(PlayState* play, Player* player) {
                   gSaveContext.save.entranceIndex == ENTR_HYRULE_FIELD_15) &&
                  (gSaveContext.respawnFlag == 0)) ||
                 ((play->sceneId == SCENE_LON_LON_RANCH) && (GET_EVENTINF_HORSES_STATE() == EVENTINF_HORSES_STATE_6) &&
-                 !Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) && (DREG(1) == 0))) {
+                 !Flags_GetEventChkInf(EVENTCHKINF_EPONA_OBTAINED) && (DREG(1) == 0)))
+#endif
+            {
                 func_8006D684(play, player);
             } else {
                 func_8006D0EC(play, player);

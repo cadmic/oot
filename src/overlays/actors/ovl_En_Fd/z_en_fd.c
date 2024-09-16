@@ -213,9 +213,11 @@ static AnimationInfo sAnimationInfo[] = {
 };
 
 s32 EnFd_SpawnCore(EnFd* this, PlayState* play) {
+#if OOT_VERSION >= NTSC_1_0
     if (this->invincibilityTimer != 0) {
         return false;
     }
+#endif
 
     if (Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_EN_FW, this->corePos.x, this->corePos.y,
                            this->corePos.z, 0, this->actor.shape.rot.y, 0, this->runDir) == NULL) {
@@ -281,11 +283,19 @@ s32 EnFd_ColliderCheck(EnFd* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     ColliderElement* elem;
 
+#if OOT_VERSION < NTSC_1_0
+    if (this->invincibilityTimer != 0) {
+        return false;
+    }
+#endif
+
     if (this->collider.base.acFlags & AC_HIT || EnFd_CheckHammer(this, play)) {
         this->collider.base.acFlags &= ~AC_HIT;
+#if OOT_VERSION >= NTSC_1_0
         if (this->invincibilityTimer != 0) {
             return false;
         }
+#endif
         elem = &this->collider.elements[0].base;
         if (elem->acHitElem != NULL && (elem->acHitElem->atDmgInfo.dmgFlags & DMG_HOOKSHOT)) {
             return false;
@@ -301,9 +311,11 @@ s32 EnFd_ColliderCheck(EnFd* this, PlayState* play) {
         return true;
     } else if (DECR(this->attackTimer) == 0 && this->collider.base.atFlags & AT_HIT) {
         this->collider.base.atFlags &= ~AT_HIT;
+#if OOT_VERSION >= NTSC_1_0
         if (this->invincibilityTimer != 0) {
             return false;
         }
+#endif
 
         if (this->collider.base.atFlags & AT_BOUNCED) {
             return false;
@@ -682,8 +694,13 @@ void EnFd_Update(Actor* thisx, PlayState* play) {
     }
     Actor_MoveXZGravity(&this->actor);
     Actor_UpdateBgCheckInfo(play, &this->actor, 0.0f, 0.0f, 0.0f, UPDBGCHECKINFO_FLAG_2);
+#if OOT_VERSION < NTSC_1_0
+    this->actionFunc(this, play);
+    EnFd_Fade(this, play);
+#else
     EnFd_Fade(this, play);
     this->actionFunc(this, play);
+#endif
     EnFd_UpdateEffectsDots(this);
     EnFd_UpdateEffectsFlames(this);
     if (this->actionFunc != EnFd_Reappear && this->actionFunc != EnFd_SpinAndGrow &&

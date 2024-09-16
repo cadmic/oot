@@ -98,6 +98,9 @@ void EnTorch2_Init(Actor* thisx, PlayState* play2) {
     sInput.cur.stick_x = sInput.cur.stick_y = 0;
     this->currentShield = PLAYER_SHIELD_HYLIAN;
     this->heldItemAction = this->heldItemId = PLAYER_IA_SWORD_MASTER;
+#if OOT_VERSION < NTSC_1_0
+    this->stateFlags1 |= PLAYER_STATE1_2;
+#endif
     Player_SetModelGroup(this, PLAYER_MODELGROUP_SWORD_AND_SHIELD);
     play->playerInit(this, play, &gDarkLinkSkel);
     this->actor.naviEnemyId = NAVI_ENEMY_DARK_LINK;
@@ -214,11 +217,22 @@ void EnTorch2_Update(Actor* thisx, PlayState* play2) {
     attackItem = EnTorch2_GetAttackItem(play, this);
     switch (sActionState) {
         case ENTORCH2_WAIT:
+#if OOT_VERSION < NTSC_1_0
+            if ((this->actor.xzDistToPlayer <= 120.0f) || Actor_IsLockedOn(play, &this->actor) ||
+                (attackItem != NULL)) {
+                if (attackItem != NULL) {
+                    EnTorch2_Backflip(this, input, &this->actor);
+                }
+                func_800F5ACC(NA_BGM_MINI_BOSS);
+                sActionState = ENTORCH2_ATTACK;
+            }
+#endif
             this->actor.shape.rot.y = this->actor.world.rot.y = this->actor.yawTowardsPlayer;
             this->skelAnime.curFrame = 0.0f;
             this->skelAnime.playSpeed = 0.0f;
             this->actor.world.pos.x = (Math_SinS(this->actor.world.rot.y) * 25.0f) + sSpawnPoint.x;
             this->actor.world.pos.z = (Math_CosS(this->actor.world.rot.y) * 25.0f) + sSpawnPoint.z;
+#if OOT_VERSION >= NTSC_1_0
             if ((this->actor.xzDistToPlayer <= 120.0f) || Actor_IsLockedOn(play, &this->actor) ||
                 (attackItem != NULL)) {
                 if (attackItem != NULL) {
@@ -236,6 +250,7 @@ void EnTorch2_Update(Actor* thisx, PlayState* play2) {
                 func_800F5ACC(NA_BGM_MINI_BOSS);
                 sActionState = ENTORCH2_ATTACK;
             }
+#endif
             break;
 
         case ENTORCH2_ATTACK:
@@ -493,7 +508,9 @@ void EnTorch2_Update(Actor* thisx, PlayState* play2) {
                 this->actor.world.pos.y = sSpawnPoint.y + 40.0f;
                 this->actor.world.pos.x = (Math_SinS(player->actor.shape.rot.y) * -120.0f) + player->actor.world.pos.x;
                 this->actor.world.pos.z = (Math_CosS(player->actor.shape.rot.y) * -120.0f) + player->actor.world.pos.z;
-#if OOT_VERSION < NTSC_1_2
+#if OOT_VERSION < NTSC_1_0
+                if (Actor_WorldDistXYZToPoint(&this->actor, &this->actor.home.pos) > 1000.0f)
+#elif OOT_VERSION < NTSC_1_2
                 if (Actor_WorldDistXYZToPoint(&this->actor, &sSpawnPoint) > 1000.0f)
 #else
                 if (Actor_WorldDistXYZToPoint(&this->actor, &sSpawnPoint) > 800.0f)
@@ -547,7 +564,12 @@ void EnTorch2_Update(Actor* thisx, PlayState* play2) {
         input->cur.button = BTN_R;
     }
 
-    if ((sActionState == ENTORCH2_ATTACK) && (this->actor.xzDistToPlayer <= 610.0f) && sZTargetFlag) {
+#if OOT_VERSION < NTSC_1_0
+    if ((sActionState == ENTORCH2_ATTACK) && sZTargetFlag)
+#else
+    if ((sActionState == ENTORCH2_ATTACK) && (this->actor.xzDistToPlayer <= 610.0f) && sZTargetFlag)
+#endif
+    {
         input->cur.button |= BTN_Z;
     }
 

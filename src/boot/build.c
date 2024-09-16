@@ -6,7 +6,9 @@ const char gBuildCreator[] = "zelda@srd44";
 const char gBuildCreator[] = "zelda@srd022j";
 #endif
 
-#if OOT_VERSION == NTSC_1_0
+#if OOT_VERSION == NTSC_0_9
+const char gBuildDate[] = "98-10-18 23:05:00";
+#elif OOT_VERSION == NTSC_1_0
 const char gBuildDate[] = "98-10-21 04:56:31";
 #elif OOT_VERSION == NTSC_1_1
 const char gBuildDate[] = "98-10-26 10:58:45";

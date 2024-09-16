@@ -774,7 +774,7 @@ assets:
 - name: objects/object_spot17_obj
   xml_path: assets/xml/objects/object_spot17_obj.xml
 - name: objects/object_spot18_obj
-  xml_path: assets/xml/objects/object_spot18_obj.xml
+  xml_path: assets/xml/objects/object_spot18_obj_v2.xml
 - name: objects/object_ssh
   xml_path: assets/xml/objects/object_ssh.xml
 - name: objects/object_sst

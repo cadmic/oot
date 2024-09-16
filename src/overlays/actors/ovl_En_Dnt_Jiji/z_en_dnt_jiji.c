@@ -9,12 +9,13 @@
 #include "overlays/actors/ovl_En_Dnt_Demo/z_en_dnt_demo.h"
 #include "overlays/effects/ovl_Effect_Ss_Hahen/z_eff_ss_hahen.h"
 #include "terminal.h"
+#include "versions.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_NEUTRAL | ACTOR_FLAG_4)
 
 void EnDntJiji_Init(Actor* thisx, PlayState* play);
 void EnDntJiji_Destroy(Actor* thisx, PlayState* play);
-void EnDntJiji_Update(Actor* thisx, PlayState* play);
+void EnDntJiji_Update(Actor* thisx, PlayState* play2);
 void EnDntJiji_Draw(Actor* thisx, PlayState* play);
 
 void EnDntJiji_SetFlower(EnDntJiji* this, PlayState* play);
@@ -52,6 +53,24 @@ ActorProfile En_Dnt_Jiji_Profile = {
 };
 
 static ColliderCylinderInit sCylinderInit = {
+#if OOT_VERSION < NTSC_1_0
+    {
+        COL_MATERIAL_NONE,
+        AT_NONE,
+        AC_ON | AC_TYPE_PLAYER,
+        OC1_ON | OC1_TYPE_ALL,
+        OC2_TYPE_2,
+        COLSHAPE_CYLINDER,
+    },
+    {
+        ELEMTYPE_UNK0,
+        { 0xFFCFFFFF, 0x00, 0x00 },
+        { 0xFFCFFFFF, 0x00, 0x00 },
+        ATELEM_NONE,
+        ACELEM_ON,
+        OCELEM_ON,
+    },
+#else
     {
         COL_MATERIAL_NONE,
         AT_NONE,
@@ -68,6 +87,7 @@ static ColliderCylinderInit sCylinderInit = {
         ACELEM_NONE,
         OCELEM_ON,
     },
+#endif
     { 30, 80, 0, { 0, 0, 0 } },
 };
 
@@ -115,6 +135,14 @@ void EnDntJiji_Wait(EnDntJiji* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
     SkelAnime_Update(&this->skelAnime);
+
+#if OOT_VERSION < NTSC_1_0
+    if (this->timer == 1) {
+        OnePointCutscene_Init(play, 2230, -99, &this->actor, CAM_ID_MAIN);
+        Player_SetCsActionWithHaltedActors(play, NULL, PLAYER_CSACTION_8);
+        this->actionFunc = EnDntJiji_SetupUnburrow;
+    }
+#else
     if ((this->timer == 1) && (this->actor.xzDistToPlayer < 150.0f) && !Play_InCsMode(play) &&
         !(player->stateFlags1 & PLAYER_STATE1_ACTOR_CARRY)) {
         OnePointCutscene_Init(play, 2230, -99, &this->actor, CAM_ID_MAIN);
@@ -122,6 +150,7 @@ void EnDntJiji_Wait(EnDntJiji* this, PlayState* play) {
         Player_SetCsActionWithHaltedActors(play, NULL, PLAYER_CSACTION_8);
         this->actionFunc = EnDntJiji_SetupUnburrow;
     }
+#endif
 }
 
 void EnDntJiji_SetupUp(EnDntJiji* this, PlayState* play) {
@@ -189,6 +218,9 @@ void EnDntJiji_Walk(EnDntJiji* this, PlayState* play) {
         } else {
             this->getItemId = GI_DEKU_STICK_UPGRADE_30;
         }
+#if OOT_VERSION < NTSC_1_0
+        SET_ITEMGETINF(ITEMGETINF_1E);
+#endif
         this->actor.textId = 0x104D;
         Message_StartTextbox(play, this->actor.textId, NULL);
         this->actor.speed = 0.0f;
@@ -221,6 +253,9 @@ void EnDntJiji_SetupCower(EnDntJiji* this, PlayState* play) {
     } else {
         this->getItemId = GI_DEKU_NUT_UPGRADE_40;
     }
+#if OOT_VERSION < NTSC_1_0
+    SET_ITEMGETINF(ITEMGETINF_1F);
+#endif
     this->actor.flags |= ACTOR_FLAG_ATTENTION_ENABLED;
     this->actor.textId = 0x10DB;
     this->unused = 5;
@@ -272,6 +307,7 @@ void EnDntJiji_SetupGivePrize(EnDntJiji* this, PlayState* play) {
 void EnDntJiji_GivePrize(EnDntJiji* this, PlayState* play) {
     SkelAnime_Update(&this->skelAnime);
     if ((Message_GetState(&play->msgCtx) == TEXT_STATE_DONE) && Message_ShouldAdvance(play)) {
+#if OOT_VERSION >= NTSC_1_0
         if ((this->getItemId == GI_DEKU_NUT_UPGRADE_30) || (this->getItemId == GI_DEKU_NUT_UPGRADE_40)) {
             // "nut"
             PRINTF("実 \n");
@@ -293,6 +329,7 @@ void EnDntJiji_GivePrize(EnDntJiji* this, PlayState* play) {
             PRINTF("棒 \n");
             SET_ITEMGETINF(ITEMGETINF_1E);
         }
+#endif
         this->actor.textId = 0;
         if ((this->stage != NULL) && (this->stage->actor.update != NULL)) {
             this->stage->action = DNT_ACTION_NONE;
@@ -367,8 +404,8 @@ void EnDntJiji_Return(EnDntJiji* this, PlayState* play) {
     }
 }
 
-void EnDntJiji_Update(Actor* thisx, PlayState* play) {
-    s32 pad;
+void EnDntJiji_Update(Actor* thisx, PlayState* play2) {
+    PlayState* play = (PlayState*)play2;
     EnDntJiji* this = (EnDntJiji*)thisx;
 
     Actor_SetScale(&this->actor, 0.015f);
@@ -377,7 +414,12 @@ void EnDntJiji_Update(Actor* thisx, PlayState* play) {
         // "time"
         PRINTF(VT_FGCOL(YELLOW) "☆☆☆☆☆ 時間 ☆☆☆☆☆ %d\n" VT_RST, this->timer);
     }
-    if ((this->timer > 1) && (this->timer != 0)) {
+#if OOT_VERSION < NTSC_1_0
+    if (this->timer != 0)
+#else
+    if ((this->timer > 1) && (this->timer != 0))
+#endif
+    {
         this->timer--;
     }
     if (this->sfxTimer != 0) {
@@ -422,8 +464,38 @@ void EnDntJiji_Update(Actor* thisx, PlayState* play) {
                             UPDBGCHECKINFO_FLAG_0 | UPDBGCHECKINFO_FLAG_2 | UPDBGCHECKINFO_FLAG_3 |
                                 UPDBGCHECKINFO_FLAG_4);
     Collider_UpdateCylinder(&this->actor, &this->collider);
-    if (this->isSolid != 0) {
+    if (this->isSolid) {
         CollisionCheck_SetOC(play, &play->colChkCtx, &this->collider.base);
+
+#if OOT_VERSION < NTSC_1_0
+        if (this->collider.base.acFlags & AC_HIT) {
+            if (this->collider.elem.acHitElem->atDmgInfo.dmgFlags != 0) {
+                if (this->collider.elem.acHitElem->atDmgInfo.dmgFlags & DMG_DEKU_NUT) {
+                    Actor_PlaySfx(&this->actor, NA_SE_EN_GOMA_JR_FREEZE);
+                } else {
+                    Actor_PlaySfx(&this->actor, NA_SE_EN_NUTS_DAMAGE);
+                    if (this->collider.elem.acHitElem->atDmgInfo.dmgFlags & DMG_SLASH_KOKIRI) {
+                        Actor_PlaySfx(&this->actor, NA_SE_EN_NUTS_CUTBODY);
+                    }
+                }
+                this->collider.base.acFlags &= ~AC_HIT;
+            }
+            Actor_SetColorFilter(&this->actor, COLORFILTER_COLORFLAG_RED, 255, COLORFILTER_BUFFLAG_OPA, 30);
+            this->isSolid = false;
+            if ((this->stage != NULL) && (this->stage->actor.update != NULL)) {
+                this->attackFlag = true;
+                if (this->unburrow == 0) {
+                    if (this->stage->leaderSignal == DNT_SIGNAL_NONE) {
+                        this->stage->leaderSignal = DNT_SIGNAL_HIDE;
+                        this->stage->action = DNT_ACTION_ATTACK;
+                        Audio_QueueSeqCmd(NA_SE_PL_JUMP_LADDER);
+                    }
+                }
+            }
+        } else {
+            CollisionCheck_SetAC(play, &play->colChkCtx, &this->collider.base);
+        }
+#endif
     }
 }
 

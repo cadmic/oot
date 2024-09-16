@@ -54,6 +54,7 @@ void func_801C8A64(void) {
     }
 }
 
+#if OOT_VERSION >= NTSC_1_0
 void func_801C8AA8(void) {
     osRecvMesg(B_801E0D10[1], NULL, OS_MESG_NOBLOCK);
 
@@ -70,6 +71,7 @@ void func_801C8AA8(void) {
         D_801D2EB4(sp20, sp1C, sp18);
     }
 }
+#endif
 
 void func_801C8B58(s32 arg0, s32 arg1, s32 arg2) {
     func_801C8940(arg0);
@@ -82,6 +84,18 @@ void func_801C8B90(void) {
     func_801C89EC();
     func_801C8A64();
 }
+
+#if OOT_VERSION < NTSC_1_0
+void func_801C8830_ner(void) {
+    osRecvMesg(B_801E0D10[1], NULL, OS_MESG_NOBLOCK);
+    if (D_801D2EB4 != NULL && D_801D2EA0 == 0) {
+        D_801D2EB4(D_801D2EA4, D_801D2EAC, D_801D2EB0);
+        D_801D2EAC = NULL;
+        D_801D2EA4 = NULL;
+        D_801D2EB0 = NULL;
+    }
+}
+#endif
 
 s32 func_801C8BC0(struct_801E0D18* arg0) {
     if ((arg0->unk_68 < 0x25) || (arg0->unk_68 >= 0x29)) {

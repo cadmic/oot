@@ -491,9 +491,15 @@ void Minimap_Draw(PlayState* play) {
                                         (R_OW_MINIMAP_Y + gMapData->owMinimapHeight[mapIndex]) << 2, G_TX_RENDERTILE, 0,
                                         0, 1 << 10, 1 << 10);
 
+#if OOT_VERSION < NTSC_1_0
+                    if (((play->sceneId != SCENE_KAKARIKO_VILLAGE) && (play->sceneId != SCENE_KOKIRI_FOREST)) ||
+                        (LINK_AGE_IN_YEARS != YEARS_ADULT))
+#else
                     if (((play->sceneId != SCENE_KAKARIKO_VILLAGE) && (play->sceneId != SCENE_KOKIRI_FOREST) &&
                          (play->sceneId != SCENE_ZORAS_FOUNTAIN)) ||
-                        (LINK_AGE_IN_YEARS != YEARS_ADULT)) {
+                        (LINK_AGE_IN_YEARS != YEARS_ADULT))
+#endif
+                    {
                         if ((gMapData->owEntranceFlag[sEntranceIconMapIndex] == 0xFFFF) ||
                             ((gMapData->owEntranceFlag[sEntranceIconMapIndex] != 0xFFFF) &&
                              (gSaveContext.save.info.infTable[INFTABLE_1AX_INDEX] &
@@ -510,8 +516,21 @@ void Minimap_Draw(PlayState* play) {
                                                 (gMapData->owEntranceIconPosY[sEntranceIconMapIndex] + 8) << 2,
                                                 G_TX_RENDERTILE, 0, 0, 1 << 10, 1 << 10);
                         }
+#if OOT_VERSION < NTSC_1_0
+                        //! @bug INFTABLE_1A9_SHIFT instead of gBitFlags[INFTABLE_1A9_SHIFT]
+                        if ((mapIndex == SCENE_ZORAS_FOUNTAIN) &&
+                            (gSaveContext.save.info.infTable[INFTABLE_1AX_INDEX] & INFTABLE_1A9_SHIFT)) {
+                            gDPLoadTextureBlock(OVERLAY_DISP++, gMapDungeonEntranceIconTex, G_IM_FMT_RGBA, G_IM_SIZ_16b,
+                                                8, 8, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP,
+                                                G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
+
+                            gSPTextureRectangle(OVERLAY_DISP++, 270 << 2, 154 << 2, 278 << 2, 162 << 2, G_TX_RENDERTILE,
+                                                0, 0, 1 << 10, 1 << 10);
+                        }
+#endif
                     }
 
+#if OOT_VERSION >= NTSC_1_0
                     if ((play->sceneId == SCENE_ZORAS_FOUNTAIN) &&
                         (gSaveContext.save.info.infTable[INFTABLE_1AX_INDEX] & gBitFlags[INFTABLE_1A9_SHIFT])) {
                         gDPLoadTextureBlock(OVERLAY_DISP++, gMapDungeonEntranceIconTex, G_IM_FMT_RGBA, G_IM_SIZ_16b, 8,
@@ -521,6 +540,7 @@ void Minimap_Draw(PlayState* play) {
                         gSPTextureRectangle(OVERLAY_DISP++, 270 << 2, 154 << 2, 278 << 2, 162 << 2, G_TX_RENDERTILE, 0,
                                             0, 1 << 10, 1 << 10);
                     }
+#endif
 
                     Minimap_DrawCompassIcons(play); // Draw icons for the player spawn and current position
                 }

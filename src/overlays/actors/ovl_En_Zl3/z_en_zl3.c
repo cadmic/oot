@@ -7,6 +7,7 @@
 #include "z_en_zl3.h"
 
 #include "terminal.h"
+#include "versions.h"
 
 #include "z64frame_advance.h"
 
@@ -1123,6 +1124,12 @@ void func_80B55CCC(EnZl3* this, s32 arg1) {
 }
 
 void func_80B55D00(EnZl3* this, PlayState* play) {
+#if OOT_VERSION < NTSC_1_0
+    if (this->action != 12) {
+        return;
+    }
+#endif
+
     if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->action = 13;
     } else if (ABS((s16)(this->actor.yawTowardsPlayer - this->actor.shape.rot.y)) <= 0x4300) {
@@ -1179,6 +1186,12 @@ void func_80B55F38(EnZl3* this, s32 arg1) {
 }
 
 void func_80B55F6C(EnZl3* this, PlayState* play) {
+#if OOT_VERSION < NTSC_1_0
+    if (func_80B5396C(this) != this->unk_2F0) {
+        return;
+    }
+#endif
+
     if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->action = 0x12;
     } else if (ABS((s16)(this->actor.yawTowardsPlayer - this->actor.shape.rot.y)) <= 0x4300) {
@@ -1240,6 +1253,12 @@ void func_80B561E0(EnZl3* this, s32 arg1) {
 }
 
 void func_80B56214(EnZl3* this, PlayState* play) {
+#if OOT_VERSION < NTSC_1_0
+    if (this->action != 20) {
+        return;
+    }
+#endif
+
     if (Actor_TalkOfferAccepted(&this->actor, play)) {
         this->action = 21;
     } else if (ABS((s16)(this->actor.yawTowardsPlayer - this->actor.shape.rot.y)) <= 0x4300) {
@@ -1497,7 +1516,9 @@ void func_80B56B54(EnZl3* this, PlayState* play) {
 
 void func_80B56BA8(EnZl3* this, PlayState* play) {
     func_80B54DE0(this, play);
+#if OOT_VERSION >= NTSC_1_0
     func_80B533FC(this, play);
+#endif
     func_80B5366C(this, play);
     EnZl3_UpdateEyes(this);
     func_80B561E0(this, EnZl3_UpdateSkelAnime(this));
@@ -2034,7 +2055,12 @@ void func_80B57F1C(EnZl3* this, PlayState* play) {
 }
 
 s32 func_80B57F84(EnZl3* this, PlayState* play) {
-    if (func_80B575D0(this, play) && func_80B57C7C(this, play) && !Play_InCsMode(play)) {
+#if OOT_VERSION < NTSC_1_0
+    if (func_80B575D0(this, play) && func_80B57C7C(this, play))
+#else
+    if (func_80B575D0(this, play) && func_80B57C7C(this, play) && !Play_InCsMode(play))
+#endif
+    {
         func_80B54E14(this, &gZelda2Anime2Anim_009FBC, 0, -8.0f, 0);
         this->action = 36;
         this->unk_2EC = 0.0f;
@@ -2053,7 +2079,11 @@ void func_80B58014(EnZl3* this, PlayState* play) {
         func_80B54E14(this, &gZelda2Anime2Anim_003FF8, 0, -11.0f, 0);
         this->action = 29;
         func_80B538B0(this);
+#if OOT_VERSION < NTSC_1_0
+    } else if (func_80B57C8C(this) && func_80B57F84(this, play) && !Play_InCsMode(play)) {
+#else
     } else if (func_80B57C8C(this) && func_80B57F84(this, play)) {
+#endif
         s32 pad;
 
         OnePointCutscene_Init(play, 4000, -99, &this->actor, CAM_ID_MAIN);
@@ -2135,7 +2165,12 @@ void func_80B584B4(EnZl3* this, PlayState* play) {
     Actor* nearbyEnTest = Actor_FindNearby(play, &this->actor, ACTOR_EN_TEST, ACTORCAT_ENEMY, 8000.0f);
 
     if (D_80B5A4BC == 0) {
-        if ((nearbyEnTest == NULL) && (!Play_InCsMode(play))) {
+#if OOT_VERSION < NTSC_1_0
+        if (nearbyEnTest == NULL)
+#else
+        if ((nearbyEnTest == NULL) && (!Play_InCsMode(play)))
+#endif
+        {
             this->action = 33;
             OnePointCutscene_Init(play, 4011, -99, &this->actor, CAM_ID_MAIN);
         } else if (invincibilityTimer > 0) {

@@ -313,15 +313,24 @@ void EnDha_SetupTakeDamage(EnDha* this) {
 }
 
 void EnDha_TakeDamage(EnDha* this, PlayState* play) {
+#if OOT_VERSION < NTSC_1_0
+    // Empty
+#elif OOT_VERSION < PAL_1_0
     Player* player = GET_PLAYER(play);
 
     if ((player->stateFlags2 & PLAYER_STATE2_7) && (&this->actor == player->actor.parent)) {
         player->stateFlags2 &= ~PLAYER_STATE2_7;
         player->actor.parent = NULL;
-#if OOT_VERSION >= PAL_1_0
-        player->av2.actionVar2 = 200;
-#endif
     }
+#else
+    Player* player = GET_PLAYER(play);
+
+    if ((player->stateFlags2 & PLAYER_STATE2_7) && (&this->actor == player->actor.parent)) {
+        player->stateFlags2 &= ~PLAYER_STATE2_7;
+        player->actor.parent = NULL;
+        player->av2.actionVar2 = 200;
+    }
+#endif
 
     Math_SmoothStepToS(&this->limbAngleX[1], 0, 1, 2000, 0);
     Math_SmoothStepToS(&this->limbAngleY, 0, 1, 600, 0);
@@ -353,15 +362,24 @@ void EnDha_SetupDeath(EnDha* this) {
 void EnDha_Die(EnDha* this, PlayState* play) {
     s16 angle;
     Vec3f vec;
+#if OOT_VERSION >= NTSC_1_0
     Player* player = GET_PLAYER(play);
+#endif
 
+#if OOT_VERSION < NTSC_1_0
+    // Empty
+#elif OOT_VERSION < PAL_1_0
     if ((player->stateFlags2 & PLAYER_STATE2_7) && (&this->actor == player->actor.parent)) {
         player->stateFlags2 &= ~PLAYER_STATE2_7;
         player->actor.parent = NULL;
-#if OOT_VERSION >= PAL_1_0
-        player->av2.actionVar2 = 200;
-#endif
     }
+#else
+    if ((player->stateFlags2 & PLAYER_STATE2_7) && (&this->actor == player->actor.parent)) {
+        player->stateFlags2 &= ~PLAYER_STATE2_7;
+        player->actor.parent = NULL;
+        player->av2.actionVar2 = 200;
+    }
+#endif
 
     Math_SmoothStepToS(&this->limbAngleX[1], 0, 1, 0x7D0, 0);
     angle = Math_SmoothStepToS(&this->limbAngleX[0], -0x4000, 1, 0x7D0, 0);

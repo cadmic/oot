@@ -5,6 +5,7 @@
  */
 
 #include "z_en_ani.h"
+#include "versions.h"
 #include "assets/objects/object_ani/object_ani.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_NEUTRAL)
@@ -97,6 +98,12 @@ void EnAni_Destroy(Actor* thisx, PlayState* play) {
 }
 
 s32 EnAni_SetText(EnAni* this, PlayState* play, u16 textId) {
+#if OOT_VERSION < NTSC_1_0
+    if (Actor_TalkOfferAccepted(&this->actor, play)) {
+        return 1;
+    }
+#endif
+
     this->actor.textId = textId;
     this->unk_2A8 |= 1;
     Actor_OfferTalk(&this->actor, play, 100.0f);
@@ -125,7 +132,11 @@ void func_809B0558(EnAni* this, PlayState* play) {
         }
         SET_ITEMGETINF(ITEMGETINF_15);
     } else {
+#if OOT_VERSION < NTSC_1_0
+        Actor_OfferGetItem(&this->actor, play, GI_HEART_PIECE, 10000.0f, 50.0f);
+#else
         Actor_OfferGetItem(&this->actor, play, GI_HEART_PIECE, 10000.0f, 200.0f);
+#endif
     }
 }
 
@@ -133,7 +144,11 @@ void func_809B05F0(EnAni* this, PlayState* play) {
     if (Actor_TextboxIsClosing(&this->actor, play)) {
         EnAni_SetupAction(this, func_809B0558);
     }
+#if OOT_VERSION < NTSC_1_0
+    Actor_OfferGetItem(&this->actor, play, GI_HEART_PIECE, 10000.0f, 50.0f);
+#else
     Actor_OfferGetItem(&this->actor, play, GI_HEART_PIECE, 10000.0f, 200.0f);
+#endif
 }
 
 void func_809B064C(EnAni* this, PlayState* play) {
@@ -145,6 +160,25 @@ void func_809B064C(EnAni* this, PlayState* play) {
     }
 
     yawDiff = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
+
+#if OOT_VERSION < NTSC_1_0
+    if (yawDiff >= -0x36AF && yawDiff < 0 && this->actor.xzDistToPlayer < 150.0f &&
+        -80.0f < this->actor.yDistToPlayer) {
+        if (GET_ITEMGETINF(ITEMGETINF_15)) {
+            if (EnAni_SetText(this, play, 0x5056)) {
+                EnAni_SetupAction(this, func_809B04F0);
+            }
+        } else {
+            if (EnAni_SetText(this, play, 0x5055)) {
+                EnAni_SetupAction(this, func_809B05F0);
+            }
+        }
+    } else if (yawDiff >= -0x3E7 && yawDiff < 0x36B0 && this->actor.xzDistToPlayer < 350.0f) {
+        if (EnAni_SetText(this, play, textId)) {
+            EnAni_SetupAction(this, func_809B04F0);
+        }
+    }
+#else
     if (Actor_TalkOfferAccepted(&this->actor, play)) {
         if (this->actor.textId == 0x5056) {
             EnAni_SetupAction(this, func_809B04F0);
@@ -163,6 +197,7 @@ void func_809B064C(EnAni* this, PlayState* play) {
     } else if (yawDiff >= -0x3E7 && yawDiff < 0x36B0 && this->actor.xzDistToPlayer < 350.0f) {
         EnAni_SetText(this, play, textId);
     }
+#endif
 }
 
 void func_809B07F8(EnAni* this, PlayState* play) {
@@ -171,6 +206,29 @@ void func_809B07F8(EnAni* this, PlayState* play) {
     u16 textId;
 
     yawDiff = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
+
+#if OOT_VERSION < NTSC_1_0
+    if (yawDiff > -0x36B0 && yawDiff < 0 && this->actor.xzDistToPlayer < 150.0f && -80.0f < this->actor.yDistToPlayer) {
+        if (GET_ITEMGETINF(ITEMGETINF_15)) {
+            if (EnAni_SetText(this, play, 0x5056)) {
+                EnAni_SetupAction(this, func_809B0524);
+            }
+        } else {
+            if (EnAni_SetText(this, play, 0x5055)) {
+                EnAni_SetupAction(this, func_809B05F0);
+            }
+        }
+    } else if (yawDiff > -0x3E8 && yawDiff < 0x36B0 && this->actor.xzDistToPlayer < 350.0f) {
+        if (!GET_EVENTCHKINF(EVENTCHKINF_2F)) {
+            textId = 0x5052;
+        } else {
+            textId = GET_ITEMGETINF(ITEMGETINF_15) ? 0x5054 : 0x5053;
+        }
+        if (EnAni_SetText(this, play, textId)) {
+            EnAni_SetupAction(this, func_809B0524);
+        }
+    }
+#else
     if (Actor_TalkOfferAccepted(&this->actor, play)) {
         if (this->actor.textId == 0x5056) {
             EnAni_SetupAction(this, func_809B0524);
@@ -194,6 +252,7 @@ void func_809B07F8(EnAni* this, PlayState* play) {
         }
         EnAni_SetText(this, play, textId);
     }
+#endif
 }
 
 void func_809B0988(EnAni* this, PlayState* play) {

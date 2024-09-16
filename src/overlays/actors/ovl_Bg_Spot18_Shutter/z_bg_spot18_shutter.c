@@ -7,7 +7,11 @@
 #include "z_bg_spot18_shutter.h"
 #include "assets/objects/object_spot18_obj/object_spot18_obj.h"
 
+#if OOT_VERSION < NTSC_1_0
+#define FLAGS ACTOR_FLAG_4
+#else
 #define FLAGS (ACTOR_FLAG_4 | ACTOR_FLAG_5)
+#endif
 
 void BgSpot18Shutter_Init(Actor* thisx, PlayState* play);
 void BgSpot18Shutter_Destroy(Actor* thisx, PlayState* play);

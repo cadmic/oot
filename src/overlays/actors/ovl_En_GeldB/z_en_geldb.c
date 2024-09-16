@@ -5,6 +5,7 @@
  */
 
 #include "z_en_geldb.h"
+#include "versions.h"
 #include "assets/objects/object_geldb/object_geldb.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_4)
@@ -262,7 +263,14 @@ void EnGeldB_Destroy(Actor* thisx, PlayState* play) {
     s32 pad;
     EnGeldB* this = (EnGeldB*)thisx;
 
+#if OOT_VERSION < NTSC_1_0
+    if (!Actor_FindNearby(play, thisx, ACTOR_EN_GELDB, ACTORCAT_ENEMY, 8000.0f)) {
+        func_800F5B58();
+    }
+#else
     func_800F5B58();
+#endif
+
     Effect_Delete(play, this->blureIndex);
     Collider_DestroyTris(play, &this->blockCollider);
     Collider_DestroyCylinder(play, &this->bodyCollider);
@@ -1345,7 +1353,13 @@ void EnGeldB_Defeated(EnGeldB* this, PlayState* play) {
         EnGeldB_SetupFlee(this);
     } else if ((s32)this->skelAnime.curFrame == 10) {
         Actor_PlaySfx(&this->actor, NA_SE_EN_RIZA_DOWN);
+#if OOT_VERSION < NTSC_1_0
+        if (!Actor_FindNearby(play, &this->actor, ACTOR_EN_GELDB, ACTORCAT_ENEMY, 8000.0f)) {
+            func_800F5B58();
+        }
+#else
         func_800F5B58();
+#endif
     }
 }
 

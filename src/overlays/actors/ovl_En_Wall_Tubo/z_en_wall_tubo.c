@@ -7,6 +7,7 @@
 #include "z_en_wall_tubo.h"
 #include "quake.h"
 #include "terminal.h"
+#include "versions.h"
 #include "overlays/actors/ovl_En_Bom_Chu/z_en_bom_chu.h"
 #include "overlays/actors/ovl_Bg_Bowl_Wall/z_bg_bowl_wall.h"
 #include "overlays/effects/ovl_Effect_Ss_Hahen/z_eff_ss_hahen.h"
@@ -71,38 +72,44 @@ void EnWallTubo_DetectChu(EnWallTubo* this, PlayState* play) {
     Vec3f chuPosDiff;
     s16 quakeIndex;
 
-    if (this->chuGirl->minigamePlayStatus != 0) {
-        if (play->cameraPtrs[CAM_ID_MAIN]->setting == CAM_SET_CHU_BOWLING) {
-            chu = (EnBomChu*)play->actorCtx.actorLists[ACTORCAT_EXPLOSIVE].head;
+    if (this->chuGirl->minigamePlayStatus == 0) {
+        return;
+    }
 
-            while (chu != NULL) {
-                if ((&chu->actor == &this->actor) || (chu->actor.id != ACTOR_EN_BOM_CHU)) {
-                    chu = (EnBomChu*)chu->actor.next;
-                    continue;
-                }
+#if OOT_VERSION >= NTSC_1_0
+    if (play->cameraPtrs[CAM_ID_MAIN]->setting != CAM_SET_CHU_BOWLING) {
+        return;
+    }
+#endif
 
-                chuPosDiff.x = chu->actor.world.pos.x - this->actor.world.pos.x;
-                chuPosDiff.y = chu->actor.world.pos.y - this->actor.world.pos.y;
-                chuPosDiff.z = chu->actor.world.pos.z - this->actor.world.pos.z;
+    chu = (EnBomChu*)play->actorCtx.actorLists[ACTORCAT_EXPLOSIVE].head;
 
-                if (((fabsf(chuPosDiff.x) < 40.0f) || (BREG(2))) && ((fabsf(chuPosDiff.y) < 40.0f) || (BREG(2))) &&
-                    (fabsf(chuPosDiff.z) < 40.0f || (BREG(2)))) {
-                    this->chuGirl->wallStatus[this->actor.params] = 1;
-                    chu->timer = 2;
-                    Sfx_PlaySfxCentered(NA_SE_SY_TRE_BOX_APPEAR);
-                    this->timer = 60;
-                    EffectSsBomb2_SpawnLayered(play, &this->explosionCenter, &effVelocity, &effAccel, 200, 40);
-                    quakeIndex = Quake_Request(GET_ACTIVE_CAM(play), QUAKE_TYPE_1);
-                    Quake_SetSpeed(quakeIndex, 0x7FFF);
-                    Quake_SetPerturbations(quakeIndex, 100, 0, 0, 0);
-                    Quake_SetDuration(quakeIndex, 100);
-                    this->actionFunc = EnWallTubo_SetWallFall;
-                    break;
-                }
-
-                chu = (EnBomChu*)chu->actor.next;
-            }
+    while (chu != NULL) {
+        if ((&chu->actor == &this->actor) || (chu->actor.id != ACTOR_EN_BOM_CHU)) {
+            chu = (EnBomChu*)chu->actor.next;
+            continue;
         }
+
+        chuPosDiff.x = chu->actor.world.pos.x - this->actor.world.pos.x;
+        chuPosDiff.y = chu->actor.world.pos.y - this->actor.world.pos.y;
+        chuPosDiff.z = chu->actor.world.pos.z - this->actor.world.pos.z;
+
+        if (((fabsf(chuPosDiff.x) < 40.0f) || (BREG(2))) && ((fabsf(chuPosDiff.y) < 40.0f) || (BREG(2))) &&
+            (fabsf(chuPosDiff.z) < 40.0f || (BREG(2)))) {
+            this->chuGirl->wallStatus[this->actor.params] = 1;
+            chu->timer = 2;
+            Sfx_PlaySfxCentered(NA_SE_SY_TRE_BOX_APPEAR);
+            this->timer = 60;
+            EffectSsBomb2_SpawnLayered(play, &this->explosionCenter, &effVelocity, &effAccel, 200, 40);
+            quakeIndex = Quake_Request(GET_ACTIVE_CAM(play), QUAKE_TYPE_1);
+            Quake_SetSpeed(quakeIndex, 0x7FFF);
+            Quake_SetPerturbations(quakeIndex, 100, 0, 0, 0);
+            Quake_SetDuration(quakeIndex, 100);
+            this->actionFunc = EnWallTubo_SetWallFall;
+            break;
+        }
+
+        chu = (EnBomChu*)chu->actor.next;
     }
 }
 

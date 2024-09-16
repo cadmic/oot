@@ -6,6 +6,7 @@
 
 #include "z_en_insect.h"
 #include "terminal.h"
+#include "versions.h"
 #include "assets/objects/gameplay_keep/gameplay_keep.h"
 
 #define FLAGS 0
@@ -671,12 +672,16 @@ void EnInsect_Dropped(EnInsect* this, PlayState* play) {
     if (type == INSECT_TYPE_FIRST_DROPPED && (this->insectFlags & INSECT_FLAG_FOUND_SOIL) &&
         !(this->insectFlags & INSECT_FLAG_7)) {
         if (this->unk_32A >= 15) {
+#if OOT_VERSION < NTSC_1_0
+            Sfx_PlaySfxCentered(NA_SE_SY_TRE_BOX_APPEAR);
+#else
             if (this->soilActor != NULL) {
                 if (!(GET_GS_FLAGS(PARAMS_GET_U(this->soilActor->actor.params, 8, 5) - 1) &
                       PARAMS_GET_U(this->soilActor->actor.params, 0, 8))) {
                     Sfx_PlaySfxCentered(NA_SE_SY_TRE_BOX_APPEAR);
                 }
             }
+#endif
             this->insectFlags |= INSECT_FLAG_7;
         } else {
             this->unk_32A++;

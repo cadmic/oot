@@ -5,6 +5,7 @@
  */
 
 #include "z_en_poh.h"
+#include "versions.h"
 #include "assets/objects/object_poh/object_poh.h"
 #include "assets/objects/object_po_composer/object_po_composer.h"
 
@@ -771,11 +772,15 @@ void func_80ADFE80(EnPoh* this, PlayState* play) {
         }
         return;
     }
+
+#if OOT_VERSION >= NTSC_1_0
     if (this->unk_198 == 0) {
         func_80ADE950(this, 1);
         this->actor.flags &= ~ACTOR_FLAG_16;
         return;
     }
+#endif
+
     if (this->colliderCyl.base.ocFlags1 & OC1_HIT) {
         this->actor.flags |= ACTOR_FLAG_16;
         Actor_OfferTalkNearColChkInfoCylinder(&this->actor, play);
@@ -795,6 +800,12 @@ void func_80ADFE80(EnPoh* this, PlayState* play) {
     Lights_PointNoGlowSetInfo(&this->lightInfo, this->actor.world.pos.x, this->actor.world.pos.y,
                               this->actor.world.pos.z, this->info->lightColor.r, this->info->lightColor.g,
                               this->info->lightColor.b, this->lightColor.a * (200.0f / 255));
+
+#if OOT_VERSION < NTSC_1_0
+    if (this->unk_198 == 0) {
+        func_80ADE950(this, 1);
+    }
+#endif
 }
 
 void func_80AE009C(EnPoh* this, PlayState* play) {

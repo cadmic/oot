@@ -1,6 +1,11 @@
 #include "z_en_holl.h"
+#include "versions.h"
 
+#if OOT_VERSION < NTSC_1_0
+#define FLAGS 0
+#else
 #define FLAGS ACTOR_FLAG_4
+#endif
 
 /*
  * Horizontal holls parameters (`ENHOLL_H_*`)
@@ -128,7 +133,18 @@ void EnHoll_Init(Actor* thisx, PlayState* play) {
 
     Actor_ProcessInitChain(&this->actor, sInitChain);
     EnHoll_ChooseAction(this);
+
+#if OOT_VERSION < NTSC_1_0
+    if (ENHOLL_GET_TYPE(&this->actor) == ENHOLL_V_DOWN_BGCOVER_LARGE) {
+        this->actor.uncullZoneScale = 1600.0f;
+        this->actor.uncullZoneDownward = 1600.0f;
+    }
+    if (EnHoll_IsKokiriLayer8()) {
+        this->actor.flags |= ACTOR_FLAG_4;
+    }
+#else
     this->resetBgCoverAlpha = false;
+#endif
 }
 
 void EnHoll_Destroy(Actor* thisx, PlayState* play) {
@@ -193,6 +209,9 @@ void EnHoll_HorizontalVisibleNarrow(EnHoll* this, PlayState* play) {
         fabsf(relPlayerPos.x) < ENHOLL_H_HALFWIDTH_NARROW &&
         orthogonalDistToPlayer < sHorizontalVisibleNarrowTriggerDists[triggerDistsIndex][0]) {
 
+#if OOT_VERSION < NTSC_1_0
+        this->actor.flags |= ACTOR_FLAG_4;
+#endif
         transitionActorIndex = GET_TRANSITION_ACTOR_INDEX(&this->actor);
         if (orthogonalDistToPlayer > sHorizontalVisibleNarrowTriggerDists[triggerDistsIndex][1]) {
             if (play->roomCtx.prevRoom.num >= 0 && play->roomCtx.status == 0) {
@@ -216,9 +235,14 @@ void EnHoll_HorizontalVisibleNarrow(EnHoll* this, PlayState* play) {
                 }
             }
         }
+    } else {
+#if OOT_VERSION < NTSC_1_0
+        this->actor.flags &= ~ACTOR_FLAG_4;
+#endif
     }
 }
 
+// TODO: non-matching (regalloc)
 void EnHoll_HorizontalInvisible(EnHoll* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
     s32 useViewEye = gDebugCamEnabled || play->csCtx.state != CS_STATE_IDLE;
@@ -245,9 +269,14 @@ void EnHoll_HorizontalInvisible(EnHoll* this, PlayState* play) {
         this->actor.room = room;
         if (isKokiriLayer8) {}
         if (this->actor.room != play->roomCtx.curRoom.num) {
+#if OOT_VERSION >= NTSC_1_0
             if (room) {}
+#endif
             if (Room_RequestNewRoom(play, &play->roomCtx, this->actor.room)) {
                 EnHoll_SetupAction(this, EnHoll_WaitRoomLoaded);
+#if OOT_VERSION < NTSC_1_0
+                this->actor.flags |= ACTOR_FLAG_4;
+#endif
             }
         }
     }
@@ -279,15 +308,26 @@ void EnHoll_VerticalDownBgCoverLarge(EnHoll* this, PlayState* play) {
             if (this->actor.room != play->roomCtx.curRoom.num &&
                 Room_RequestNewRoom(play, &play->roomCtx, this->actor.room)) {
                 EnHoll_SetupAction(this, EnHoll_WaitRoomLoaded);
+#if OOT_VERSION < NTSC_1_0
+                this->actor.flags |= ACTOR_FLAG_4;
+#else
                 this->resetBgCoverAlpha = true;
+#endif
                 player->actor.speed = 0.0f;
             }
         }
     } else {
+#if OOT_VERSION < NTSC_1_0
+        if (this->actor.flags & ACTOR_FLAG_4) {
+            play->bgCoverAlpha = 0;
+            this->actor.flags &= ~ACTOR_FLAG_4;
+        }
+#else
         if (this->resetBgCoverAlpha) {
             play->bgCoverAlpha = 0;
             this->resetBgCoverAlpha = false;
         }
+#endif
     }
 }
 
@@ -312,14 +352,25 @@ void EnHoll_VerticalBgCover(EnHoll* this, PlayState* play) {
             if (this->actor.room != play->roomCtx.curRoom.num &&
                 Room_RequestNewRoom(play, &play->roomCtx, this->actor.room)) {
                 EnHoll_SetupAction(this, EnHoll_WaitRoomLoaded);
+#if OOT_VERSION < NTSC_1_0
+                this->actor.flags |= ACTOR_FLAG_4;
+#else
                 this->resetBgCoverAlpha = true;
+#endif
             }
         }
     } else {
+#if OOT_VERSION < NTSC_1_0
+        if (this->actor.flags & ACTOR_FLAG_4) {
+            this->actor.flags &= ~ACTOR_FLAG_4;
+            play->bgCoverAlpha = 0;
+        }
+#else
         if (this->resetBgCoverAlpha) {
             this->resetBgCoverAlpha = false;
             play->bgCoverAlpha = 0;
         }
+#endif
     }
 }
 
@@ -338,6 +389,9 @@ void EnHoll_VerticalInvisible(EnHoll* this, PlayState* play) {
             if (this->actor.room != play->roomCtx.curRoom.num &&
                 Room_RequestNewRoom(play, &play->roomCtx, this->actor.room)) {
                 EnHoll_SetupAction(this, EnHoll_WaitRoomLoaded);
+#if OOT_VERSION < NTSC_1_0
+                this->actor.flags |= ACTOR_FLAG_4;
+#endif
             }
         }
     }
@@ -347,10 +401,15 @@ void EnHoll_HorizontalBgCoverSwitchFlag(EnHoll* this, PlayState* play) {
     Player* player = GET_PLAYER(play);
 
     if (!Flags_GetSwitch(play, ENHOLL_GET_SWITCH_FLAG(&this->actor))) {
+#if OOT_VERSION < NTSC_1_0
+        play->bgCoverAlpha = 0;
+        this->actor.flags &= ~ACTOR_FLAG_4;
+#else
         if (this->resetBgCoverAlpha) {
             play->bgCoverAlpha = 0;
             this->resetBgCoverAlpha = false;
         }
+#endif
     } else {
         Vec3f relPlayerPos;
         f32 orthogonalDistToPlayer;
@@ -362,7 +421,11 @@ void EnHoll_HorizontalBgCoverSwitchFlag(EnHoll* this, PlayState* play) {
             fabsf(relPlayerPos.x) < ENHOLL_H_HALFWIDTH && orthogonalDistToPlayer < ENHOLL_H_SWITCHFLAG_BGCOVER_DEPTH) {
             s32 transitionActorIndex = GET_TRANSITION_ACTOR_INDEX(&this->actor);
 
+#if OOT_VERSION < NTSC_1_0
+            this->actor.flags |= ACTOR_FLAG_4;
+#else
             this->resetBgCoverAlpha = true;
+#endif
             play->bgCoverAlpha =
                 255 - (s32)((orthogonalDistToPlayer - ENHOLL_H_SWITCHFLAG_LOAD_DEPTH) *
                             (255 / (ENHOLL_H_SWITCHFLAG_BGCOVER_DEPTH - ENHOLL_H_SWITCHFLAG_LOAD_DEPTH) + 0.8f));
@@ -382,10 +445,17 @@ void EnHoll_HorizontalBgCoverSwitchFlag(EnHoll* this, PlayState* play) {
                 }
             }
         } else {
+#if OOT_VERSION < NTSC_1_0
+            if (this->actor.flags & ACTOR_FLAG_4) {
+                play->bgCoverAlpha = 0;
+                this->actor.flags &= ~ACTOR_FLAG_4;
+            }
+#else
             if (this->resetBgCoverAlpha) {
                 play->bgCoverAlpha = 0;
                 this->resetBgCoverAlpha = false;
             }
+#endif
         }
     }
 }
@@ -394,7 +464,11 @@ void EnHoll_WaitRoomLoaded(EnHoll* this, PlayState* play) {
     if (!EnHoll_IsKokiriLayer8() && play->roomCtx.status == 0) {
         Room_FinishRoomChange(play, &play->roomCtx);
         if (play->bgCoverAlpha == 0) {
+#if OOT_VERSION < NTSC_1_0
+            this->actor.flags &= ~ACTOR_FLAG_4;
+#else
             this->resetBgCoverAlpha = false;
+#endif
         }
         EnHoll_ChooseAction(this);
     }

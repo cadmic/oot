@@ -1,4 +1,5 @@
 #include "z_en_box.h"
+#include "versions.h"
 #include "overlays/actors/ovl_Demo_Kankyo/z_demo_kankyo.h"
 #include "assets/objects/object_box/object_box.h"
 
@@ -43,7 +44,9 @@ void EnBox_Draw(Actor* thisx, PlayState* play);
 
 void EnBox_FallOnSwitchFlag(EnBox* this, PlayState* play);
 void func_809C9700(EnBox* this, PlayState* play);
+#if OOT_VERSION >= NTSC_1_0
 void EnBox_AppearOnSwitchFlag(EnBox* this, PlayState* play);
+#endif
 void EnBox_AppearOnRoomClear(EnBox* this, PlayState* play);
 void EnBox_AppearInit(EnBox* this, PlayState* play);
 void EnBox_AppearAnimation(EnBox* this, PlayState* play);
@@ -116,7 +119,9 @@ void EnBox_Init(Actor* thisx, PlayState* play2) {
     this->switchFlag = this->dyna.actor.world.rot.z;
     this->dyna.actor.minVelocityY = -50.0f;
 
+#if OOT_VERSION >= NTSC_1_0
     if (play) {} // helps the compiler store play2 into s1
+#endif
 
     if (Flags_GetTreasure(play, PARAMS_GET_U(this->dyna.actor.params, 0, 5))) {
         this->alpha = 255;
@@ -151,6 +156,7 @@ void EnBox_Init(Actor* thisx, PlayState* play2) {
         this->dyna.actor.world.pos.y = this->dyna.actor.home.pos.y - 50.0f;
         this->alpha = 0;
         this->dyna.actor.flags |= ACTOR_FLAG_4;
+#if OOT_VERSION >= NTSC_1_0
     } else if (this->type == ENBOX_TYPE_SWITCH_FLAG_BIG && !Flags_GetSwitch(play, this->switchFlag)) {
         EnBox_SetupAction(this, EnBox_AppearOnSwitchFlag);
         DynaPoly_DisableCollision(play, &play->colCtx.dyna, this->dyna.bgId);
@@ -158,6 +164,7 @@ void EnBox_Init(Actor* thisx, PlayState* play2) {
         this->dyna.actor.world.pos.y = this->dyna.actor.home.pos.y - 50.0f;
         this->alpha = 0;
         this->dyna.actor.flags |= ACTOR_FLAG_4;
+#endif
     } else {
         if (this->type == ENBOX_TYPE_4 || this->type == ENBOX_TYPE_6) {
             this->dyna.actor.flags |= ACTOR_FLAG_REACT_TO_LENS;
@@ -319,6 +326,7 @@ void func_809C9700(EnBox* this, PlayState* play) {
     }
 }
 
+#if OOT_VERSION >= NTSC_1_0
 void EnBox_AppearOnSwitchFlag(EnBox* this, PlayState* play) {
     s32 treasureFlag = PARAMS_GET_U(this->dyna.actor.params, 0, 5);
 
@@ -332,6 +340,7 @@ void EnBox_AppearOnSwitchFlag(EnBox* this, PlayState* play) {
         this->unk_1A8 = -30;
     }
 }
+#endif
 
 void EnBox_AppearOnRoomClear(EnBox* this, PlayState* play) {
     s32 treasureFlag = PARAMS_GET_U(this->dyna.actor.params, 0, 5);

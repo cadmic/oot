@@ -2,6 +2,7 @@
 #define VERSIONS_H
 
 // OOT versions in build order
+#define NTSC_0_9       0
 #define NTSC_1_0       1
 #define NTSC_1_1       2
 #define PAL_1_0        3

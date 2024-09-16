@@ -8,6 +8,7 @@
 #include "overlays/actors/ovl_En_Ex_Ruppy/z_en_ex_ruppy.h"
 #include "assets/objects/object_zo/object_zo.h"
 #include "terminal.h"
+#include "versions.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_NEUTRAL | ACTOR_FLAG_4)
 
@@ -250,7 +251,13 @@ void EnDivingGame_HandlePlayChoice(EnDivingGame* this, PlayState* play) {
                 this->allRupeesThrown = this->state = this->phase = this->unk_2A2 = this->grabbedRupeesCounter = 0;
                 break;
         }
-        if (!GET_EVENTCHKINF(EVENTCHKINF_38) || this->actor.textId == 0x85 || this->actor.textId == 0x2D) {
+
+#if OOT_VERSION < NTSC_1_0
+        if (!GET_EVENTCHKINF(EVENTCHKINF_38) || play->msgCtx.choiceIndex == 1)
+#else
+        if (!GET_EVENTCHKINF(EVENTCHKINF_38) || this->actor.textId == 0x85 || this->actor.textId == 0x2D)
+#endif
+        {
             Message_ContinueTextbox(play, this->actor.textId);
             this->unk_292 = TEXT_STATE_EVENT;
             this->actionFunc = func_809EE048;

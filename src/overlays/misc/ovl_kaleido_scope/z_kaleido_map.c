@@ -143,6 +143,30 @@ void KaleidoScope_DrawDungeonMap(PlayState* play, GraphicsContext* gfxCtx) {
                     KaleidoScope_UpdateDungeonMap(play);
                 }
             }
+
+#if OOT_VERSION < NTSC_1_0
+            if (pauseCtx->cursorPoint[PAUSE_MAP] < 3) {
+                pauseCtx->cursorItem[PAUSE_MAP] = ITEM_DUNGEON_BOSS_KEY + pauseCtx->cursorPoint[PAUSE_MAP];
+            } else {
+                pauseCtx->cursorItem[PAUSE_MAP] = PAUSE_ITEM_NONE;
+            }
+
+            pauseCtx->cursorSlot[PAUSE_MAP] = pauseCtx->cursorPoint[PAUSE_MAP];
+
+            j = 72 + (pauseCtx->cursorSlot[PAUSE_MAP] * 4);
+            KaleidoScope_SetCursorPos(pauseCtx, j, pauseCtx->mapPageVtx);
+
+            if (pauseCtx->cursorX[PAUSE_MAP] == 0) {
+                pauseCtx->mapPageVtx[j + 0].v.ob[0] = pauseCtx->mapPageVtx[j + 2].v.ob[0] =
+                    pauseCtx->mapPageVtx[j + 0].v.ob[0] - 2;
+                pauseCtx->mapPageVtx[j + 1].v.ob[0] = pauseCtx->mapPageVtx[j + 3].v.ob[0] =
+                    pauseCtx->mapPageVtx[j + 1].v.ob[0] + 4;
+                pauseCtx->mapPageVtx[j + 0].v.ob[1] = pauseCtx->mapPageVtx[j + 1].v.ob[1] =
+                    pauseCtx->mapPageVtx[j + 0].v.ob[1] + 2;
+                pauseCtx->mapPageVtx[j + 2].v.ob[1] = pauseCtx->mapPageVtx[j + 3].v.ob[1] =
+                    pauseCtx->mapPageVtx[j + 2].v.ob[1] - 4;
+            }
+#endif
         } else if (pauseCtx->cursorSpecialPos == PAUSE_CURSOR_PAGE_LEFT) {
             if (pauseCtx->stickAdjX > 30) {
                 pauseCtx->nameDisplayTimer = 0;
@@ -193,6 +217,7 @@ void KaleidoScope_DrawDungeonMap(PlayState* play, GraphicsContext* gfxCtx) {
         }
     }
 
+#if OOT_VERSION >= NTSC_1_0
     if (pauseCtx->cursorSpecialPos == 0) {
         if (pauseCtx->cursorPoint[PAUSE_MAP] < 3) {
             pauseCtx->cursorItem[PAUSE_MAP] = ITEM_DUNGEON_BOSS_KEY + pauseCtx->cursorPoint[PAUSE_MAP];
@@ -216,6 +241,7 @@ void KaleidoScope_DrawDungeonMap(PlayState* play, GraphicsContext* gfxCtx) {
                 pauseCtx->mapPageVtx[j + 2].v.ob[1] - 4;
         }
     }
+#endif
 
     gDPPipeSync(POLY_OPA_DISP++);
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, pauseCtx->alpha);

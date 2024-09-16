@@ -6,7 +6,13 @@
 #include "stack.h"
 #include "versions.h"
 
-#pragma increment_block_number "ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
+#pragma increment_block_number "ntsc-0.9:128 ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
+
+#if OOT_VERSION < NTSC_1_0
+#define SLEEP_ONE_FRAME() Sleep_Msec(16)
+#else
+#define SLEEP_ONE_FRAME() Sleep_Usec(1000000 / 60)
+#endif
 
 typedef struct struct_801D9C30 {
     /* 0x000 */ s32 unk_000;       // disk start
@@ -18,7 +24,11 @@ typedef struct struct_801D9C30 {
 } struct_801D9C30; // size = 0x118
 
 typedef struct struct_801D9B90 {
+#if OOT_VERSION < NTSC_1_0
+    /* 0x00 */ OSMesg unk_00[4];
+#else
     /* 0x00 */ OSMesg unk_00[30];
+#endif
     /* 0x78 */ OSMesgQueue unk_78;
     /* 0x90 */ IrqMgrClient unk_90;
     /* 0x98 */ IrqMgr* unk_98;
@@ -30,6 +40,10 @@ void* D_801D2E50 = &B_801DC000;
 s32 (*D_801D2E54)(struct_801E0D18*) = func_801C7A1C;
 
 struct_801D9B90 B_801D9B90;
+#if OOT_VERSION < NTSC_1_0
+struct_801D9B90 B_801D98D8_ner;
+#endif
+
 struct_801D9C30 B_801D9C30;
 struct_801D9C30* B_801D9D48;
 struct_801D9D50 B_801D9D50;
@@ -38,14 +52,26 @@ OSMesgQueue B_801D9D98;
 OSMesg B_801D9DB0[1];
 OSMesg B_801D9DB4[1];
 volatile u8 B_801D9DB8;
+
+#if OOT_VERSION >= NTSC_1_0
 volatile OSTime B_801D9DC0;
+#endif
+
 s32 B_801D9DC8; // 1 if disk gameName is correct, 2 otherwise
 void* B_801D9DCC;
 void* B_801D9DD0;
 void* B_801D9DD4;
+
 OSThread B_801D9DD8;
 STACK(B_801D9F88, 0x1000);
 StackEntry B_801DAF88;
+
+#if OOT_VERSION < NTSC_1_0
+OSThread B_801DAC80_ner;
+STACK(B_801DAE30_ner, 0x1000);
+StackEntry B_801DBE30_ner;
+#endif
+
 STACK(B_801DAFA8, 0x1000);
 StackEntry B_801DBFA8;
 UNK_TYPE B_801DBFC4; // unused?
@@ -82,7 +108,7 @@ s32 func_801C6F08(void) {
 void func_801C6F30(void) {
     func_801C6EAC();
     while (func_801C6F08() == 0) {
-        Sleep_Usec(16666); // 100000 / 6
+        SLEEP_ONE_FRAME();
     }
 }
 
@@ -105,16 +131,18 @@ s32 func_801C6FAC(void) {
 
 void func_801C6FD8(void) {
     while (!func_801C6FAC()) {
-        Sleep_Usec(16666); // 100000 / 6
+        SLEEP_ONE_FRAME();
     }
 }
 
 // Adds a HungupAndCrash
 void func_801C7018(void) {
     if (D_80121213 != 0) {
-#if OOT_VERSION == NTSC_1_0
+#if OOT_VERSION < NTSC_1_0
+        Fault_AddHungupAndCrash("../z_n64dd.c", 478);
+#elif OOT_VERSION < NTSC_1_1
         Fault_AddHungupAndCrash("../z_n64dd.c", 503);
-#elif OOT_VERSION == NTSC_1_1
+#elif OOT_VERSION < PAL_1_0
         Fault_AddHungupAndCrash("../z_n64dd.c", 551);
 #else
         Fault_AddHungupAndCrash("../z_n64dd.c", 573);
@@ -153,13 +181,14 @@ s32 func_801C70FC(void) {
 }
 
 void func_801C711C(void* arg) {
-    static void* B_801DBFC8;
     struct_801D9B90* arg0 = (struct_801D9B90*)arg;
-    s16* sp58;
+    s16* sp58 = NULL;
     s32 var_s0;
+#if OOT_VERSION >= NTSC_1_0
+    static void* B_801DBFC8;
     void* temp_v0;
+#endif
 
-    sp58 = NULL;
     arg0->unk_98 = &gIrqMgr;
     osCreateMesgQueue(&arg0->unk_78, arg0->unk_00, ARRAY_COUNT(arg0->unk_00));
     IrqMgr_AddClient(arg0->unk_98, &arg0->unk_90, &arg0->unk_78);
@@ -168,12 +197,16 @@ void func_801C711C(void* arg) {
         osRecvMesg(&arg0->unk_78, (OSMesg*)&sp58, OS_MESG_BLOCK);
         switch (*sp58) {
             case 1:
+#if OOT_VERSION < NTSC_1_0
+                func_801C8830_ner();
+#else
                 temp_v0 = osViGetNextFramebuffer();
                 if (B_801DBFC8 != temp_v0) {
                     B_801DBFC8 = temp_v0;
                     B_801D9DB8 = 1;
                 }
                 func_801C8AA8();
+#endif
                 break;
             case 4:
                 LeoReset();
@@ -186,7 +219,7 @@ void func_801C711C(void* arg) {
     IrqMgr_RemoveClient(arg0->unk_98, &arg0->unk_90);
 }
 
-#if OOT_VERSION > NTSC_1_0
+#if OOT_VERSION >= NTSC_1_1
 void func_801C7B28_ne2(void) {
     s32 temp;
 
@@ -209,7 +242,9 @@ void func_801C7268(void) {
         func_801C6F30();
     }
     B_801D9DB8 = 1;
+#if OOT_VERSION >= NTSC_1_0
     B_801D9DC0 = 0;
+#endif
     if (func_801C7064() == 1) {
         func_801C7098();
     } else if (B_801D9DC8 != 0) {
@@ -228,7 +263,7 @@ void func_801C7268(void) {
             Sleep_Usec(1000000 - sp1C);
         }
     }
-#else
+#elif OOT_VERSION >= NTSC_1_1
     if (D_801D2EA8 == 1 || B_801E0F60 == 1 || B_801E0F64 == 1) {
         B_801D9DC0 = osGetTime();
     }
@@ -238,6 +273,33 @@ void func_801C7268(void) {
         func_801C6F78();
     }
 }
+
+#if OOT_VERSION < NTSC_1_0
+void func_801C70B4_ner(void* arg) {
+    struct_801D9B90* arg0 = (struct_801D9B90*)arg;
+    s16* sp58 = NULL;
+    s32 var_s0;
+
+    arg0->unk_98 = &gIrqMgr;
+    osCreateMesgQueue(&arg0->unk_78, arg0->unk_00, 4);
+    IrqMgr_AddClient(arg0->unk_98, &arg0->unk_90, &arg0->unk_78);
+    var_s0 = 0;
+    do {
+        osRecvMesg(&arg0->unk_78, (OSMesg*)&sp58, 1);
+        switch (*sp58) {
+            s32 pad; // Fake match?
+
+            case 1:
+            case 4:
+                break;
+            case 3:
+                var_s0 = 1;
+                break;
+        }
+    } while (var_s0 == 0);
+    IrqMgr_RemoveClient(arg0->unk_98, &arg0->unk_90);
+}
+#endif
 
 // Clears framebuffer
 void func_801C7438(void* arg0) {
@@ -257,7 +319,9 @@ void func_801C746C(void* arg0, void* arg1, void* arg2) {
             if (B_801D9DB8 != 0) {
                 B_801D9DB8 = 0;
                 func_801C7438(sp2C);
+#if OOT_VERSION >= NTSC_1_0
                 B_801D9DC0 = osGetTime();
+#endif
             }
             if (arg0 != NULL) {
                 func_801CA1F0(arg0, 96, 32, 192, 16, 11, sp2C, SCREEN_WIDTH);
@@ -282,7 +346,9 @@ void func_801C75BC(void* arg0, void* arg1, void* arg2) {
         return;
     }
 
+#if OOT_VERSION >= NTSC_1_0
     if (B_801D9DB8) {}
+#endif
 
     if (arg0 != 0) {
         B_801D9DCC = arg0;
@@ -348,7 +414,7 @@ s32 func_801C7658(void) {
 }
 
 s32 func_801C7818(void) {
-#if OOT_VERSION > NTSC_1_0
+#if OOT_VERSION >= NTSC_1_1
     B_801D9DB8 = 1;
     B_801D9DC0 = 0;
 #endif
@@ -357,11 +423,10 @@ s32 func_801C7818(void) {
     (&func_801C8000)(&B_801D9D50);
 
     while (func_801C81C4() == 0) {
-        // the number 16666 sounds like it could be 1 frame (at 60 frames per second)
-        Sleep_Usec(1000000 * 1 / 60);
+        SLEEP_ONE_FRAME();
     }
 
-#if OOT_VERSION > NTSC_1_0
+#if OOT_VERSION >= NTSC_1_1
     if (D_801D2EA8 == 1 || B_801E0F60 == 1 || B_801E0F64 == 1) {
         B_801D9DC0 = osGetTime();
     }
@@ -376,6 +441,14 @@ s32 func_801C7818(void) {
 
     func_801C7018();
     D_80121212 = 1;
+
+#if OOT_VERSION < NTSC_1_0
+    StackCheck_Init(&B_801DBE30_ner, B_801DAE30_ner, STACK_TOP(B_801DAE30_ner), 0, 0x100, "ddmedium");
+    osCreateThread(&B_801DAC80_ner, THREAD_ID_DDMEDIUM, &func_801C70B4_ner, &B_801D98D8_ner, STACK_TOP(B_801DAE30_ner),
+                   THREAD_PRI_DDMEDIUM);
+    osStartThread(&B_801DAC80_ner);
+#endif
+
     return 0;
 }
 
@@ -402,7 +475,7 @@ void func_801C7920(s32 arg0, void* arg1, s32 arg2) {
     osGetTime();
     B_801D9D50.unk_00 = 6;
     while ((&func_801C8000)(&B_801D9D50) != 0) {
-        Sleep_Usec(16666); // 100000 / 6
+        SLEEP_ONE_FRAME();
     }
     B_801D9D50.unk_00 = 7;
     if ((&func_801C8000)(&B_801D9D50) != 0) {
@@ -497,7 +570,9 @@ void func_801C7C1C(void* dest, s32 offset, s32 size) {
     func_801C6FD8();
     func_801C6F30();
     B_801D9DB8 = 1;
+#if OOT_VERSION >= NTSC_1_0
     B_801D9DC0 = 0;
+#endif
     func_801C7B48(offset, &sp5C, &sp54);
     func_801C7B48(offset + size, &sp58, &sp50);
     sp4C = D_801D2E50;
@@ -526,7 +601,7 @@ void func_801C7C1C(void* dest, s32 offset, s32 size) {
             Sleep_Usec(1000000 - temp_v1_2);
         }
     }
-#else
+#elif OOT_VERSION >= NTSC_1_1
     func_801C7B28_ne2();
 #endif
     func_801C7018();

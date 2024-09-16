@@ -29,7 +29,7 @@
         <!-- Collision -->
         <Collision Name="gGoronCityVaseLidCol" Offset="0x368"/>
         <Collision Name="gGoronCityDoorCol" Offset="0x534"/>
-        <Collision Name="gGoronCityVaseCol" Offset="0x214C"/>
+        <Collision Name="gGoronCityVaseCol" Offset="0x2154"/>
         <Collision Name="gGoronCityStatueSpearCol" Offset="0x261C"/>
         <Collision Name="gGoronCityStatueCol" Offset="0x2FE4"/>
     </File>

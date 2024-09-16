@@ -1,4 +1,5 @@
 #include "z_en_sw.h"
+#include "versions.h"
 #include "assets/objects/object_st/object_st.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_4)
@@ -347,12 +348,15 @@ s32 func_80B0C9F0(EnSw* this, PlayState* play) {
                 this->unk_38A = 1;
                 this->unk_420 *= 4.0f;
                 this->actionFunc = func_80B0D878;
+#if OOT_VERSION < NTSC_1_0
+                OnePointCutscene_Init(play, 2200, -99, &this->actor, CAM_ID_MAIN);
+#endif
             } else {
                 this->actor.shape.shadowDraw = ActorShadow_DrawCircle;
-                this->actor.shape.shadowAlpha = 0xFF;
-                this->unk_38A = 2;
                 this->actor.shape.shadowScale = 16.0f;
+                this->actor.shape.shadowAlpha = 0xFF;
                 this->actor.gravity = -1.0f;
+                this->unk_38A = 2;
                 this->actor.flags &= ~ACTOR_FLAG_ATTENTION_ENABLED;
                 this->actionFunc = func_80B0DB00;
             }

@@ -17,7 +17,7 @@
 
 void EnDntNomal_Init(Actor* thisx, PlayState* play);
 void EnDntNomal_Destroy(Actor* thisx, PlayState* play);
-void EnDntNomal_Update(Actor* thisx, PlayState* play);
+void EnDntNomal_Update(Actor* thisx, PlayState* play2);
 void EnDntNomal_DrawTargetScrub(Actor* thisx, PlayState* play);
 void EnDntNomal_DrawStageScrub(Actor* thisx, PlayState* play);
 
@@ -69,6 +69,24 @@ ActorProfile En_Dnt_Nomal_Profile = {
 };
 
 static ColliderCylinderInit sBodyCylinderInit = {
+#if OOT_VERSION < NTSC_1_0
+    {
+        COL_MATERIAL_NONE,
+        AT_NONE,
+        AC_ON | AC_TYPE_PLAYER,
+        OC1_ON | OC1_TYPE_ALL,
+        OC2_TYPE_1,
+        COLSHAPE_CYLINDER,
+    },
+    {
+        ELEMTYPE_UNK0,
+        { 0xFFCFFFFF, 0x00, 0x00 },
+        { 0xFFCFFFFF, 0x00, 0x00 },
+        ATELEM_NONE,
+        ACELEM_ON,
+        OCELEM_ON,
+    },
+#else
     {
         COL_MATERIAL_NONE,
         AT_NONE,
@@ -85,6 +103,7 @@ static ColliderCylinderInit sBodyCylinderInit = {
         ACELEM_NONE,
         OCELEM_ON,
     },
+#endif
     { 16, 46, 0, { 0, 0, 0 } },
 };
 
@@ -661,7 +680,9 @@ void EnDntNomal_SetupStageAttack(EnDntNomal* this, PlayState* play) {
         this->actor.colChkInfo.mass = 0xFF;
         this->isSolid = true;
         this->timer2 = 0;
+#if OOT_VERSION >= NTSC_1_0
         Actor_ChangeCategory(play, &play->actorCtx, &this->actor, ACTORCAT_ENEMY);
+#endif
         this->actionFunc = EnDntNomal_StageAttack;
     }
 }
@@ -746,8 +767,8 @@ void EnDntNomal_StageReturn(EnDntNomal* this, PlayState* play) {
     }
 }
 
-void EnDntNomal_Update(Actor* thisx, PlayState* play) {
-    s32 pad;
+void EnDntNomal_Update(Actor* thisx, PlayState* play2) {
+    PlayState* play = (PlayState*)play2;
     EnDntNomal* this = (EnDntNomal*)thisx;
 
     if (this->timer1 != 0) {
@@ -824,11 +845,51 @@ void EnDntNomal_Update(Actor* thisx, PlayState* play) {
         Collider_SetQuadVertices(&this->targetQuad, &this->targetVtx[0], &this->targetVtx[1], &this->targetVtx[2],
                                  &this->targetVtx[3]);
         CollisionCheck_SetAC(play, &play->colChkCtx, &this->targetQuad.base);
-    } else {
-        Collider_UpdateCylinder(&this->actor, &this->bodyCyl);
-        if (this->isSolid) {
-            CollisionCheck_SetOC(play, &play->colChkCtx, &this->bodyCyl.base);
+        return;
+    }
+
+    Collider_UpdateCylinder(&this->actor, &this->bodyCyl);
+    if (this->isSolid) {
+        CollisionCheck_SetOC(play, &play->colChkCtx, &this->bodyCyl.base);
+#if OOT_VERSION < NTSC_1_0
+        if (this->bodyCyl.base.acFlags & AC_HIT) {
+            this->bodyCyl.base.acFlags &= ~AC_HIT;
+            Actor_SetColorFilter(&this->actor, COLORFILTER_COLORFLAG_RED, 255, COLORFILTER_BUFFLAG_OPA, 8);
+            if (this->bodyCyl.elem.acHitElem->atDmgInfo.dmgFlags != 0) {
+                if (this->bodyCyl.elem.acHitElem->atDmgInfo.dmgFlags & DMG_DEKU_NUT) {
+                    Actor_PlaySfx(&this->actor, NA_SE_EN_GOMA_JR_FREEZE);
+                } else {
+                    Actor_PlaySfx(&this->actor, NA_SE_EN_NUTS_DAMAGE);
+                    if (this->bodyCyl.elem.acHitElem->atDmgInfo.dmgFlags & DMG_SLASH_KOKIRI) {
+                        Actor_PlaySfx(&this->actor, NA_SE_EN_NUTS_CUTBODY);
+                    }
+                }
+            }
+            this->isSolid = false;
+            if ((this->actor.parent != NULL) && (this->actor.parent->update != NULL)) {
+                Audio_QueueSeqCmd(NA_SE_PL_JUMP_LADDER);
+                if (this->actionFunc == EnDntNomal_StageCelebrate) {
+                    if (((EnDntDemo*)this->actor.parent)->leaderSignal == DNT_SIGNAL_NONE) {
+                        ((EnDntDemo*)this->actor.parent)->leaderSignal = DNT_SIGNAL_RETURN;
+                        ((EnDntDemo*)this->actor.parent)->action = DNT_ACTION_ATTACK;
+                    }
+                    this->action = 2;
+                    this->actionFunc = EnDntNomal_StageSetupReturn;
+                    return;
+                }
+                if (this->action != 2) {
+                    if (((EnDntDemo*)this->actor.parent)->leaderSignal == DNT_SIGNAL_NONE) {
+                        ((EnDntDemo*)this->actor.parent)->leaderSignal = DNT_SIGNAL_HIDE;
+                        ((EnDntDemo*)this->actor.parent)->action = DNT_ACTION_ATTACK;
+                    }
+                }
+                this->action = 2;
+                this->actionFunc = EnDntNomal_SetupStageHide;
+                return;
+            }
         }
+        CollisionCheck_SetAC(play, &play->colChkCtx, &this->bodyCyl.base);
+#endif
     }
 }
 

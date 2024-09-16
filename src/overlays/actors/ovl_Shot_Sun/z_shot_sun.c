@@ -9,6 +9,7 @@
 #include "overlays/actors/ovl_En_Elf/z_en_elf.h"
 #include "assets/scenes/overworld/spot06/spot06_scene.h"
 #include "terminal.h"
+#include "versions.h"
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_NEUTRAL)
 
@@ -187,8 +188,14 @@ void ShotSun_UpdateHyliaSun(ShotSun* this, PlayState* play) {
         }
         Actor_Kill(&this->actor);
     } else {
+#if OOT_VERSION < NTSC_1_0
+        if (!(this->actor.xzDistToPlayer > 50.0f) && gSaveContext.save.dayTime >= CLOCK_TIME(6, 30) &&
+            gSaveContext.save.dayTime < CLOCK_TIME(7, 30))
+#else
         if (!(this->actor.xzDistToPlayer > 120.0f) && gSaveContext.save.dayTime >= CLOCK_TIME(6, 30) &&
-            gSaveContext.save.dayTime < CLOCK_TIME(7, 30)) {
+            gSaveContext.save.dayTime < CLOCK_TIME(7, 30))
+#endif
+        {
             cylinderPos.x = player->bodyPartsPos[PLAYER_BODYPART_HEAD].x + play->envCtx.sunPos.x * (1.0f / 6.0f);
             cylinderPos.y =
                 player->bodyPartsPos[PLAYER_BODYPART_HEAD].y - 30.0f + play->envCtx.sunPos.y * (1.0f / 6.0f);

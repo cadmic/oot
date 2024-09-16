@@ -28,6 +28,7 @@ COMPILER ?= ido
 #   gc-eu-mq       GameCube Europe/PAL Master Quest
 #   gc-eu-mq-dbg   GameCube Europe/PAL Master Quest Debug (default)
 # The following versions are work-in-progress and not yet matching:
+#   ntsc-0.9       N64 NTSC "0.9" prerelease
 #   ntsc-1.0       N64 NTSC 1.0 (Japan/US depending on REGION)
 #   ntsc-1.1       N64 NTSC 1.1 (Japan/US depending on REGION)
 
@@ -50,7 +51,13 @@ CPP_DEFINES ?=
 
 REGIONAL_CHECKSUM := 0
 # Version-specific settings
-ifeq ($(VERSION),ntsc-1.0)
+ifeq ($(VERSION),ntsc-0.9)
+  REGION ?= US
+  PLATFORM := N64
+  PAL := 0
+  MQ := 0
+  DEBUG := 0
+else ifeq ($(VERSION),ntsc-1.0)
   REGIONAL_CHECKSUM := 1
   REGION ?= JP
   PLATFORM := N64

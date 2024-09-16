@@ -5,7 +5,7 @@
 extern uintptr_t gSegments[NUM_SEGMENTS];
 
 #pragma increment_block_number "gc-eu:252 gc-eu-mq:252 gc-jp:252 gc-jp-ce:252 gc-jp-mq:252 gc-us:252 gc-us-mq:252" \
-                               "ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
+                               "ntsc-0.9:128 ntsc-1.0:128 ntsc-1.1:128 ntsc-1.2:128"
 
 extern struct PreNmiBuff* gAppNmiBufferPtr;
 extern struct Scheduler gScheduler;
@@ -24,7 +24,7 @@ extern struct IrqMgr gIrqMgr;
 #endif
 
 #pragma increment_block_number "gc-eu:192 gc-eu-mq:192 gc-jp:192 gc-jp-ce:192 gc-jp-mq:192 gc-us:192 gc-us-mq:192" \
-                               "ntsc-1.0:181 ntsc-1.1:181 ntsc-1.2:181"
+                               "ntsc-0.9:181 ntsc-1.0:181 ntsc-1.1:181 ntsc-1.2:181"
 
 extern u8 _buffersSegmentEnd[];
 
@@ -70,7 +70,11 @@ void Main_LogSystemHeap(void) {
 void Main(void* arg) {
     IrqMgrClient irqClient;
     OSMesgQueue irqMgrMsgQueue;
+#if OOT_VERSION < NTSC_1_0
+    OSMesg irqMgrMsgBuf[10];
+#else
     OSMesg irqMgrMsgBuf[60];
+#endif
     uintptr_t systemHeapStart;
     uintptr_t fb;
 
