@@ -686,7 +686,7 @@ beginseg
 #if OOT_DEBUG
     include "$(BUILD_DIR)/src/code/ucode_disas.o"
 #endif
-#if OOT_VERSION < NTSC_1_1 || PLATFORM_GC
+#if AUDIO_LIBRARY_VERSION < 2
     pad_text
 #endif
     include "$(BUILD_DIR)/src/audio/lib/data.o"

@@ -17,7 +17,7 @@ AudioTask* AudioThread_Update(void) {
     return AudioThread_UpdateImpl();
 }
 
-#if !(OOT_VERSION < PAL_1_0 || PLATFORM_GC)
+#if AUDIO_LIBRARY_VERSION >= 3
 static s32 sMaxAbiCmdCnt = 0x80;
 static AudioTask* sWaitingAudioTask = NULL;
 #endif
@@ -26,7 +26,7 @@ static AudioTask* sWaitingAudioTask = NULL;
  * This is Audio_Update for the audio thread
  */
 AudioTask* AudioThread_UpdateImpl(void) {
-#if OOT_VERSION < PAL_1_0 || PLATFORM_GC
+#if AUDIO_LIBRARY_VERSION < 3
     static s32 sMaxAbiCmdCnt = 0x80;
     static AudioTask* sWaitingAudioTask = NULL;
 #endif

@@ -46,4 +46,14 @@
 #define FRAMERATE_CONST(value60Hz, value50Hz) (value50Hz)
 #endif
 
+// The audio library used by OOT went through a few revisions, and GameCube versions
+// use the same revision as NTSC 1.0 instead of the latest version.
+#if OOT_VERSION < NTSC_1_1 || PLATFORM_GAMECUBE
+#define AUDIO_LIBRARY_VERSION 1
+#elif OOT_VERSION < PAL_1_0
+#define AUDIO_LIBRARY_VERSION 2
+#else
+#define AUDIO_LIBRARY_VERSION 3
+#endif
+
 #endif
