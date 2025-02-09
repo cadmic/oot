@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: © 2024 ZeldaRET
+# SPDX-License-Identifier: CC0-1.0
+
 import argparse
 import bisect
 from dataclasses import dataclass
+import os
 from pathlib import Path
-from typing import Optional
 import struct
 import sys
 
+import colorama
 import elftools.elf.elffile
 import mapfile_parser
 
@@ -124,7 +128,7 @@ def read_local_symbols_from_mdebug(elf_path: Path) -> list[LocalSymbol]:
                 break
 
         if mdebug_offset == 0:
-            print(f"No .mdebug section found in '{path}'")
+            print(f"No .mdebug section found in '{elf_path}'")
             return []
 
         symbolic_header = read_mdebug_symbolic_header(f, mdebug_offset)
@@ -225,9 +229,13 @@ def find_symbols_by_name(
     return infos
 
 
-def print_map_file(map_file: mapfile_parser.mapfile.MapFile):
+def print_map_file(map_file: mapfile_parser.mapfile.MapFile, *, colors: bool):
     for segment in map_file:
-        print(f"{segment.name}")
+        print(
+            f"{colorama.Fore.GREEN if colors else ""}"
+            f"{segment.name}"
+            f"{colorama.Fore.RESET if colors else ""}"
+        )
         for file in segment:
             # Ignore debug sections
             if (
@@ -236,7 +244,11 @@ def print_map_file(map_file: mapfile_parser.mapfile.MapFile):
                 or file.sectionType.startswith(".mdebug")
             ):
                 continue
-            print(f"    {file.asStr()}")
+            print(
+                f"{colorama.Fore.CYAN if colors else ""}"
+                f"    {file.asStr()}"
+                f"{colorama.Fore.RESET if colors else ""}"
+            )
             for sym in file:
                 vram_str = f"{sym.vram:08X}"
                 if sym.vrom is None:
@@ -263,6 +275,12 @@ def sym_info_main():
         help="use the map file and elf in expected/build/ instead of build/",
     )
     parser.add_argument(
+        "--colors",
+        help="Whether to print using colors or not",
+        choices=("never", "always", "auto"),
+        default="auto",
+    )
+    parser.add_argument(
         "-v",
         "--version",
         dest="oot_version",
@@ -271,6 +289,17 @@ def sym_info_main():
     )
 
     args = parser.parse_args()
+
+    if args.colors == "never":
+        colors = False
+    elif args.colors == "always":
+        colors = True
+    else:
+        # auto
+        if os.getenv("NO_COLOR"):
+            colors = False
+        else:
+            colors = sys.stdout.isatty()
 
     BUILTMAP = Path("build") / args.oot_version / f"oot-{args.oot_version}.map"
     BUILTELF = Path("build") / args.oot_version / f"oot-{args.oot_version}.elf"
@@ -298,7 +327,7 @@ def sym_info_main():
 
     sym_name = args.symname
     if sym_name is None:
-        print_map_file(map_file)
+        print_map_file(map_file, colors=colors)
         sys.exit(0)
 
     infos: list[mapfile_parser.mapfile.FoundSymbolInfo] = []
